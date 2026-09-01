@@ -3,4 +3,339 @@ title: Aula 04 - Sistemas de Computação
 description: 19/08 — Lista 4
 ---
 
-## Anotações
+## Três formas de executar uma linguagem
+
+![Capa do livro Crafting Interpreters](/assets/aula-04/crafting-interpreters.png)
+
+O livro *Crafting Interpreters* (Robert Nystrom) — o "livro da montanha" — descreve três
+formas de executar uma linguagem de programação:
+
+- **Tree-Walk Interpreter (TWI):** interpreta diretamente a árvore de sintaxe abstrata
+  (AST). Ex.: **Bash**.
+- **Máquina virtual (VM):** compila para uma representação intermediária (*bytecode*) e a
+  executa num interpretador de *bytecode*.
+- **Código de máquina (MC):** compila até as instruções do processador real.
+
+Um `file.ext` é transformado em AST em algum momento; a partir daí dá para interpretá-lo.
+Interpretar uma *string* diretamente é difícil — o ideal é sair da *string* para uma
+estrutura de dados (ver Aulas 2–3).
+
+### Linguagens por forma de execução
+
+**VM (*bytecode*):**
+
+| Linguagem | Máquina virtual |
+|---|---|
+| Java | JVM (no Android, Dalvik / hoje ART) |
+| Python | CPython |
+| Elixir / Erlang | BEAM |
+| Ruby | YARV |
+| C# | CLR (.NET) |
+| JavaScript | V8 (Google), SpiderMonkey (Mozilla), JavaScriptCore (Apple) |
+
+**MC (código de máquina):** C, C++, Rust, Fortran, Go, Ada, Pascal.
+
+**TWI:** Bash — interpreta a AST. O Bash em si quase não "executa": na maior parte do
+tempo ele chama outros programas, então não precisa ser eficiente.
+
+<Callout title="Corrigi alguns nomes" type="warn">
+  Nas anotações cruas: "Bean" → **BEAM** (VM de Erlang/Elixir); "Delvik" → **Dalvik**;
+  "Spidermonkey" → **SpiderMonkey**; "Cpython" → **CPython**. Também acrescentei o
+  **JavaScriptCore** (Apple) à lista de motores de JS.
+</Callout>
+
+### Bytecode e máquinas virtuais
+
+Representação intermediária de código é o que costumamos chamar de *bytecode*. Existem
+várias, todas interpretadas.
+
+**Smalltalk** — uma das primeiras linguagens orientadas a objetos — já compilava para uma
+sequência de instruções de uma máquina virtual.
+
+<Callout title="VM = laço + switch" type="idea">
+  Uma máquina virtual é, na prática, um **processador**: um laço (`while`) com um `switch`
+  no meio (*dispatch loop*), que lê uma instrução do *bytecode* por vez. As linguagens
+  mais populares hoje são virtualizadas.
+</Callout>
+
+## Interpretar × compilar
+
+- **Interpretador:** recebe um programa **e** uma entrada → produz o resultado.
+- **Compilador:** recebe um programa → gera um programa′ (em código de máquina); esse
+  programa′ recebe a entrada → produz o resultado.
+
+### A razão econômica
+
+Existe uma razão econômica para executar um programa de uma certa forma. Há dois tempos a
+considerar:
+
+- **tempo de preparo** do programa;
+- **tempo de execução** do programa.
+
+Quanto mais tempo se gasta preparando (otimizando) o programa, menos tempo se espera na
+execução — e vice-versa. É um *trade-off*.
+
+```
+tempo de preparo
+   ^
+   │  • gcc -O3
+   │     \
+   │      • gcc -O1
+   │         \
+   │          • gcc -O0
+   │             \
+   │              • JS no V8 (com JIT)
+   │                  \
+   │                   • JS interpretado
+   │                       \
+   │                        • bash
+   └───────────────────────────────────► tempo de execução
+```
+
+<Callout title="Reconstruí o gráfico" type="warn">
+  Esse gráfico estava como um rabisco quase ilegível nas anotações ("c8cc O3",
+  "cgcc01"…). Reconstruí a ideia: é uma curva de *trade-off* — mais preparo
+  (topo-esquerda) troca-se por menos execução; menos preparo (baixo-direita) custa mais
+  execução. Confira a forma exata com o professor.
+</Callout>
+
+## História do JavaScript
+
+JS surgiu em **1995**, criado por **Brendan Eich** na Netscape em cerca de **10 dias**. A
+ideia era executar programas na web: o usuário abre uma página, baixa o código e executa
+em pouco tempo; ao fechar e reabrir a sessão, baixa tudo de novo. Compilar não faria
+sentido — gastaria tempo demais preparando o programa a cada sessão.
+
+Por ter sido feito às pressas, carrega "problemas de projeto": inconsistências de
+tipagem, coerções automáticas estranhas, diferenças entre navegadores. Hoje evoluiu
+bastante com o **ECMAScript**.
+
+O modelo de execução foi migrando conforme a linguagem ganhou importância:
+
+- **Anos 90:** execução interpretada, sem VM — só leitura da árvore sintática.
+- **Anos 2000:** introdução de **VMs**, que transformam o código em *bytecode* e o
+  executam de forma mais eficiente.
+- **Hoje:** **JIT (Just-In-Time)** dentro dessas VMs — trechos críticos do *bytecode*
+  viram **código de máquina nativo** durante a execução. JS fica num modelo híbrido
+  **VM + MC (via JIT)**.
+
+Com o JIT dá para **especializar** o código para os tipos que aparecem em tempo de
+execução — por isso alguns programas em JS chegam a ser mais rápidos que equivalentes em
+C. Motores modernos: V8 (Google), SpiderMonkey (Mozilla), JavaScriptCore (Apple).
+
+<Callout title="Lista 4, Q3" type="info">
+  A Q3 pede exatamente o contraste do fim: por que JavaScript se beneficia mais de JIT
+  que Java, embora as duas usem a técnica. Pista: quanta informação de tipo já está
+  fixada no *bytecode* de cada uma.
+</Callout>
+
+### Por que gerar bytecode se a árvore também é interpretada?
+
+Porque é mais rápido. Com instruções **sequenciais**, ao interpretar a instrução *n* a
+probabilidade de a próxima ser *n+1* é altíssima → boa localidade de referência (cache).
+Numa **AST** isso não vale: os próximos nós a visitar estão espalhados pela memória.
+
+## Pipeline de compilação
+
+![Grafo de fluxo de controle gerado pelo compilador](/assets/aula-04/control-flow.png)
+
+`clang cube.c -o cube.exe` parece um comando só, mas dispara vários programas — assim
+como o `gcc` é na verdade um *script* que invoca o pré-processador, o compilador, o
+montador e o ligador (Lista 4, Q1; use `gcc -v` para ver a cadeia).
+
+```
+cube.c            (ASCII)
+  │  pré-processador  — substituição de texto (#include, #define)
+  ▼
+cube.p.c          (ASCII)
+  │  cc1  — compilador C propriamente dito: gera a AST e, daí, a LLVM IR
+  ▼
+LLVM IR
+  │  opt  — aqui acontecem as otimizações
+  ▼
+cube.p.ll         (ASCII)
+  │  llc  — seletor de instruções
+  ▼
+cube.s / cube.arm (ASCII — assembly da arquitetura alvo)
+  │  as  — montador
+  ▼
+cube.o            (objeto, binário)
+  │  ld  — ligador (ld --sysroot …)
+  ▼
+executável
+```
+
+- **`cube.o` não é executável.** Tentar lê-lo como texto não funciona, mas as *strings*
+  ficam intactas — o "poço das *strings*" —, armazenadas compactadas como **árvores de
+  prefixos**.
+- Antes de rodar, o **carregador (*loader*)** do SO ainda transforma o binário: atualiza
+  os endereços absolutos, decide onde o contador de programa começa e resolve o
+  **compartilhamento dinâmico de bibliotecas**.
+
+### Compilação cruzada (*cross-compilation*)
+
+Para gerar código **MIPS** a partir de C, usa-se um compilador que suporte a arquitetura:
+
+```bash
+# LLVM/Clang
+clang -S -target mips-linux-gnu cube.c -o cube.mips
+
+# GCC cross-compiler
+mips-linux-gnu-gcc -S cube.c -o cube.mips
+```
+
+<Callout title="Corrigi um comando" type="warn">
+  Nas anotações estava "clang cube.o cube.exe" — o certo é `clang cube.c -o cube.exe`. E
+  `#include <stdio.Identifier>` virou `#include <stdio.h>` (artefato de digitação).
+</Callout>
+
+## Otimização guiada pelo compilador
+
+A flag `-O` (em `gcc`/`clang`) controla o nível de otimização:
+
+- `-O0` — sem otimização (padrão); código direto, bom para depuração.
+- `-O1` — otimizações básicas: remoção de código morto, simplificação de expressões.
+- `-O2` — mais agressivo: *inlining* de funções, melhor alocação de registradores,
+  reorganização de laços.
+- `-O3` — ainda mais pesado: vetorização automática, *unrolling* de laços.
+- `-Os` — otimiza para **tamanho** do binário (útil em embarcados).
+- `-Ofast` — ativa otimizações que podem quebrar regras estritas da linguagem em troca de
+  desempenho.
+
+### Exemplo — dobramento de constantes + eliminação de laço
+
+```c
+#include <stdio.h>
+
+int main() {
+  int i = 0;
+  int x = 2;
+  int sum = 0;
+
+  while (i < 100) {
+    sum += x * x;
+    i++;
+  }
+
+  printf("%d\n", sum);
+  return 0;
+}
+```
+
+Dentro do laço, `x * x` é sempre `2 * 2`. O compilador:
+
+1. dobra `x * x` para `4` (*constant folding*);
+2. percebe que o laço só soma `4` cem vezes;
+3. **elimina o laço inteiro** e substitui por `int sum = 400;`.
+
+`-O0` (sem otimização), em MIPS:
+
+```asm
+li   $t0, 0        # i = 0
+li   $t1, 0        # sum = 0
+li   $t2, 2        # x = 2
+loop:
+mul  $t3, $t2, $t2 # t3 = x * x
+add  $t1, $t1, $t3 # sum += t3
+addi $t0, $t0, 1   # i++
+blt  $t0, 100, loop
+move $a0, $t1      # prepara sum para printf
+# chamada de printf...
+```
+
+`-O1` (o compilador já sabe que o resultado é `400`):
+
+```asm
+li   $a0, 400      # carrega 400 direto
+# chamada de printf...
+```
+
+<Callout title="Lista 4, Q4 e Q5 — não estão nestas notas" type="warn">
+  A Lista 4 também cobre **`register` (C)** e **`inline` (C++)** — palavras-chave com que
+  o desenvolvedor "guia" o otimizador (Q4) — e os depuradores **`gdb`** (compilar com
+  `-g` incha o binário com informação de depuração) e **`valgrind`** (vazamentos de
+  memória) (Q5). Nada disso apareceu na aula transcrita; estudar pelos slides/livro.
+</Callout>
+
+## Java: bytecode em pilha
+
+```java
+public class Cube {
+  public static void main(String[] args) {
+    int x = 2;
+    int sum = 0;
+    for (int i = 0; i < 100; ++i) {
+      sum += x * x * x;
+    }
+    System.out.println("A soma eh " + sum);
+  }
+}
+```
+
+`javac Cube.java` gera o *bytecode* `Cube.class`; `java Cube` executa. (Aqui
+`x * x * x` = 8, então `sum` = 800.)
+
+### Java bytecode × LLVM IR
+
+![Classe Cube em LLVM IR (esquerda) e Java bytecode (direita)](/assets/aula-04/bytecodes-java-llvm.png)
+
+Mesma classe `Cube` em dois formatos de baixo nível: **LLVM IR** (à esquerda) e **Java
+bytecode** (à direita, obtido com `javap -c`).
+
+| | LLVM IR | Java bytecode |
+|---|---|---|
+| Modelo | **registradores virtuais** (infinitos) | **pilha** |
+| Consultar um operando | procurar numa tabela *hash* | topo da pilha (mais rápido) |
+| Formato da instrução | texto — precisa de *parsing* | tamanho fixo (32 bits) |
+| Feito para | ser **analisado** (otimizado) | ser **interpretado** rápido |
+
+O *bytecode* de Java foi projetado para interpretação rápida; a LLVM IR, para análise e
+otimização.
+
+<Callout title="`int` sempre com 32 bits" type="info">
+  A especificação da JVM obriga todo `int` a ter **32 bits**, em qualquer JVM de qualquer
+  fabricante, desde a definição da linguagem. Uma JVM que usasse 16 bits para `int`
+  simplesmente não seria uma JVM válida. (Contraste com C, onde o tamanho do `int`
+  depende da implementação.)
+</Callout>
+
+## Rust e Kotlin
+
+![Código LLVM IR gerado a partir de código Rust](/assets/aula-04/llvm-rust.png)
+
+- **Rust** compila usando o **LLVM** — gera LLVM IR, que segue pelo mesmo `opt`/`llc` do
+  `clang`.
+- **Kotlin** compila para *bytecode* da **JVM**.
+
+## Tempos de ligação (*binding times*) — Lista 4, Q2
+
+<Callout title="Acrescentei esta seção" type="warn">
+  Tempos de ligação não aparecem na aula transcrita, mas são **o assunto central da Lista
+  4 (Q2)** e constam da ementa da Aula 4. Resumo abaixo; a tabela resolvida está em
+  `listas/lista-04/resolucao.md`.
+</Callout>
+
+O **tempo de ligação** de uma propriedade é o momento em que ela fica fixada. Da mais
+cedo para a mais tarde:
+
+1. **Definição da linguagem** — fixado na especificação, antes de qualquer implementação
+   existir (ex.: significado de `while`; `int` com 32 bits em Java).
+2. **Implementação da linguagem** — fixado por cada implementação, igual para todo
+   programa que ela compila (ex.: tamanho de uma referência em Java; tamanho do `int` em
+   C).
+3. **Tempo de compilação** — depende do programa específico escrito (ex.: o *bytecode* de
+   uma classe; o tipo declarado de uma variável local).
+4. **Tempo de ligação (*link time*)** — quando os objetos são reunidos.
+5. **Tempo de carregamento (*load time*)** — quando o *loader* põe o programa na memória.
+6. **Tempo de execução (*run time*)** — só existe quando o código roda (ex.: endereço e
+   valor de uma variável; método escolhido em `a.m()` por despacho dinâmico).
+
+<Callout title="Teste em cascata" type="idea">
+  1. Fixo antes de qualquer implementação existir? → **definição da linguagem**.
+  2. Fixo pela implementação, igual para todo programa? → **implementação da linguagem**.
+  3. Depende do programa escrito, decidido ao compilar? → **tempo de compilação**.
+  4. Só existe quando o código roda? → **tempo de execução**.
+
+  Em Java, `load time` e `link time` são fundidos pelo *class loader* — quase tudo que
+  "sobra" cai em *run time*. Em C, ligação e carregamento são fases visíveis e distintas.
+</Callout>
