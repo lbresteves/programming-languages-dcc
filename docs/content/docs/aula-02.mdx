@@ -1,0 +1,348 @@
+---
+title: Aula 02 - Sintaxe
+description: 12/08 — Lista 2
+---
+
+## Triângulo de Sierpinski (turtle graphics e sistemas-L)
+
+**Como desenhar?** Variáveis `A`, `B`:
+
+```
+A = B - A - B     ← ângulo de 60º
+B = A + B + A
+```
+
+Expandindo:
+
+```
+A
+B - A - B
+A + B + A - B - A - B - A + B + A
+```
+
+**Turtle graphics:** uma linha reta é desenhada como se uma tartaruga andasse sobre ela.
+Ao ver um `+`, ela vira para um lado; ao ver um `-`, vira para o outro (aqui, 60º).
+
+![Iterações do triângulo de Sierpinski geradas por turtle graphics](/assets/aula-02/sierpinks.png)
+
+<Callout title="Sistemas-L" type="info">
+  Criados por **Aristid Lindenmayer** em 1968. São um tipo de gramática formal que
+  descreve como estruturas se desenvolvem ao longo do tempo — um tipo de fractal.
+</Callout>
+
+### LinF
+
+Linguagem de programação declarativa voltada para **modelagem de crescimento de
+plantas** e estruturas fractais. Baseia-se diretamente na ideia de **gramáticas de
+reescrita paralela** dos sistemas-L. Permite definir axiomas, regras de produção e
+interpretações gráficas (como movimentos de uma tartaruga gráfica).
+
+```
+axiom: F
+rule: F -> F+F-F
+interpret: F = draw forward
+           + = turn right
+           - = turn left
+```
+
+## Hierarquia de Chomsky
+
+Família de gramática **T2 (LLC — livres de contexto)**: definida por
+`<T, N, P, A>` — **T**erminais (símbolos finais, não substituíveis), **N** variáveis,
+**P** conjunto de regras de produção (variáveis aparecem à esquerda das regras) e **A**
+símbolo de partida.
+
+Família **T3 (LR — linguagens regulares)** é mais restrita que T2. Também existem
+gramáticas **sensíveis ao contexto (T1, SC)**, mais poderosas que as livres de contexto.
+
+| Família | Nome | Características |
+|---|---|---|
+| T0 | Irrestrita | Qualquer regra de produção |
+| T1 | Sensível ao contexto | Não diminui comprimento, depende do contexto |
+| T2 | Livre de contexto | Regras da forma `A → γ` |
+| T3 | Regular | Regras lineares, mais restritas |
+
+**Noam Chomsky** formulou essa hierarquia de gramáticas formais (T0–T3), que inspirou
+diretamente a forma como compiladores interpretam strings como árvores.
+
+<Callout title="Teorema de Rice" type="warn">
+  Qualquer propriedade não trivial sobre a linguagem reconhecida por uma máquina de
+  Turing é **indecidível**.
+</Callout>
+
+Usar apenas gramáticas **T3 (regulares)** não resolve o problema de *parsing* de
+programas porque elas são muito limitadas: só descrevem linguagens lineares, sem memória
+de profundidade — como cadeias do tipo `aⁿbᵐ`.
+
+## Parsing e árvores sintáticas
+
+Quando escrevemos um programa, ele é uma *string* em um editor de texto, que o
+interpretador ou compilador vai consumir. Trabalhar diretamente com essa string é
+possível, mas muito difícil — por isso interpretamos o programa usando **árvores**
+(*parse trees*).
+
+```
+    +
+   / \
+  2   *
+     / \
+    3   4
+```
+
+O compilador **não trabalha diretamente com a string** `"2 + (3 * (4 + 5))"`. Ele a
+transforma em uma **árvore sintática abstrata (AST)**, muito mais fácil de manipular:
+cada nó representa uma operação, cada folha um valor.
+
+```
+    =
+   / \
+  X   +
+     / \
+    2   *
+       / \
+      3   +
+         / \
+        4   5
+```
+
+### Algol, formato livre e BNF
+
+O **Algol** (fim dos anos 1950 / início dos 1960) foi uma das primeiras linguagens de
+**formato livre** — não dependia de colunas fixas como o Fortran original. Essa
+liberdade permitiu descrever a sintaxe de forma mais rigorosa, usando gramáticas
+formais. A própria técnica de verificar se uma string pertence à gramática já constava
+na árvore.
+
+A **BNF** (Backus–Naur Form) descreve a sintaxe como uma gramática livre de contexto
+(T2), que naturalmente se traduz em árvores de derivação.
+
+A sintaxe de C **não é livre de contexto**, mas ainda assim é tratada como se fosse. Por
+exemplo:
+
+```c
+int main() {
+    x * y;
+}
+```
+
+Como resolver a ambiguidade entre declaração de tipo e expressão? **Em C é preciso
+declarar todas as funções antes de usá-las** (*forward declaration*) — isso resolve o
+*parsing*. Sem essa regra, o compilador não sabe se está diante de um tipo ou de uma
+expressão: é um problema da linguagem, por conta da ambiguidade.
+
+### Gramáticas — John Backus
+
+Pioneiro em mostrar que um programa escrito como *string* (texto) podia ser transformado
+em uma estrutura de dados hierárquica — uma **árvore sintática**.
+
+MiniJava BNF:
+
+```
+<exp> ::= <exp> + <exp>
+        | <exp> * <exp>
+        | num
+```
+
+```
+                        exp₁₄
+                   /    |    \
+                  /     |     \
+               exp₂     +     exp₁₂
+                |            /  |  \
+                |           /   |   \
+                |        exp₃   *   exp₄
+                |         |           |
+                2         3           4
+                \         |          /
+                 \        |         /
+                  \---\   |   /----/
+                       \  |  /
+                        exp₅
+                         |
+                       exp₂₀
+```
+
+## Parsing
+
+<Callout title="Definição" type="idea">
+  *Parsing is the problem of building parsing trees for strings.*
+
+  Ou seja: parsing é o problema de decidir se consigo definir uma string dentro do
+  conjunto — derivar uma árvore a partir da string. Se eu consigo montar uma árvore com
+  aquela string, então ela pertence à linguagem.
+</Callout>
+
+Gramáticas podem ser **ambíguas** — o que não é desejável. Exemplo clássico
+(*dangling else*):
+
+```
+if a > b then
+    if c > d then
+        print 1
+else
+    print 2
+```
+
+Duas interpretações possíveis:
+
+```
+                           <stmt>
+                             |
+             ---------------------------------
+            |        |        |               |
+           if      a > b     then          <stmt>
+                                              |
+                              ---------------------------------
+                             |        |        |       |       |
+                            if      c > d     then  print 1  else  print 2
+```
+
+```
+                                      <stmt>
+                                         |
+     -------------------------------------------------------------------------
+    |        |        |               |                       |               |
+   if      a > b     then          <stmt>                    else          print 2
+                                      |
+                      ---------------------------------
+                     |        |        |               |
+                    if      c > d     then          print 1
+```
+
+## Gramáticas lógicas em Prolog (cai em prova !!)
+
+Prolog também é uma linguagem de IA, assim como LISP. Convenções: o ponto (`.`) indica
+fim de cláusula (`true`); a vírgula é uma conjunção (`AND` lógico); o `;` é uma
+disjunção (`OR`).
+
+Gramática para frases simples:
+
+```prolog
+sentence --> expr_nominal, predicado.
+
+expr_nominal --> artigo, nome.
+expr_nominal --> artigo, nome, expr_proposicional.
+
+predicado --> verbo.
+predicado --> verbo, expr_nominal.
+predicado --> verbo, expr_nominal, expr_preposicional.
+
+expr_preposicional --> preposicao, expr_nominal.
+
+nome --> [menina]; [piano]; [pato]; [pena].
+preposicao --> [com]; [para].
+verbo --> [toca]; [pula].
+artigo --> [o]; [a]; [um]; [uma].
+```
+
+É possível **contar** as árvores de derivação (problema fácil). Já decidir se uma
+gramática **é ambígua** é indecidível em geral — só é possível para gramáticas pequenas,
+já que o conjunto de sentenças é infinito.
+
+Sentença ambígua derivada dessa gramática: *"A menina toca o pato com a pena"*.
+
+```
+                                           sentence
+                                              |
+                        ----------------------------------------------
+                       |                                              |
+                  expr_nominal                                    predicado
+                       |                                              |
+             ---------------------               --------------------------------------------
+            |                     |             |                     |                      |
+          artigo                 nome         verbo              expr_nominal        expr_preposicional
+            |                     |             |                     |                      |
+            a                   menina        toca              -------------          --------------
+                                                               |             |        |              |
+                                                             artigo         nome  preposicao    expr_nominal
+                                                               |             |        |              |
+                                                               o            pato     com       -------------
+                                                                                              |             |
+                                                                                            artigo         nome
+                                                                                              |             |
+                                                                                              a            pena
+```
+
+```
+                                          sentence
+                                              |
+                        ----------------------------------------------
+                       |                                              |
+                  expr_nominal                                    predicado
+                       |                                              |
+             ---------------------                       ---------------------------
+            |                     |                     |                           |
+          artigo                 nome                 verbo                    expr_nominal
+            |                     |                     |                           |
+            a                   menina                toca       ----------------------------------------
+                                                                |                  |                     |
+                                                              artigo              nome           expr_preposicional
+                                                                |                  |                     |
+                                                                o                 pato             --------------
+                                                                                                  |              |
+                                                                                              preposicao    expr_nominal
+                                                                                                  |              |
+                                                                                                 com       -------------
+                                                                                                          |             |
+                                                                                                        artigo         nome
+                                                                                                          |             |
+                                                                                                          a            pena
+```
+
+Execução:
+
+```prolog
+?- sentenca([a, menina, toca, o, pato], []).
+true ;
+false.
+
+?- sentenca([a, menina, toca, o, pato, com], []).
+false.
+
+?- sentenca([a, menina, toca, o, pato, com, a, pena], []).
+true ;
+true ;   % 2x indica ambiguidade
+false.
+```
+
+### Gramática numérica (dígitos, sinais, decimais)
+
+```prolog
+number --> digit.
+number --> digit, number.
+
+digit --> [0]; [1]; [2]; [3]; [4]; [5]; [6]; [7]; [8]; [9].
+```
+
+Execução:
+
+```prolog
+?- [0].
+true ;
+
+?- number([1, 2, 3], []).
+true ;
+false.
+```
+
+Extensão para número decimal com sinal:
+
+```prolog
+decnum --> signum, [.], number.
+decnum --> signum.
+
+signum --> signal, number.
+signum --> number.
+
+signal --> [+]; [-].
+
+number --> digit.
+number --> digit, number.
+
+digit --> [0]; [1]; [2]; [3]; [4]; [5]; [6]; [7]; [8]; [9].
+```
+
+<Callout title="Busca exaustiva" type="info">
+  Prolog é um sistema de busca exaustiva: ele faz uma derivação, tenta outras, e não
+  consegue mais quando as opções se esgotam.
+</Callout>

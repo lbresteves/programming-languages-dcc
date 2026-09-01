@@ -1,0 +1,152 @@
+---
+title: Aula 01 - A grande diversidade
+description: 10/08 — Lista 1
+---
+
+## O que são linguagens de programação?
+
+Meio de comunicação com o computador: depende da sintaxe, da semântica e de regras
+léxicas — assim como as linguagens naturais seguem a mesma lógica. Permitem que pessoas
+convertam intenção em instruções para a máquina.
+
+<Callout title="Sintaxe vs. semântica" type="info">
+  **Sintaxe:** — *(completar)*
+
+  **Semântica:** — *(completar)*
+</Callout>
+
+Linguagens de programação **não permitem ambiguidade** — apesar de existirem linguagens
+ambíguas em que essa ambiguidade acaba sendo resolvida de alguma forma lógica.
+
+### Linguagem de máquina
+
+Zeros e uns (ex.: RISC-V, x86, MIPS).
+
+**Por que zeros e uns, e não mais símbolos** — já que mais símbolos representariam mais
+informação por posição? É um problema de engenharia: com mais símbolos, cresce
+exponencialmente a chance de erro.
+
+Instruções de máquina típicas: **Escrever**, **Ler**, **Calcular**, **Desvios**
+(condicionais, por exemplo `call`) — codificadas como **op-code**.
+
+Como deixar esse "zero-e-um-ês" mais fácil de escrever? Daí vêm o **ASCII** e o
+**Assembly**.
+
+> Linguagem de máquina é uma **lista** de coisas; linguagem natural **não é uma lista, é
+> uma árvore**. É por isso que Assembly ainda é difícil — e um problema — para as
+> pessoas.
+
+## As primeiras linguagens de programação
+
+### Fortran (1953/54)
+
+Resolve o problema de estruturas aninhadas: laços, condicionais, estruturas dentro umas
+das outras, sem precisar se preocupar com registradores e endereços ao escrever
+variáveis.
+
+![Exemplo de laços aninhados em Fortran](/assets/aula-01/fortran.png)
+
+### LISP (1958)
+
+O nome significa **LISt Processor**. Linguagem da inteligência artificial, com notação
+simples baseada em funções matemáticas e listas. Trouxe diversas inovações, apesar de não
+ter introduzido as listas — quem fez isso foi a **IPL** (1956). **Clojure** é um
+descendente de LISP.
+
+A ideia é o próprio programador resolver o problema de *parsing*. LISP não tinha noção de
+empilhamento e desempilhamento.
+
+![Exemplo de código LISP](/assets/aula-01/lisp.png)
+
+**IPL** (antecessora de LISP): parte a memória em duas metades — a primeira armazena o
+dado, a outra o endereço de memória (célula `cons`). LISP incorporou essa ideia.
+
+![Modelo de memória da IPL: células ligadas por ponteiros](/assets/aula-01/ipl.png)
+
+### Algol (1958)
+
+O problema de *parsing* foi resolvido em Algol por um comitê. Inovou com **tipagem** e
+com `begin`/`end` (equivalentes a chave aberta e chave fechada), introduzindo **escopo de
+bloco**: ao abrir um bloco, empilham-se variáveis; ao fechar, desempilham-se.
+
+Sem `begin`/`end` não é possível fazer funções recursivas, pois seria possível
+desempilhar variáveis já declaradas.
+
+![Fatorial recursivo em Algol](/assets/aula-01/algol.png)
+
+### Cobol (1958, Grace Hopper)
+
+Resolve o problema de linguagens de programação serem mais parecidas com matemática do
+que com linguagem natural.
+
+<Callout title="Parsing" type="idea">
+  Um dos problemas mais importantes da computação.
+</Callout>
+
+## Quais linguagens são mais populares?
+
+Depende do parâmetro usado:
+
+- **Mais repositórios no GitHub:** JavaScript, de longe.
+- **Mais bibliotecas e recursos:** Python e Java.
+- **TIOBE Index:** rastreia `<linguagem> Programming` e agrega os resultados — Python
+  vence disparado, seguido de perto por C.
+
+![TIOBE Programming Community Index ao longo do tempo](/assets/aula-01/tiobe.png)
+
+Java já foi muito dominante; surgiu em 1995, assim como JavaScript.
+
+Delphi não era uma linguagem, era uma IDE — a linguagem chamava-se Object Pascal.
+
+Hoje é muito difícil para novas linguagens atingirem grandes números de usuários
+(+1000). Parte da culpa é das LLMs: elas entendem melhor código escrito em maior
+quantidade. Mesmo antes da IA, o esforço de escrever certos algoritmos já vinha
+diminuindo — por exemplo, quase ninguém mais escreve um *quicksort* do zero.
+
+Linguagens que devem seguir importantes no futuro: **Python, C, JavaScript** (funciona
+como o "assembly da internet"), **C++** e **Java**.
+
+- JavaScript popularizou quando um navegador importante o adotou: o **Netscape**. Dart é
+  traduzido para JavaScript, pois todos os navegadores suportam o **ECMAScript**.
+- Python ainda não substitui C.
+- **Por que C ainda existe?** É muito forte na academia — quase toda universidade atua
+  com ela. C++ dificilmente vai preencher esse espaço, pois é o que a maioria dos
+  professores sabe.
+- Python e Java têm formas de execução parecidas (ambas geram *bytecode*), mas uma não
+  substitui a outra. Java tende a ser melhor para projetos grandes por ser fortemente
+  tipada (assim como C++). Java trata `malloc`/`free` de forma diferente (mais segura);
+  C++ é mais inseguro por natureza, em troca de velocidade. Java quase matou o C#.
+
+![Comparação de desempenho entre linguagens (Benchmarks Game)](/assets/aula-01/benchmarksgame.png)
+
+As linguagens mais à esquerda do gráfico são compiladas; as da direita tendem a ser
+interpretadas.
+
+## Compilação vs. interpretação
+
+- **Compilar:** entra um programa, sai um programa em código de máquina; depois esse
+  programa recebe a entrada e produz o resultado.
+- **Interpretar:** entram um programa **e** uma entrada, e sai diretamente o resultado.
+
+Um interpretador é essencialmente um `while` com um `switch` no meio — um *dispatch
+loop*, em que a sintaxe é tratada dentro desse laço.
+
+Erlang permite criar diversas *threads* virtuais (leves). O **Elixir** é uma linguagem
+brasileira muito parecida com Erlang, que executa na mesma VM (BEAM).
+
+## Existe uma linguagem mais poderosa que outra?
+
+- SQL, quando surgiu, não era Turing-completo. HTML não é Turing-completo, mas
+  combinado com CSS dá para fazer cálculo.
+- Se uma linguagem consegue implementar uma máquina de Turing, ela é Turing-completa.
+- **Brainfuck** tem apenas 6 comandos (desconsiderando os de ler e escrever) e ainda
+  assim é Turing-completo.
+- É possível que uma linguagem resolva o mesmo problema que outra em O(n), enquanto a
+  outra só consiga resolver em O(n²).
+
+## Paradigmas
+
+C é uma linguagem **imperativa**; SML é **funcional** (declarativa).
+
+- **Linguagens imperativas** são sequências de passos ("faça X", "incremente Y se...").
+- **Linguagens declarativas** só têm o verbo "ser".

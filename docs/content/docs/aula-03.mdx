@@ -1,0 +1,443 @@
+---
+title: Aula 03 - Mais sobre árvores de sintaxe
+description: 17/08 — Lista 3
+---
+
+## O papel das gramáticas no compilador
+
+Quase todo programa passa por quatro fases quando é processado:
+
+```
+scanner  →  parser  →  otimizador  →  gerador de código
+(léxico)   (sintático)
+```
+
+- **scanner (análise léxica):** separa a *string* de entrada em *tokens* (símbolos).
+- **parser (análise sintática):** constrói a árvore de sintaxe. É o *parsing*.
+- **otimizador:** transforma/otimiza o programa.
+- **gerador de código:** produz código de máquina — só se houver um compilador.
+
+### Por que separar léxico e sintático?
+
+A pergunta é de **granularidade**: quero enxergar `while` letra a letra (`w`, `h`, `i`,
+`l`, `e`) ou como um único símbolo? Quase toda linguagem quebra a *string* numa lista de
+*substrings* (símbolos) e só então faz o *parsing* — o programa não é visto como lista de
+caracteres, e sim como lista de símbolos (`while` em vez de `w h i l e`).
+
+O motivo é custo:
+
+- **Particionar a entrada em *tokens*** é um problema **regular (T3)**: autômatos finitos
+  validam cada *substring* no léxico (alfabeto) da linguagem, com custo **O(n)**.
+  Números, palavras-chave e identificadores são todos descritíveis por gramática regular.
+- **O *parsing* propriamente dito** — montar a árvore de uma gramática livre de contexto —
+  exige poder de **T2** e, no caso geral, pode custar **O(n³)**.
+
+Usar uma gramática regular no scanner para pré-processar os *tokens* alivia o parser: o
+trabalho caro fica restrito ao que realmente precisa de T2.
+
+<Callout title="Conferir com o professor" type="warn">
+  Minha anotação dizia *"reconhecer uma gramática regular é um problema no mínimo T2"*.
+  Pelo contexto isso parece um deslize: quem é regular (T3) é a fase de particionar em
+  *tokens*, que custa O(n); quem é "no mínimo T2" é o *parsing* de uma gramática **livre
+  de contexto**. Reescrevi nesse sentido.
+</Callout>
+
+### O que a gramática livre de contexto **não** captura
+
+Uma gramática livre de contexto (T2) define parte do significado, mas não tudo. Ficam de
+fora, por exemplo:
+
+- verificar se uma variável foi **declarada antes do uso**;
+- **verificação de tipos** (é um problema no nível de T1, sensível ao contexto).
+
+Por isso várias linguagens **exigem declaração antes do uso**. Exemplo em C —
+sintaticamente válido, mas rejeitado na compilação:
+
+```c
+float f = 2 > 3 ? "oi" : 3.14;
+```
+
+Os dois ramos do ternário têm tipos incompatíveis (`char *` e `double`). É um erro de
+**tipo**, não de sintaxe — nenhuma gramática livre de contexto pega isso.
+
+## Precedência e associatividade
+
+Uma gramática define, além da forma dos programas, **duas** coisas sobre os operadores:
+**associatividade** e **precedência**. Ambas são determinadas pela **estrutura da árvore
+de sintaxe**.
+
+### Tipos de operador
+
+- **unário** (ex.: `*p`, `-x`)
+- **binário** (ex.: `a + b`)
+- **ternário** (ex.: `c ? a : b`)
+
+<Callout title="Regra de ouro" type="idea">
+  Quanto **mais próximo da folha**, **maior a precedência** — porque a subárvore mais
+  funda é avaliada primeiro.
+</Callout>
+
+### A expressão em C (Lista 3, Q1)
+
+```
+a = b < c ? * p + b * c : 1 << d
+```
+
+Árvore de sintaxe (com `d()` como chamada de função):
+
+```
+                        =
+                      /   \
+                     a      ?:            (ternário)
+                          /  |  \
+                         /   |   \
+                      (<)   (+)   (<<)
+                      / \   / \   /  \
+                     b   c *   * 1   d()
+                         |  / \
+                         p b   c
+```
+
+Lendo a árvore, os parênteses de precedência são:
+
+```
+a = ( (b < c) ? ((*p) + (b * c)) : (1 << d()) )
+```
+
+O `*` aparece **duas vezes com significados diferentes**: à esquerda do `+` é uma
+**referência** (unário, um filho `p`); dentro de `b * c` é uma **multiplicação** (binário).
+Quem decide qual é qual é a **posição na árvore** — de forma não ambígua.
+
+### O `=` não precisa ir para a árvore
+
+Uma atribuição em C tem lado esquerdo (um endereço de memória) e lado direito (uma
+expressão). O `=` em si não carrega significado: serve só para marcar que aquilo é uma
+atribuição. A partir do momento em que a árvore diz "isto é uma atribuição", a informação
+do `=` pode ser descartada.
+
+## Árvore de sintaxe abstrata × concreta
+
+- **Árvore concreta:** guarda **todos** os símbolos da *string* (inclusive `=`,
+  parênteses, `;`).
+- **Árvore de sintaxe abstrata (AST):** guarda só o **essencial** para trabalhar com o
+  programa. A estrutura da árvore já denota o significado semântico, então parênteses e
+  `=` não precisam ser representados.
+
+<Callout title="AST" type="idea">
+  Assim que temos a estrutura de dados (a árvore), não precisamos mais da *string*
+  inteira. Um compilador nem precisa manter a árvore toda na memória — para
+  `10 * (15 + 2)` basta:
+
+  ```
+      *
+     / \
+    10  +
+       / \
+      15  2
+  ```
+</Callout>
+
+## Ambiguidade I — precedência
+
+```
+<exp> ::= <exp> + <exp>
+        | <exp> * <exp>
+        | <num>
+```
+
+Para `2 + 3 * 4` esta gramática produz **duas** árvores de derivação — não sabemos quem
+tem precedência maior. (É o mesmo argumento pedido na Lista 3, Q2, para a gramática
+`<E> ::= <E> + <E> | <Number>`: exibir duas árvores é a prova de que ela é ambígua.)
+
+```
+       exp                       exp
+      / | \                     / | \
+   exp  +  exp             exp   *   exp
+    |     / | \           / | \       |
+    2  exp  *  exp     exp  +  exp    4
+        |      |        |      |
+        3      4        2      3
+```
+
+Para forçar `*` a ter precedência maior, quebramos em **níveis**:
+
+```
+<exp>    ::= <exp> + <exp>
+           | <mulexp>
+<mulexp> ::= <mulexp> * <mulexp>
+           | ( <exp> )
+           | <num>
+```
+
+Depois de descer de `<exp>` para `<mulexp>` não dá para voltar a `<exp>`: a multiplicação
+fica obrigatoriamente **mais funda** na árvore → maior precedência.
+
+## Ambiguidade II — associatividade
+
+O nível de precedência não resolve tudo. Para `1 - 2 - 3`:
+
+```
+<exp> ::= <exp> - <exp>
+        | <mexp>
+```
+
+ainda há duas árvores — `(1 - 2) - 3` e `1 - (2 - 3)`:
+
+```
+      -            -
+     / \          / \
+    -   3        1   -
+   / \              / \
+  1   2            2   3
+```
+
+- O `-` é **associativo à esquerda** (quase todos os operadores são).
+- O `=` em C é **associativo à direita**. Em `a = b = c = 0`, cada `=` **devolve o valor**
+  do lado direito: `0` vai para `c`, depois o resultado vai para `b`, etc. Por ser um
+  operador que retorna valor, associa à direita.
+
+<Callout title="Associar à esquerda / à direita" type="info">
+  Associar à esquerda: `a - b - c` = `(a - b) - c`. Associar à direita:
+  `a = b = c` = `a = (b = c)`. Na gramática, a **recursão fica do lado correspondente**:
+  recursão à esquerda ⇒ associatividade à esquerda.
+</Callout>
+
+Gramática **à direita** (recursão à direita):
+
+```
+<exp>  ::= <mexp> - <exp>
+         | <mexp>
+<mexp> ::= <num> * <mexp>
+         | <num>
+```
+
+Gramática **à esquerda** (recursão à esquerda — basta trocar o lado):
+
+```
+<exp>  ::= <exp> - <mexp>
+         | <mexp>
+<mexp> ::= <mexp> * <num>
+         | <num>
+```
+
+<Callout title="Corrigi um nome" type="warn">
+  Nas minhas anotações a segunda regra estava escrita como `<exp> ::= <num> * <mexp>`
+  (reusando `exp` como cabeçalho). O não-terminal do nível da multiplicação é `<mexp>` —
+  ajustei para `<mexp> ::= ...`.
+</Callout>
+
+<Callout title="Lista 3, Q3d" type="info">
+  A Q3d pede exatamente essa transformação, partindo de
+
+  ```
+  <exp>     ::= <mulexp> + <exp>   | <mulexp>
+  <mulexp>  ::= <rootexp> * <mulexp> | <rootexp>
+  <rootexp> ::= ( <exp> ) | <number>
+  ```
+
+  A ideia é a mesma vista aqui com o `-`: inverter o lado da recursão em `<exp>` e em
+  `<mulexp>`.
+</Callout>
+
+## Gramáticas de precedência em Prolog
+
+A gramática acima vira uma DCG em Prolog quase literalmente (Lista 3, Q4a):
+
+```prolog
+expr   --> mulexp, [+], expr.
+expr   --> mulexp.
+mulexp --> rootexp, [*], mulexp.
+mulexp --> rootexp.
+rootexp --> ['('], expr, [')'].
+rootexp --> number.
+number --> digit.
+number --> digit, number.
+digit --> [0] ; [1] ; [2] ; [3] ; [4] ; [5] ; [6] ; [7] ; [8] ; [9].
+```
+
+Como a recursão de `expr`/`mulexp` está **à direita**, os operadores associam à direita.
+
+### Acrescentando operadores
+
+- `&` — binário, **associativo à direita**, precedência **mais baixa** que todos ⇒ entra
+  **no topo** da hierarquia.
+- `**` — unário, **associativo à direita**, precedência **mais alta** que todos ⇒ entra
+  **no fundo** (nível de `rootexp`).
+
+```prolog
+expr   --> ampexp, [&], expr.
+expr   --> ampexp.
+ampexp --> mulexp, [+], expr.
+ampexp --> mulexp.
+mulexp --> rootexp, [*], mulexp.
+mulexp --> rootexp.
+rootexp --> ['('], expr, [')'].
+rootexp --> [**], rootexp.
+rootexp --> number.
+number --> digit.
+number --> digit, number.
+digit --> [0] ; [1] ; [2] ; [3] ; [4] ; [5] ; [6] ; [7] ; [8] ; [9].
+```
+
+<Callout title="Corrigi a nota sobre precedência" type="warn">
+  Minha anotação marcava `rootexp --> [**], rootexp` como *"diminui a precedência"* — é o
+  **contrário**. No nível de `rootexp`, o `**` tem a **maior** precedência de todas; quem
+  tem a **menor** é o `&`, lá no topo. (Também escrevi `&&` nas notas; o professor usa
+  `&`.)
+</Callout>
+
+<Callout title="Recursão à esquerda em Prolog" type="warn">
+  Prolog **entra em loop** com recursão à esquerda. `number --> number, digit.` não
+  funciona; é preciso escrever `number --> digit, number.` ou usar um acumulador. Não é
+  impossível reconhecer a linguagem — é preciso mudar a gramática.
+</Callout>
+
+## Atributos nos nós — da gramática ao interpretador
+
+Em Prolog dá para anexar **atributos** aos não-terminais e computar sobre eles com blocos
+`{ ... }`.
+
+### Contando palavras (gramática do português)
+
+```prolog
+sentenca(W) --> expr_nominal(W1), predicado(W2), {W is W1 + W2}.
+
+expr_nominal(2) --> artigo, nome.
+expr_nominal(W) --> artigo, nome, expr_preposicional(WW), {W is WW + 2}.
+
+predicado(1) --> verbo.
+predicado(W) --> verbo, expr_nominal(WW), {W is WW + 1}.
+predicado(W) --> verbo, expr_nominal(W1), expr_preposicional(W2), {W is W1 + W2 + 1}.
+
+expr_preposicional(W) --> preposicao, expr_nominal(WW), {W is WW + 1}.
+
+nome       --> [menino] ; [menina] ; [pato] ; [telescopio] ; [musica] ; [pena].
+preposicao --> [ate] ; [com].
+verbo      --> [e] ; [viu] ; [esta] ; [toca] ; [conta] ; [surpreende].
+artigo     --> [o] ; [a] ; [um] ; [uma].
+```
+
+```prolog
+?- sentenca(W, [a, menina, toca, o, pato], []).
+W = 5.
+```
+
+<Callout title="Por que dois argumentos a mais na query?" type="info">
+  A DCG expande `sentenca(W)` para `sentenca(W, S0, S)` — os dois argumentos extras são as
+  **listas de diferença**. Por isso a *query* usa `sentenca(W, [...], [])`. Chamar
+  `sentenca(W, [...])` dá *"Unknown procedure: sentenca/2 — however, there are definitions
+  for sentenca/3"*. (No meu rascunho ainda apareceu o typo `setenca`, que o SWI ofereceu
+  corrigir.)
+</Callout>
+
+### Interpretador aritmético (Lista 3, Q4b)
+
+Objetivo: `expr(N, [2,*,'(',3,+,4,')'], []).` é verdade com `N = 14`.
+
+```prolog
+expr(N)    --> mulexp(N1), [+], expr(N2), {N is N1 + N2}.
+expr(N)    --> mulexp(N).
+mulexp(N)  --> rootexp(N1), [*], mulexp(N2), {N is N1 * N2}.
+mulexp(N)  --> rootexp(N).
+rootexp(N) --> ['('], expr(N), [')'].
+rootexp(N) --> number(N, _).
+number(N, 1) --> digit(N).
+number(N, C) --> digit(ND), number(NN, C1), {
+  C is C1 * 10,
+  N is ND * C + NN
+}.
+digit(N) --> [0], {N is 0} ; [1], {N is 1} ; [2], {N is 2}
+           ; [3], {N is 3} ; [4], {N is 4} ; [5], {N is 5}
+           ; [6], {N is 6} ; [7], {N is 7} ; [8], {N is 8}
+           ; [9], {N is 9}.
+```
+
+<Callout title="Corrigi os cabeçalhos" type="warn">
+  No meu rascunho as regras de `expr`/`mulexp`/`rootexp` estavam sem o atributo no
+  cabeçalho (`expr -->` em vez de `expr(N) -->`), mas o corpo já usava `expr(N2)`. O
+  atributo tem que aparecer **no cabeçalho** para ser propagado.
+</Callout>
+
+<Callout title="number//2 e o acumulador" type="info">
+  `number(N, C)` usa o segundo argumento como **acumulador**: monta o número da esquerda
+  para a direita, contornando a proibição de recursão à esquerda. A semântica de uma
+  expressão é um número.
+</Callout>
+
+## Hierarquia de Chomsky — até onde uma gramática livre de contexto chega
+
+### aⁿbⁿ
+
+- **Não é regular (T3):** gramática regular não "conta" profundidade.
+- **É livre de contexto (T2):**
+
+```prolog
+ab --> [a], ab, [b].
+ab --> [].
+```
+
+<Callout title="Adicionei esta gramática" type="warn">
+  `ab.pl` não estava nas minhas anotações, mas a Lista 3 (Q5b) pede exatamente a
+  linguagem aⁿbⁿ, e minhas notas já partiam dela para chegar em aⁿbⁿcⁿ. Incluí para
+  fechar a sequência.
+</Callout>
+
+### aⁿbⁿcⁿ (Lista 3, Q5c)
+
+**Não é livre de contexto**, mas dá para reconhecer em Prolog usando atributos para
+"contar":
+
+```prolog
+abc --> as(N), bs(N), cs(N).
+
+as(0) --> [].
+as(M) --> [a], as(N), {M is N + 1}.
+
+bs(0) --> [].
+bs(M) --> [b], bs(N), {M is N + 1}.
+
+cs(0) --> [].
+cs(M) --> [c], cs(N), {M is N + 1}.
+```
+
+```prolog
+?- abc([a, a, b, c, c], []).
+false.
+```
+
+Só aceita quando os três contadores são iguais.
+
+<Callout title="Observação minha" type="info">
+  Se acrescentar uma regra `abc --> [].`, a gramática fica **ambígua**: a palavra vazia
+  pode ser derivada por essa regra **ou** por `as(0), bs(0), cs(0)`.
+</Callout>
+
+### aⁿbᵐaⁿbᵐ
+
+Também **não é livre de contexto** — é o caso "duas cópias da mesma *string*", em que não
+dá para "contar" os atributos com T2. (Palíndromos, ao contrário, **são** livres de
+contexto.) Com atributos em Prolog:
+
+```prolog
+abab --> an(N), bm(M), an(N), bm(M).
+
+an(0)  --> [].
+an(NN) --> [a], an(N), {NN is N + 1}.
+
+bm(0)  --> [].
+bm(MM) --> [b], bm(M), {MM is M + 1}.
+```
+
+## Para que serve a árvore de sintaxe
+
+O compilador/interpretador reusa a árvore para várias tarefas:
+
+- verificação sintática;
+- verificação de tipos;
+- interpretação (avaliar a árvore);
+- geração de código;
+- análise de programas.
+
+As duas primeiras verificações estáticas se dividem assim: a **sintática** é feita
+diretamente pela gramática livre de contexto; a de **tipos** e a de "variável declarada
+antes do uso" **não** — precisam de mais poder do que T2 oferece (ver a seção inicial).
