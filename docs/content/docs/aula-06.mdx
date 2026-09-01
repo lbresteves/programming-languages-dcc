@@ -1,0 +1,413 @@
+---
+title: Aula 06 - Casamento de padrões em ML
+description: 26/08 — Lista 6
+---
+
+## O que é casamento de padrões
+
+Um **padrão (pattern)** é uma expressão sintática que pode ser **casada (matched)**
+contra outra expressão sintática. Definir uma função por casamento de padrões é dar, para
+cada formato possível do argumento, o resultado correspondente:
+
+```sml
+- fun f n = n + 1;
+val f = fn : int -> int
+
+- fun area (a, b) = a * b;
+val area = fn : int * int -> int
+```
+
+Casamento de padrões é muito comum em linguagens funcionais e hoje aparece também em
+outras (Python, Rust, Scala), às vezes com sintaxe parecida com a de SML. É ele que dá o
+caráter **declarativo**: em vez de descrever *como* inspecionar o argumento, descrevemos
+*com que forma* ele casa.
+
+<Callout title="Por que C e Java não têm?" type="idea">
+  Pergunta da ementa (Lista 6). Casar um padrão exige **desconstruir** o valor — saber
+  que uma lista é `h :: t`, que uma tupla tem dois campos. Isso combina com tipos
+  algébricos e dados imutáveis; não combina com o modelo de C/Java, em que um valor é um
+  bloco de memória sem estrutura que o compilador possa desmontar.
+</Callout>
+
+## Não-exaustividade
+
+Quando os padrões de uma função **não cobrem** todo o domínio, o compilador avisa que o
+casamento não é exaustivo:
+
+```sml
+- fun f 0 = 1;
+Warning: match nonexhaustive
+val f = fn : int -> int
+```
+
+`f 0` devolve `1`; `f 4` compila, mas em tempo de execução lança a exceção `Match`.
+Acrescentar mais casos **constantes** não resolve — continua faltando o "resto":
+
+```sml
+- fun f 0 = 1
+=   | f 1 = 0;
+Warning: match nonexhaustive
+val f = fn : int -> int
+```
+
+O casamento só fica exaustivo quando algum padrão casa com **qualquer** valor — uma
+variável ou o coringa `_`:
+
+```sml
+- fun f 0 = 1
+=   | f 1 = 0
+=   | f n = n + 1;
+val f = fn : int -> int
+```
+
+Vale para outros tipos de igualdade, como `string`:
+
+```sml
+- fun g "oi" = "ai";
+Warning: match nonexhaustive
+val g = fn : string -> string
+```
+
+`g "oi"` devolve `"ai"`; `g "ai"` lança `Match`.
+
+<Callout title="Constantes reais não são padrões" type="warn">
+  `fun f 0.0 = 2;` é **erro**: `real` não é um tipo de igualdade em SML, então não dá
+  para casar contra uma constante `real`. Só tipos de igualdade (`int`, `char`, `string`,
+  `bool`, tuplas/listas deles…) — os mesmos que aparecem como `''a` na assinatura de
+  `member` (Lista 6, Q1).
+</Callout>
+
+## Os tipos de padrão
+
+Cada cláusula de uma função repete o **nome da função**. Esquecer isso é erro de
+sintaxe:
+
+```sml
+- fun f true = "verdade"
+=   | f _ = "nao sei";
+val f = fn : bool -> string
+```
+
+Os padrões vistos até aqui:
+
+- **variável** — casa com qualquer coisa e fica **associada** ao valor;
+- **`_` (coringa)** — casa com qualquer coisa, sem associar;
+- **constante** (de tipo de igualdade) — casa só com aquela constante;
+- **tupla de padrões** — casa com qualquer tupla do tamanho certo cujos campos casem com
+  os sub-padrões;
+- **lista de padrões** — casa com qualquer lista do tamanho certo cujos elementos casem;
+- **`::` (cons) de padrões** — casa com qualquer lista **não vazia** cuja cabeça e cauda
+  casem com os sub-padrões.
+
+### Tuplas
+
+```sml
+- val (x, y) = (4, "asdf");
+val x = 4 : int
+val y = "asdf" : string
+
+- fun add (a, b) = a + b;
+val add = fn : int * int -> int
+```
+
+### Listas e cons
+
+`second` pega o segundo elemento; o padrão `[_, a]` (ou, de forma equivalente,
+`_ :: a :: nil`) só casa com listas de exatamente dois elementos, então o casamento não é
+exaustivo:
+
+```sml
+- fun second [_, a] = a;
+Warning: match nonexhaustive
+val second = fn : 'a list -> 'a
+```
+
+`h` de *head* (cabeça), `t` de *tail* (cauda) — na piada do professor, o `h` é de
+"herói", à la Ziraldo. As duas únicas operações de desconstrução de uma lista em SML são
+justamente pegar a cabeça e a cauda:
+
+```sml
+- fun hd (h::t) = h;      (* ou: fun hd (h::_) = h; *)
+- tl [1, 2, 3, 4];
+val it = [2, 3, 4] : int list
+```
+
+**O que é o universo de uma lista?** Toda lista é uma de duas coisas: a lista **vazia**
+(`nil`), ou um elemento seguido de uma lista (`h :: t`) — que por sua vez pode ser um
+conjunto de números, de outras listas, etc. Esses dois casos são todo o universo, e é por
+isso que toda função recursiva sobre listas tem exatamente esses dois padrões.
+
+Padrões também valem em declarações `val` — só que aí a não-exaustividade também gera
+aviso:
+
+```sml
+- val L = [1, 2];
+val L = [1, 2] : int list
+
+- val [a, b] = L;
+val a = 1 : int
+val b = 2 : int
+```
+
+## Casamento de padrões × `if-then-else`
+
+As duas funções abaixo fazem a mesma coisa; a primeira usa casamento de padrões, a
+segunda, comparação:
+
+```sml
+- fun f 0 = "zero"
+=   | f _ = "nao zero";
+
+- fun g n = if n = 0 then "zero" else "nao zero";
+```
+
+Em SML o casamento de padrões é o estilo mais comum, e mais declarativo que o
+`if-then-else`.
+
+Contagem de elementos `true` numa lista de booleanos:
+
+```sml
+- fun num_t nil = 0
+=   | num_t (true :: t) = 1 + num_t t
+=   | num_t (false :: t) = num_t t;
+```
+
+## Listas: concatenação e `op`
+
+O operador `@` concatena duas listas:
+
+```sml
+- [1, 2, 3] @ [4, 5, 6];
+val it = [1, 2, 3, 4, 5, 6] : int list
+```
+
+`op` transforma um operador em função comum (para poder passá-lo adiante ou nomeá-lo):
+
+```sml
+- val app = op @;
+val app = fn : 'a list * 'a list -> 'a list
+
+- app ([1, 2, 3], [4, 5, 6]);
+val it = [1, 2, 3, 4, 5, 6] : int list
+```
+
+Concatenação escrita à mão, por recursão sobre a primeira lista:
+
+```sml
+- fun app nil L = L
+=   | app (h::t) L = h :: app t L;
+
+- app [1, 2, 3] [4, 5, 6];
+val it = [1, 2, 3, 4, 5, 6] : int list
+```
+
+## Reverter uma lista — e a recursão de cauda
+
+Versão direta, usando `app` (ou `@`):
+
+```sml
+- fun rev nil = nil
+=   | rev (h :: t) = app (rev t) [h];
+
+- rev [1, 2, 3];
+val it = [3, 2, 1] : int list
+```
+
+Complexidade **O(n²)**: `rev` é chamada `n` vezes e cada `app`/`@` é O(n).
+
+<Callout title="Cai na prova" type="warn">
+  A `rev` acima é ineficiente. Dá para torná-la **O(n)** com um segundo parâmetro que
+  serve de **acumulador** — a mesma ideia da torre de Hanói, um "mapa" que ensina a
+  reescrever o lado esquerdo como o lado direito:
+
+  ```sml
+  fun rev nil pilha = pilha                 (* caso i  *)
+    | rev (h::t) pilha = rev t (h::pilha)   (* caso ii *)
+  ```
+
+  Rastreio de `rev [1, 2, 3] nil`:
+
+  ```
+  rev [1, 2, 3] nil    -> (ii)
+  rev [2, 3]   [1]     -> (ii)
+  rev [3]      [2, 1]  -> (ii)
+  rev nil      [3, 2, 1] -> (i)
+  [3, 2, 1]
+  ```
+</Callout>
+
+<Callout title="Programação funcional é reescrita" type="idea">
+  O modelo de execução funcional é **reescrita de termos**: pegar o lado esquerdo e
+  reescrevê-lo como o lado direito — a essência do cálculo lambda. Por isso o `=` de SML
+  é **igualdade matemática**, não atribuição: em linguagens imperativas o `=` lê o valor
+  da direita e o guarda na variável da esquerda; em SML os dois lados são, de fato,
+  iguais.
+</Callout>
+
+## Blocos locais: `let ... in ... end`
+
+Onde outras linguagens têm `{ }`, `begin`/`end` ou `-->` `<--`, SML tem
+`let val ... in ... end`:
+
+```sml
+- let val x = 2 in let val y = 3 in x * y end end;
+val it = 6 : int
+```
+
+As variáveis do `let` valem só dentro do `in ... end`.
+
+Dias para milissegundos:
+
+```sml
+fun days2ms days =
+  let
+    val hours   = days * 24.0
+    val minutes = hours * 60.0
+    val seconds = minutes * 60.0
+  in
+    seconds * 1000.0
+  end
+```
+
+<Callout title="let também acelera" type="info">
+  Nomear um resultado com `val` no `let` evita **recalculá-lo**. Comparar `max` (que
+  chama `max t` duas vezes) com uma versão que guarda `val aux = lmax t` e usa `aux`
+  mostra a diferença.
+</Callout>
+
+## Merge sort
+
+Dividir uma lista em duas metades:
+
+```sml
+fun halve nil = (nil, nil)
+  | halve [e] = ([e], nil)
+  | halve (a::b::t) =
+    let
+      val (L0, L1) = halve t
+    in
+      (a::L0, b::L1)
+    end
+```
+
+Intercalar (merge) duas listas de modo que, se as duas entram ordenadas, a saída também
+sai ordenada:
+
+```sml
+fun merge (nil, L1) = L1
+  | merge (L0, nil) = L0
+  | merge (x::xs, y::ys) =
+    if x < y
+    then x :: merge (xs, y::ys)
+    else y :: merge (x::xs, ys)
+```
+
+O merge sort (John von Neumann) divide a lista em duas metades e junta as duas ordenadas:
+
+```sml
+fun msort nil = nil
+  | msort aLista =
+    let
+      val (x, y) = halve aLista
+    in
+      merge (msort x, msort y)
+    end
+```
+
+Essa versão **entra em laço infinito**: uma lista de um elemento é dividida em `([e],
+nil)`, e `msort [e]` chama `msort [e]` de novo. Falta o caso base:
+
+```sml
+fun msort nil = nil
+  | msort [e] = [e]
+  | msort aLista =
+    let
+      val (x, y) = halve aLista
+    in
+      merge (msort x, msort y)
+    end
+```
+
+```sml
+- msort [4, 7, 1, 17, 3, 6, 2, 3];
+val it = [1, 2, 3, 3, 4, 6, 7, 17] : int list
+```
+
+Complexidade **O(n log n)**, sem melhor nem pior caso.
+
+## Quicksort
+
+```sml
+fun partition (pivot, nil) = (nil, nil)
+  | partition (pivot, first::others) =
+    let
+      val (smalls, bigs) = partition (pivot, others)
+    in
+      if first < pivot then (first::smalls, bigs) else (smalls, first::bigs)
+    end
+
+fun qsort nil = nil
+  | qsort (first::rest) =
+    let
+      val (smalls, bigs) = partition (first, rest)
+    in
+      qsort smalls @ first :: qsort bigs
+    end
+```
+
+## Algoritmo de Kadane — sublista de soma máxima
+
+O algoritmo de Kadane encontra, em tempo linear **O(n)**, a maior soma de uma sublista
+contígua (elementos podem ser negativos), carregando dois acumuladores: a melhor soma que
+termina no elemento atual (`curr`) e a melhor soma global (`glob`).
+
+```sml
+fun max (x, y) = if x > y then x else y
+
+fun kadane nil _ glob = glob
+  | kadane (h::t) curr glob =
+    let
+      val next_curr = max (h, curr + h)
+      val next_glob = max (glob, next_curr)
+    in
+      kadane t next_curr next_glob
+    end
+
+fun find_max_subarray (h::t) = kadane t h h
+```
+
+```sml
+- find_max_subarray [~2, 1, ~3, 4, ~1, 2, 1, ~5, 4];
+val it = 6 : int
+```
+
+## Fibonacci: de exponencial a linear
+
+A versão ingênua tem complexidade **exponencial** (recalcula os mesmos valores):
+
+```sml
+fun fib 0 = 0
+  | fib 1 = 1
+  | fib n = fib (n-1) + fib (n-2)
+```
+
+Devolvendo um **par** `(fib n, fib (n-1))`, cada número é calculado uma vez só — O(n):
+
+```sml
+fun fastFib 0 = (0, 0)
+  | fastFib 1 = (1, 0)
+  | fastFib n =
+    let
+      val (a, b) = fastFib (n-1)
+    in
+      (a + b, a)
+    end
+
+fun newFib n = #1 (fastFib n)
+```
+
+## Comentários em ML
+
+```sml
+(* comentário em SML — pode ser aninhado (* assim *) *)
+```

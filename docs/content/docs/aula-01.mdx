@@ -10,9 +10,15 @@ léxicas — assim como as linguagens naturais seguem a mesma lógica. Permitem 
 convertam intenção em instruções para a máquina.
 
 <Callout title="Sintaxe vs. semântica" type="info">
-  **Sintaxe:** — *(completar)*
+  **Sintaxe:** a **forma** dos programas — quais sequências de símbolos são texto válido
+  na linguagem. É descrita por uma gramática (BNF) e verificada pelo *parser*, que
+  rejeita a *string* ou constrói sua árvore de sintaxe. Ex. de erro de sintaxe:
+  `x + * y`.
 
-  **Semântica:** — *(completar)*
+  **Semântica:** o **significado** desses programas — o que cada construção faz quando
+  executada. Um programa pode estar sintaticamente correto e ainda assim não fazer
+  sentido (erro de tipo, variável usada sem ser declarada) — coisas que a gramática
+  livre de contexto não consegue pegar.
 </Callout>
 
 Linguagens de programação **não permitem ambiguidade** — apesar de existirem linguagens

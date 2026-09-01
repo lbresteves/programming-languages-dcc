@@ -1,0 +1,251 @@
+---
+title: Aula 07 - Tipos de Dados
+description: 31/08 — Lista 7
+---
+
+## Onde a verificação de tipos entra no compilador
+
+```
+Léxica  >>  Sintática  >>  Tipos  >>  Execução
+```
+
+A análise léxica já elimina *strings* inválidas (Aula 02); a análise sintática elimina as
+que não pertencem à gramática. A **verificação de tipos** é mais uma fase que elimina
+*strings*: há programas **sintaticamente válidos** que não são **semanticamente válidos**
+— somar um inteiro com um real, por exemplo, está fora da semântica de SML e não quer
+dizer nada, então a linguagem precisa cortar isso.
+
+Por que ainda preciso da verificação de tipos depois do *parsing*? Porque o *parser* não
+é **computacionalmente expressivo** o bastante — verificação de tipos não é um problema
+que se resolva com gramática livre de contexto. Cada fase precisa de mais poder que a
+anterior:
+
+| Fase | Nível de Chomsky | Custo |
+|---|---|---|
+| Léxica | T3 (regular) | O(n) |
+| Sintática | T2 (livre de contexto) | O(n³) |
+| Tipos | T1 (sensível ao contexto) | — |
+| Execução | T0 (recursivamente enumerável) | — |
+
+## O que é um tipo
+
+Um **tipo é um conjunto** de valores (alguns infinitos), mais uma **intenção**:
+
+- uma **representação** de baixo nível;
+- uma coleção de **operações** que podem ser aplicadas àqueles valores.
+
+Usos dos tipos: **documentação**, **segurança**, **eficiência** e **correção**. Tipos são
+importantes porque evitam **comportamento indefinido**.
+
+<Callout title="Linguagem sem tipos" type="info">
+  **BCPL** — ancestral da família de chaves `{ }` — não tinha tipos: todo valor era uma
+  palavra de máquina, e não havia suporte a ponto flutuante.
+</Callout>
+
+### Comportamento indefinido × bem definido
+
+- **Indefinido:** C, C++, Pascal. Muita coisa depende, por exemplo, da memória alocada;
+  em C, a causa mais comum é **escrever num arranjo fora do intervalo válido**.
+- **Bem definido:** Java, JavaScript, Python. Em Python, por exemplo, todo valor carrega
+  um rótulo com o seu tipo.
+
+Existem programas que, mesmo passando pela verificação de tipos, têm comportamento
+indefinido; outros têm comportamento definido.
+
+## Tipos primitivos
+
+Tipos primitivos são conjuntos **indivisíveis**. Algumas linguagens (Java) definem os
+primitivos **exatamente**; outras (ML, C) não.
+
+- **SML:** `int`, `real`, `bool`, `char`, `string`.
+- **Java:** `boolean`, `byte` (8 bits), `char` (Unicode, 16 bits), `short` (16 bits),
+  `int` (32 bits), `long` (64 bits), `float` (32 bits), `double` (64 bits).
+- **C:** `char`, `short`, `int`, `long` (com versões `unsigned`), `float`, `double`. O
+  tamanho **não** é fixado pela linguagem — depende do compilador; nem sempre `int` tem
+  32 bits.
+
+Descobrir o maior inteiro:
+
+```c
+#include <stdio.h>
+#include <limits.h>
+int main() { printf("%d\n", INT_MAX); }
+```
+
+```c
+unsigned int i = ~0U;   /* todos os bits em 1 */
+i = i >> 1;             /* 2147483647 */
+```
+
+```sml
+- Int.maxInt;
+val it = SOME 1073741823 : int option
+```
+
+## Tipos compostos
+
+Tipos compostos (constructed) são conjuntos **construídos a partir de outros conjuntos**.
+As quatro formas:
+
+1. **Subconjunto** — ex.: enumerações.
+2. **Produto cartesiano** — tuplas (SML), `struct` (C), vetores/arranjos/listas.
+3. **União**.
+4. **Mapas** — tipos de função, ex.: `real -> int`.
+
+### Subconjunto
+
+```c
+// subconjunto dos inteiros
+enum coin { penny = 1, nickel = 5, dime = 10, quarter = 25 };
+```
+
+```sml
+- datatype day = M | Tu | W | Th | F | Sa | Su;
+- fun isWeekend x = (x = Sa orelse x = Su);
+```
+
+### Produto cartesiano
+
+Uma **tupla** é um produto de coisas possivelmente **diferentes**; um **arranjo** é um
+produto de coisas **iguais**.
+
+```sml
+- fun getF (x : real * real) = #1 x;
+```
+
+Em C, o produto cartesiano mais comum é a `struct`:
+
+```c
+struct complex {
+  double rp;
+  double ip;
+};
+
+int main() {
+  struct complex c1;
+  c1.rp = 0;
+  c1.ip = 10;
+
+  printf("%d\n", c1.rp);          // casa mal com %d — c1.rp é double
+  printf("%d\n", sizeof(double)); // 8
+  printf("%d\n", sizeof(c1));     // 16
+}
+```
+
+<Callout title="Cardinalidade = produto" type="idea">
+  A cardinalidade de um tipo é o número de valores que ele pode assumir. Para o produto,
+  ela se **multiplica**: `|T1 * T2| = |T1| × |T2|`. No exemplo, `struct complex` tem
+  `|double| × |double| ≈ 2⁶⁴ × 2⁶⁴ = 2¹²⁸` — e `sizeof(c1)` é `16` bytes, a soma dos
+  tamanhos dos campos.
+</Callout>
+
+`sizeof` é um **operador**, avaliado em **tempo de compilação**. Não dá para fazer
+`sizeof` de uma `struct` em tempo de execução porque o tamanho não fica guardado em lugar
+nenhum — ele some depois da compilação.
+
+Dá para iterar sobre os campos de uma `struct` de inteiros com aritmética de ponteiros
+(colocando um campo *sentinela* no fim para saber onde parar).
+
+Arranjos e vetores são outros produtos cartesianos. Detalhes que **mudam de uma
+linguagem para outra**: valores dos índices (Java começa em 0, Pascal é flexível);
+tamanho fixo em tempo de compilação; operações suportadas; redimensionamento em tempo de
+execução; múltiplas dimensões; se arranjo n-dimensional é o mesmo que arranjo de
+arranjos; ordem dos elementos na memória; se há tipo separado para *string* e para
+lista.
+
+- Em **SML**, uma lista tem só duas operações: ler a cabeça e ler a cauda. Sem
+  indexação, não dá para fazer um *bucket sort*.
+- Em **R**, vetores são de primeira classe (`X <- c(1,2,3)`; `2 * X`; `X %*% Y`).
+
+### União
+
+```c
+struct nao_eh_union { int i; double d; };   // campos lado a lado
+union element       { int i; double d; };   // campos sobrepostos
+
+int main() {
+  union element e0;
+  struct nao_eh_union s0;
+
+  e0.i = 1;
+  printf("%d\n", e0.i);            // 1
+  printf("Union: %lu\n", sizeof(e0));  // 8
+  printf("Struct: %lu\n", sizeof(s0)); // 16
+}
+```
+
+A `union` em C é uma **sobreposição de memória**. É muito usada em compiladores — o jeito
+padrão de representar uma árvore de sintaxe abstrata em C é com `union`.
+
+<Callout title="Cai na prova" type="warn">
+  Escrever num campo da `union` e ler por **outro** campo é **comportamento indefinido**:
+
+  ```c
+  union element e0;
+  e0.d = 3.14;
+  printf("%d\n", e0.i);   // valor indefinido: os bits de 3.14 relidos como int
+  ```
+
+  É impossível o programa apontar o erro **sem executar** — nenhuma gramática livre de
+  contexto pega isso. Em tempo de execução, daria para detectar.
+</Callout>
+
+<Callout title="Cardinalidade da união" type="idea">
+  Enquanto o produto cartesiano multiplica, a união **soma**: `|T1 ∪ T2| = |T1| + |T2|`.
+</Callout>
+
+### Mapas (funções)
+
+Funções mapeiam um conjunto (o **domínio**) em outro (o **contradomínio**):
+
+```sml
+- fun f (a : char, b) = a = b;
+val f = fn : char * char -> bool
+```
+
+## Estático × dinâmico
+
+Uma linguagem é **estaticamente tipada** quando o tipo de cada expressão é resolvido em
+**tempo de compilação**; **dinamicamente tipada** quando o tipo é resolvido em **tempo de
+execução**. Uma forma de enxergar: quanto mais `if-then-else` **invisível** o compilador
+precisa inserir no código, mais dinâmica é a linguagem.
+
+- **Muito estáticas:** C; SML é quase tão estática quanto C.
+- **Muito dinâmicas:** Python, JavaScript.
+- **No meio do caminho:** Java.
+- **Zona cinzenta:** Julia é dinamicamente tipada, mas compilada JIT — os tipos são
+  resolvidos quando o código executa.
+
+As linguagens mais famosas são dinamicamente tipadas.
+
+Como o compilador descobre os tipos numa linguagem estática: **anotações de tipo**,
+**convenções de nome** (ex.: `I` para inteiro em Fortran, `S$` para *string* em BASIC) e
+**inferência de tipos** (ML, Haskell, Scala, OCaml, C# 3.0).
+
+Programas estaticamente tipados tendem a ser **mais rápidos** e mais econômicos em
+memória — não há teste de tipo escondido. Python é pouco eficiente nesse sentido: cada
+inteiro é um ponteiro para um objeto no *heap*. Por isso Python não deve substituir C,
+C++ ou Java em sistemas grandes.
+
+<Callout title="Vantagem da tipagem dinâmica" type="info">
+  Flexibilidade. Em Python, `fact(10)` tem tipo `int` e `fact(100)` tem tipo `long` — a
+  mesma função devolve tipos diferentes conforme o valor, sem o programador se preocupar.
+</Callout>
+
+<Callout title="Responder à mão (Lista 7, Q3c)" type="warn">
+  Existe uma vantagem principal da tipagem **estática** sobre a dinâmica. Qual é? (Pista:
+  em que momento o erro de tipo aparece.)
+</Callout>
+
+## Não é preto no branco
+
+- Linguagens **estáticas** fazem algumas checagens **dinâmicas**. Em Java, o *cast*
+  `Battleship b = (Battleship) p;` é verificado em tempo de execução.
+- Linguagens **dinâmicas** usam um pouco de **inferência** de tipos.
+
+## Forte × fraca
+
+- **Fortemente tipada:** garante que um valor sempre será usado com o tipo declarado.
+- **Fracamente tipada:** permite usar um valor como se tivesse um tipo diferente do
+  declarado. Exemplos de uso inseguro em C: ler a `union` pelo campo errado; acessar
+  `a[3]` num arranjo `int a[3]` (índices 0–2).

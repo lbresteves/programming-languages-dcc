@@ -38,12 +38,6 @@ estrutura de dados (ver Aulas 2–3).
 **TWI:** Bash — interpreta a AST. O Bash em si quase não "executa": na maior parte do
 tempo ele chama outros programas, então não precisa ser eficiente.
 
-<Callout title="Corrigi alguns nomes" type="warn">
-  Nas anotações cruas: "Bean" → **BEAM** (VM de Erlang/Elixir); "Delvik" → **Dalvik**;
-  "Spidermonkey" → **SpiderMonkey**; "Cpython" → **CPython**. Também acrescentei o
-  **JavaScriptCore** (Apple) à lista de motores de JS.
-</Callout>
-
 ### Bytecode e máquinas virtuais
 
 Representação intermediária de código é o que costumamos chamar de *bytecode*. Existem
@@ -91,13 +85,6 @@ tempo de preparo
    │                        • bash
    └───────────────────────────────────► tempo de execução
 ```
-
-<Callout title="Reconstruí o gráfico" type="warn">
-  Esse gráfico estava como um rabisco quase ilegível nas anotações ("c8cc O3",
-  "cgcc01"…). Reconstruí a ideia: é uma curva de *trade-off* — mais preparo
-  (topo-esquerda) troca-se por menos execução; menos preparo (baixo-direita) custa mais
-  execução. Confira a forma exata com o professor.
-</Callout>
 
 ## História do JavaScript
 
@@ -183,11 +170,6 @@ clang -S -target mips-linux-gnu cube.c -o cube.mips
 # GCC cross-compiler
 mips-linux-gnu-gcc -S cube.c -o cube.mips
 ```
-
-<Callout title="Corrigi um comando" type="warn">
-  Nas anotações estava "clang cube.o cube.exe" — o certo é `clang cube.c -o cube.exe`. E
-  `#include <stdio.Identifier>` virou `#include <stdio.h>` (artefato de digitação).
-</Callout>
 
 ## Otimização guiada pelo compilador
 
@@ -308,12 +290,6 @@ otimização.
 - **Kotlin** compila para *bytecode* da **JVM**.
 
 ## Tempos de ligação (*binding times*) — Lista 4, Q2
-
-<Callout title="Acrescentei esta seção" type="warn">
-  Tempos de ligação não aparecem na aula transcrita, mas são **o assunto central da Lista
-  4 (Q2)** e constam da ementa da Aula 4. Resumo abaixo; a tabela resolvida está em
-  `listas/lista-04/resolucao.md`.
-</Callout>
 
 O **tempo de ligação** de uma propriedade é o momento em que ela fica fixada. Da mais
 cedo para a mais tarde:
