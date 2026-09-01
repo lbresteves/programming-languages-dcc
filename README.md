@@ -6,7 +6,7 @@
 
 <!-- cores 🎨 -->
 ![UFMG](https://img.shields.io/badge/UFMG-DCC024-ED1C24?style=for-the-badge)
-![Professor](https://img.shields.io/badge/Prof.-Fernando_Quint%C3%A3o_Pereira-1E90FF?style=for-the-badge)
+![Professor](https://img.shields.io/badge/Prof.-Fernando-1E90FF?style=for-the-badge)
 ![Idioma](https://img.shields.io/badge/idioma-pt--BR-009C3B?style=for-the-badge)
 
 ![SML](https://img.shields.io/badge/Standard_ML-DE3423?style=flat-square&logo=sml&logoColor=white)
@@ -18,6 +18,10 @@
 ![Claude Code](https://img.shields.io/badge/Claude_Code-4_skills-D97757?style=flat-square&logo=anthropic&logoColor=white)
 ![Fumadocs](https://img.shields.io/badge/Fumadocs-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em_curso-yellow?style=flat-square)
+
+<br>
+
+[![Ler as anotações online](https://img.shields.io/badge/📖_ler_as_anota%C3%A7%C3%B5es-online-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://programming-languages-dcc.vercel.app/docs)
 
 </div>
 
@@ -165,6 +169,8 @@ falha, uso de `member/2` e `select/3`, quando discutir modelos de custo).
 A pasta [`docs/`](docs/) é um app **Next.js + [Fumadocs](https://fumadocs.dev/)** à parte,
 usado para **melhorar a visualização** das anotações: cada aula vira uma página navegável,
 com busca, índice lateral, syntax highlighting e suporte a **MDX** (Markdown + componentes).
+
+🔗 **No ar:** <https://programming-languages-dcc.vercel.app/docs>
 
 | | |
 |---|---|
