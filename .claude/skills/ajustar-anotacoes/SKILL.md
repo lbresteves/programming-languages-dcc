@@ -13,5 +13,5 @@ Quero que deixe consistente as minhas notas e por isso voce pode acessar outras 
 
 Lembre-se para ler um pdf seja de lista ou de conteúdo, leia o enunciado em `listas/lista-NN/`. Se só houver PDF, transcreva para `enunciado.md` primeiro — fica pesquisável e barato de reler. Se já houver `enunciado.md`, apenas abra e leia.
 
-Não retire informações das minhas anotações bagunçadas, se houver coisa errada, corrija mas me avise.
+Não retire informações das minhas anotações bagunçadas, se houver coisa errada, corrija mas me avise no terminal, não escreva nos mds, nos mds já deve estar correto.
 

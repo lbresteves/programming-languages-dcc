@@ -2,11 +2,11 @@
 
 # 🧠 DCC024 — Linguagens de Programação
 
-**Meu caderno digital da matéria que mais gostei na faculdade.**
+**Caderno digital da matéria**
 
 <!-- cores 🎨 -->
 ![UFMG](https://img.shields.io/badge/UFMG-DCC024-ED1C24?style=for-the-badge)
-![Professor](https://img.shields.io/badge/Prof.-Fernando_Quint%C3%A3o_Pereira-1E90FF?style=for-the-badge)
+![Professor](https://img.shields.io/badge/Prof.-Fernando-1E90FF?style=for-the-badge)
 ![Idioma](https://img.shields.io/badge/idioma-pt--BR-009C3B?style=for-the-badge)
 
 ![SML](https://img.shields.io/badge/Standard_ML-DE3423?style=flat-square&logo=sml&logoColor=white)
@@ -19,26 +19,28 @@
 ![Fumadocs](https://img.shields.io/badge/Fumadocs-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em_curso-yellow?style=flat-square)
 
+<br>
+
+[![Ler as anotações online](https://img.shields.io/badge/📖_ler_as_anota%C3%A7%C3%B5es-online-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://programming-languages-dcc.vercel.app/docs)
+
 </div>
 
 ---
 
 ## 🎯 Objetivo
 
-Este repositório **não é um projeto de software** — é um repositório de **estudo**. O "produto"
+Este repositório **não é um projeto de software** — é um repositório de **estudo** pra facilitar minha vida. O "produto"
 aqui sou eu sabendo a matéria.
 
+Todas as anotações foram feitas por mim, então se houver algum erro, eu assumo. 
+
 A ideia é reunir num só lugar tudo que envolve a disciplina **DCC024 — Linguagens de
-Programação** da UFMG, lecionada pelo professor **Fernando Magno Quintão Pereira**, e usar o
+Programação** da UFMG, lecionada pelo professor **Fernando**, e usar o
 **Claude Code** como monitor particular para:
 
 - 📚 **estudar os tópicos da ementa** em nível de livro-texto, um de cada vez;
-- ✍️ **resolver as listas de exercícios** de forma guiada (dica → minha tentativa → correção),
-  já que elas são entregues **manuscritas** e valem nota;
-- 🧾 **manter registro honesto do que eu de fato sei** — não o que li e "senti que entendi",
-  mas o que consigo reproduzir no papel, sem consulta, no dia da prova;
-- 📄 **transcrever os PDFs da disciplina** (listas, provas antigas, slides) para Markdown fiel
-  e pesquisável;
+- ✍️ **resolver as listas de exercícios** de forma guiada (dica → minha tentativa → correção);
+- 📄 **transcrever os PDFs da disciplina** (listas, provas antigas, slides) para Markdown pra facilitar minha vida e gastar menos token;
 - 🖥️ **transformar minhas anotações de aula** num site bonito e navegável.
 
 
@@ -50,7 +52,7 @@ Programação** da UFMG, lecionada pelo professor **Fernando Magno Quintão Pere
 
 ## 🤖 Skills do Claude Code
 
-Quatro *skills* (`.claude/skills/`) cobrem todo o fluxo de trabalho. Cada uma é invocada por um
+As *Skills* (`.claude/skills/`) cobrem todo o fluxo de trabalho. Cada uma é invocada por um
 comando de barra e carrega instruções específicas que substituem o comportamento padrão do
 Claude.
 
@@ -167,6 +169,8 @@ falha, uso de `member/2` e `select/3`, quando discutir modelos de custo).
 A pasta [`docs/`](docs/) é um app **Next.js + [Fumadocs](https://fumadocs.dev/)** à parte,
 usado para **melhorar a visualização** das anotações: cada aula vira uma página navegável,
 com busca, índice lateral, syntax highlighting e suporte a **MDX** (Markdown + componentes).
+
+🔗 **No ar:** <https://programming-languages-dcc.vercel.app/docs>
 
 | | |
 |---|---|
