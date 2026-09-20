@@ -1,0 +1,333 @@
+---
+title: Aula 08 - Polimorfismo
+description: 02/09 — Lista 8
+---
+
+## Retomando: por que tipagem estática?
+
+**Estaticamente tipada:** o tipo de cada expressão é decidido **antes da execução**, pelo
+compilador — C, C#, C++, Java, SML. **Dinamicamente tipada:** o tipo só é decidido em
+**tempo de execução** — Python, Ruby, JavaScript, PHP.
+
+<Callout title="Resposta: Lista 7, Q3c" type="info">
+  A vantagem principal da tipagem estática sobre a dinâmica: o erro de tipo aparece **mais
+  cedo**, em tempo de compilação, e não em execução. Some-se a isso **eficiência** (sem
+  checagem de tipo escondida em tempo de execução) e, o principal, o tipo funciona como
+  **documentação** do código.
+</Callout>
+
+Outra vantagem da tipagem estática: o **suporte de ferramentas** é muito melhor — por
+exemplo, o autocompletar do VS Code depende de saber o tipo de cada variável.
+
+A vantagem da tipagem dinâmica é o **reúso**: é muito mais fácil escrever código genérico.
+
+## Reúso × tipagem: o exemplo do `select`
+
+Em Python, `select` funciona para qualquer combinação de tipos de `a`, `b` e `c`:
+
+```python
+def select(a, b, c):
+    return b if a else c
+```
+
+Esse `select` pode ser usado de **infinitas** formas diferentes. Reproduzir algo parecido
+em C é bem mais difícil — talvez usando `void *` nos parâmetros dá para chegar perto, mas
+sem a mesma flexibilidade. A versão direta em C só aceita `int`:
+
+```c
+int select(int a, int b, int c) {
+    return a ? b : c;
+}
+```
+
+Considerando `int` de 32 bits, essa função aceita `2^96` combinações diferentes de
+entrada (3 parâmetros de 32 bits) — um número grande, mas **finito**, bem longe do
+"infinitas formas" do Python.
+
+Em SML, dá para chegar mais perto do Python, embora ainda não seja totalmente livre:
+
+```sml
+- fun select (a, b, c) = if a then b else c;
+val select = fn : bool * 'a * 'a -> 'a
+- select (2 < 3, "oi", "ai");
+val it = "oi" : string
+- select (2 < 3, 1, 2);
+val it = 1 : int
+- select (2 < 3, 1, "2");
+stdIn:4.1-4.22 Error: operator and operand do not agree [tycon mismatch]
+  operator domain: bool * 'Z[INT] * 'Z[INT]
+  operand:         bool * 'Z[INT] * string
+  in expression:
+    select (2 < 3,1,"2")
+```
+
+O `select` de SML aceita mais tipos que o de C, mas menos que o de Python: `b` e `c`
+podem ser de **qualquer** tipo, contanto que sejam do **mesmo** tipo entre si — por isso
+o último exemplo falha (`1` é `int`, `"2"` é `string`).
+
+## Tipagem forte × fraca; equivalência de tipos
+
+Uma linguagem **fortemente tipada** não tem programas com **comportamento indefinido**.
+Uma linguagem **fracamente tipada** tem esse problema.
+
+Dois tipos são iguais por razões diferentes conforme a linguagem: em **C**, dois tipos são
+iguais quando têm o **mesmo nome** (equivalência **nominal**); em **SML**, quando têm a
+**mesma estrutura** (equivalência **estrutural**).
+
+- Um sistema de tipos **nominal** é melhor para **documentar** o programa.
+- Um sistema de tipos **estrutural** é mais vantajoso para **reutilizar** código.
+
+Numa linguagem estaticamente tipada existem duas formas de definir o tipo de um nome: ou
+se **anota** o tipo explicitamente, ou o compilador usa **inferência de tipos**.
+
+## Polimorfismo: o que é e como se classifica
+
+**Uma função é polimórfica se tem pelo menos dois tipos diferentes.** O `select` de SML,
+por exemplo, tem mais possibilidades de tipo que o de C, mas não tantas quanto o de
+Python.
+
+- **Ad-hoc** — a quantidade de tipos aceitos é **finita**:
+  - **Sobrecarga** (*overloading*)
+  - **Coerção**
+- **Universal** — a quantidade de tipos aceitos é **(potencialmente) infinita**:
+  - **Paramétrico**
+  - **Subtipagem**
+
+## Sobrecarga (overloading)
+
+Em C, os operadores `*` e `+` já são exemplos de sobrecarga: o mesmo símbolo se comporta
+de modo diferente para `int` e para `float`/`double`. Esse polimorfismo existe só para
+benefício do **programador** (no código-fonte) — no código executável ele desaparece,
+porque o compilador gera instruções diferentes para cada caso (dá para conferir no
+assembly gerado com `gcc -S`). Note que em C **não dá** para sobrecarregar *funções*
+definidas pelo programador — só os operadores embutidos citados.
+
+Em C++ (e em outras linguagens, como Java), já dá para sobrecarregar funções — o
+compilador escolhe qual usar pelo tipo dos argumentos:
+
+```cpp
+#include <iostream>
+
+int sum(int a, int b) {
+    std::cout << "Soma de inteiros\n";
+    return a + b;
+}
+
+double sum(double a, double b) {
+    std::cout << "Soma de doubles\n";
+    return a + b;
+}
+
+int main() {
+    sum(1, 2);
+    sum(1.0, 2.0);
+}
+```
+
+Sobrecarga de **operadores** (não só de funções) existe em C++, Python e JavaScript. Em
+Python, sobrecarregar operadores é implementar os métodos especiais (`__add__`, `__gt__`,
+`__str__`, …):
+
+```python
+class Interval:
+    def __init__(self, a, b):
+        self.a = a
+        self.b = b
+
+    def __add__(self, other):
+        return Interval(self.a + other.a, self.b + other.b)
+
+    def __gt__(self, other):
+        return self.a < other.a and self.b > other.b
+
+    def __str__(self):
+        return f"[{self.a}, {self.b}]"
+
+
+i0 = Interval(1, 4)
+i1 = Interval(2, 3)
+print(i0)
+print(i0 > i1)
+i2 = i0 + i1
+print(i2)
+```
+
+A **vantagem** de poder sobrecarregar é o **reúso**: o mesmo símbolo (`+`, `>`, …) serve
+para vários tipos.
+
+A **desvantagem** é que a sobrecarga pode quebrar propriedades que o programador espera
+por hábito. Em Python, a soma de inteiros é comutativa:
+
+```python
+2 + 3 == 3 + 2   # True
+```
+
+mas a versão sobrecarregada para `string` (concatenação) não é:
+
+```python
+"2" + "3" == "3" + "2"   # False
+```
+
+<Callout title="Cai na prova" type="warn">
+  Em JavaScript, a sobrecarga de `==` com coerção quebra até a **transitividade** da
+  igualdade:
+
+  ```js
+  1 == '1';       // true  (a string é coagida a número)
+  '1.0' == 1;     // true  (idem)
+  '1' == '1.0';   // false (comparação de string com string, sem coerção)
+  ```
+</Callout>
+
+Outro motivo para uma linguagem **não** suportar sobrecarga: legibilidade. Em C++,
+`a << 1` pode ser deslocamento de bits (`int`) ou envio para um *stream* (`std::cout <<
+1`) — só o tipo de `a` diz qual operação é essa, o que dificulta a leitura do código.
+
+<Callout title="Sobrecarga × redefinição em SML" type="warn">
+  Em SML dá para **redefinir** o que um símbolo como `+` significa, mas não dá para ter
+  **duas implementações coexistindo** com o mesmo nome — ou seja, isso não é sobrecarga de
+  verdade, é apenas sobrescrita (a definição antiga se perde):
+
+  ```sml
+  - infix 3 +;
+  infix 3 +
+  - fun op + (a, b) = a - b;
+  val + = fn : int * int -> int
+  - 3 + 2;
+  val it = 1 : int
+  ```
+
+  Para recuperar o significado original: `fun op + (a, b) = a - (~b);`
+</Callout>
+
+## Coerção
+
+Coerção é a conversão (implícita ou explícita) de um valor de um tipo para outro.
+Enquanto a **sobrecarga** usa o **tipo** dos argumentos para escolher qual **definição**
+chamar, a **coerção** usa a **definição** (o tipo esperado pelo parâmetro) para escolher
+qual **conversão** aplicar.
+
+Em C, por exemplo, a soma abaixo é permitida: o `1` é entendido como `int`, mas o
+compilador o converte (coage) para `double` antes de somar:
+
+```c
+1 + 1.0;   // o inteiro 1 é implicitamente convertido para double antes da soma
+```
+
+Em Java, dá para ver a fronteira entre conversão **explícita** (um *cast*) e coerção
+**implícita** (automática, sem *cast*):
+
+```java
+class Coercion {
+    public static void f(double x) {
+        System.out.println(x);
+    }
+
+    public static void main(String args[]) {
+        f((byte)1);   // (byte) é um cast explícito de int para byte;
+                      // a conversão de byte para double, aí sim, já é implícita
+        f((short)1);  // mesma ideia, com short
+        f('1');       // char -> double: coerção implícita
+        f(1);         // int -> double: coerção implícita
+        f(1L);        // long -> double: coerção implícita
+        f(1.0F);      // float -> double: ainda é coerção implícita (widening)
+        f(1.0);       // já é double: nenhuma coerção acontece
+    }
+}
+```
+
+Muitas linguagens não permitem combinar sobrecarga com coerção livremente, porque decidir
+qual função sobrecarregada chamar fica **ambíguo** quando o argumento pode ser coagido
+para casar com mais de uma assinatura.
+
+<Callout title="Coerção também custa precisão" type="idea">
+  `f(5.6F)` imprime `5.599999904632568`, não `5.6`. O `float` `5.6F` já guarda uma
+  aproximação de `5.6` com pouca precisão; ao ser **coagido** para `double`, essa
+  aproximação imprecisa é só reescrita com mais casas decimais — o que prova que
+  `float -> double` é, sim, uma coerção de verdade (mexe na representação), e não uma
+  simples "promoção sem efeito".
+</Callout>
+
+## Polimorfismo paramétrico
+
+Voltando ao `select` de SML:
+
+```sml
+- fun select (a, b, c) = if a then b else c;
+val select = fn : bool * 'a * 'a -> 'a
+- select (2 < 2, "a", "b");
+val it = "b" : string
+- select (2 < 2, ["a"], ["b"]);
+val it = ["b"] : string list
+```
+
+Há **infinitas** assinaturas de tipo que essa função pode assumir. Sua assinatura geral é
+`bool * 'a * 'a -> 'a`, mas `'a` **não é** uma assinatura de tipo (não dá para declarar um
+valor de tipo `'a`) — `"string"` é um tipo; `'a` é apenas um **modelo** para tipos (uma
+**variável de tipo**). Nessa assinatura, `->` é o construtor de tipos, e `'a` é o único
+parâmetro de tipo, usado **três vezes**: por isso o 2º argumento, o 3º argumento e o
+retorno precisam ser, todos, do **mesmo** tipo concreto em cada chamada.
+
+O mesmo mecanismo aparece em C++ com *templates*:
+
+```cpp
+#include <iostream>
+
+template <class T> T GetMax(T a, T b) {
+  T result;
+  result = (a > b) ? a : b;
+  return result;
+}
+
+int main() {
+  int i = 5, j = 6, k;
+  long l = 10, m = 5, n;
+  k = GetMax<int>(i, j);
+  n = GetMax<long>(l, m);
+}
+```
+
+`T` só existe como **placeholder** dentro do escopo do `template`; não dá para declarar
+uma função (ou variável, fora de um template) de tipo `T` — ele só vira um tipo de verdade
+quando o template é **instanciado**. Linguagens com esse recurso têm suporte a
+**polimorfismo paramétrico**.
+
+## Polimorfismo de subtipagem
+
+Existe polimorfismo de subtipagem quando vale o **princípio de substituição de Liskov**:
+se uma função espera um supertipo, deve ser possível passar um subtipo no lugar.
+
+Um **subtipo** tem **menos elementos** (menos valores possíveis) do que o seu supertipo,
+mas tem **mais propriedades** (mais operações/métodos) do que o supertipo.
+
+Em Java, todo tipo referência é subtipo de `Object` — por isso a mesma função aceita
+argumentos de tipos bem diferentes entre si:
+
+```java
+public class Sub {
+    public static void print(Object o) {
+        System.out.println(o);
+    }
+
+    public static void main(String[] a) {
+        print(new String("dcc024"));
+        print(new Integer(42));
+        print(new Character('a'));
+    }
+}
+```
+
+`String`, `Integer` e `Character` são todos subtipos de `Object`: cada chamada passa um
+subtipo onde um supertipo é esperado — é polimorfismo de subtipagem, não sobrecarga (não
+há três versões de `print`, só uma, que aceita qualquer subtipo de `Object`).
+
+<Callout title="Por que ad-hoc é finito e universal é infinito" type="idea">
+  - **Sobrecarga:** cada tipo aceito exige uma definição separada e escrita à mão — por
+    isso é finito.
+  - **Coerção:** todas as conversões possíveis precisam estar previstas na especificação
+    da linguagem — também finito.
+  - **Paramétrico:** infinito, contanto que o universo de tipos que pode instanciar a
+    variável de tipo seja infinito.
+  - **Subtipagem:** infinito, contanto que não haja limite para o número de subtipos de um
+    tipo.
+</Callout>

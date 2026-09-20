@@ -1,0 +1,1 @@
+Sempre antes de responder qualquer dúvida ou responder qualquer coisa, consulte minhas anotações (content\docs) ou as anotações do professor (material\professor-notes)
