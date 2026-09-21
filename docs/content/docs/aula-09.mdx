@@ -1,0 +1,292 @@
+---
+title: Aula 09 - O Cálculo Lambda
+description: 12/09 (sáb) — Lista 9
+---
+
+## O que é o cálculo lambda
+
+O cálculo lambda é uma notação para descrever computação, criada para capturar
+formalmente "o que é computável". A ideia central é que **tudo é função**: não existem
+números, listas, laços ou variáveis mutáveis como primitivas — só três construções.
+
+Em 1936, Alonzo Church o usou para mostrar que há sentenças para as quais nem sequer
+conseguimos decidir se são decidíveis.
+
+Linguagens baseadas no cálculo lambda: ML, Haskell, Lisp (a primeira).
+
+## Sintaxe
+
+```
+<exp> ::= <var>              ; Variável
+        | λ<var>. <exp>      ; Abstração lambda
+        | <exp> <exp>        ; Aplicação
+```
+
+Anatomia de uma aplicação:
+
+```
+(λx.E) E0 ; Aplicação
+   |    |
+   |    \_> Parâmetro real
+   \_> Função (λx. E)
+             | \_> Corpo da função
+              \_> Parâmetro formal
+```
+
+## Redução beta
+
+**(λx.E) E0 ⟹ substitua toda ocorrência de x por E0 em E.**
+
+```
+(λx.x) y ⟹ y
+(λx. λy. x y) (λz. z) w ⟹
+(λy. (λz.z) y) w ⟹
+```
+
+Em `(λx. λy. x y) (λz. z) w`, a aplicação é associativa à esquerda, o que é óbvio — mas em
+`(λy. (λz.z) y) w` há 2 possibilidades de continuar. Nesse caso específico o resultado dá
+o mesmo:
+
+- **Aplicando por dentro primeiro** (reduz o redex interno `(λz.z) y` antes): `(λy. y) w
+  ⟹ w`
+- **Aplicando por fora primeiro** (consome o `λy` primeiro): `(λz. z) w ⟹ w`
+
+## Forma normal
+
+Algumas expressões lambda chegam a uma **forma normal**: uma expressão lambda onde não há
+mais nenhuma aplicação para acontecer.
+
+No exemplo acima, `w` é forma normal. Já `(λx.x) y` não está em forma normal (existe uma
+aplicação que pode ocorrer); `(λx. λy. x y) (λz. z) w` também não está (há uma aplicação
+possível); `(λy. (λz.z) y) w` tem duas.
+
+Nem toda expressão lambda possui forma normal:
+
+```
+(λx.x x) (λx. x x)
+```
+
+Se fizer a substituição, obtém-se a mesma expressão de volta — e ela nunca termina. É um
+**quine**: reduzir a expressão produz a própria expressão de volta (também conhecido como
+combinador **Ω**, "ômega").
+
+Saber se uma expressão lambda possui forma normal é **indecidível**.
+
+```
+(λx. y) ((λx.x x) (λx. x x))
+```
+
+- Aplicação por fora: ⟹ `y`
+- Aplicação por dentro: fica reduzindo `(λx.x x) (λx. x x)` para sempre, nunca termina
+
+Ou seja: **a ordem de redução importa** — a mesma expressão pode terminar ou não dependendo
+de qual redex é reduzido primeiro.
+
+## Variáveis livres, ligadas e captura
+
+```
+(λx.(λy.x y)) y ⟹
+```
+
+A substituição ingênua de `x` por `y` dá `λy.y y` — e isso está **errado**: o `y` do
+argumento (livre) não estava ligado a nenhum `λy` antes da substituição, mas depois de
+substituir ele passa a ser capturado pelo `λy` interno. Isso é **captura de variáveis**.
+
+Numa abstração `λx. E`, toda ocorrência de `x` dentro de `E` é uma **variável ligada**
+(*bound*) — ela "pertence" àquele `λx`. Qualquer variável em `E` que não seja `x` (e não
+esteja ligada por outro `λ` dentro de `E`) é **livre** (*free*) — ela se refere a algo de
+fora, do contexto onde a expressão inteira está sendo usada.
+
+No exemplo `(λx. (λy. x y)) y`:
+
+- O `y` mais à direita (o argumento, fora dos parênteses internos) é uma variável
+  **livre** — não há nenhum `λy` "de fora" ligando ele; ele é simplesmente "o y do mundo
+  exterior".
+- Dentro do corpo `λy. x y`: o `x` é livre nesse corpo (é ligado pelo `λx` de fora), e o
+  `y` que aparece em `x y` é ligado pelo `λy` local.
+
+São dois `y`'s com o mesmo nome, mas semanticamente completamente diferentes — um de fora,
+um de dentro. A substituição ingênua `(λx. (λy. x y)) y ⟹ λy.y y` mistura os dois: é
+exatamente a captura de variáveis descrita acima.
+
+O problema é que, no cálculo lambda, o nome só existe para os seres humanos — não é
+importante; o que importa mesmo é a ordem relativa das coisas:
+
+```
+(λ0. (λ1. 0 1)) y ⟹ λ1. y 1   ; isto está certo
+```
+
+Nesse caso `y` não é declarado em lugar nenhum, então não há captura possível — compare
+com `λy.y y`, que é diferente! Justamente porque damos nomes às variáveis em vez de
+números, capturas de variáveis podem acontecer e uma expressão pode ficar errada. Pensando
+nisso, podemos sempre renomear as variáveis ligadas antes de substituir (usar índices
+numéricos em vez de letras é uma forma de fazer isso de forma inequívoca).
+
+**Captura de variável é uma substituição que muda o ponto de declaração de uma variável.**
+
+## Cálculo lambda é Turing completo
+
+Para ser Turing completo, um formalismo precisa de 3 coisas:
+
+- Noção de valor (números)
+- Saber se um número é um número
+- Tomar decisão (`if-then-else`)
+
+As três seções seguintes mostram, uma por uma, como o cálculo lambda satisfaz esses três
+requisitos.
+
+## Codificação de Church: números
+
+Codificação para definir números usando expressões lambda:
+
+```
+ZERO  : λs. λz. z             ; recebe s e z, retorna a segunda coisa
+UM    : λs. λz. s z           ; recebe duas coisas, aplica a primeira à segunda uma vez
+DOIS  : λs. λz. s (s z)       ; aplica a primeira à segunda duas vezes
+TRÊS  : λs. λz. s (s (s z))
+QUATRO: λs. λz. s (s (s (s z)))
+...
+```
+
+Para listar todos os números do universo, basta ter o zero e o sucessor:
+
+```
+SUCC = λn. λy. λx. y (n y x)
+```
+
+**SUCC ZERO:**
+
+```
+SUCC ZERO
+⟹ (λn. λy. λx. y (n y x)) (λs. λz. z)      ; toda ocorrência de n vira (λs. λz. z)
+⟹ λy. λx. y ((λs. λz. z) y x)              ; toda ocorrência de s vira y
+⟹ λy. λx. y ((λz. z) x)                    ; não havia ocorrência de s, então some
+⟹ λy. λx. y x                              ; (λz. z) x é x — se parece com UM: λs. λz. s z
+```
+
+**SUCC DOIS:**
+
+```
+SUCC DOIS
+⟹ (λn. λy. λx. y (n y x)) (λs. λz. s (s z))   ; toda ocorrência de n vira (λs. λz. s (s z))
+⟹ λy. λx. y ((λz. y (y z)) x)                 ; toda ocorrência de s vira y; agora toda
+                                               ; ocorrência de z vira x
+⟹ λy. λx. y (y (y x))                         ; se parece com TRÊS
+```
+
+`SUCC = λn. λy. λx. y (n y x)` significa: "n y's na frente de x, com mais um y, é n + 1
+y's na frente de x" *(minuto 27:20 da aula)*.
+
+**ADD**, que soma dois números, é definida em termos de `SUCC`: aplicar o sucessor `n`
+vezes é o mesmo que somar `n`.
+
+```
+ADD = λm. λn. m SUCC n
+```
+
+**ADD 2 3:**
+
+```
+ADD 2 3
+⟹ (λm. λn. m SUCC n) DOIS TRÊS
+⟹ (λn. DOIS SUCC n) TRÊS          ; aplicação é sempre à esquerda: primeiro m := DOIS
+⟹ DOIS SUCC TRÊS                  ; agora n := TRÊS
+⟹ SUCC (SUCC TRÊS)                ; DOIS = λs.λz. s (s z) aplica SUCC duas vezes a TRÊS
+⟹ SUCC QUATRO
+⟹ CINCO
+```
+
+## Codificação de Church: booleanos
+
+```
+T = λx. λy. x   ; escolhe o primeiro
+F = λx. λy. y   ; escolhe o segundo — repare que F tem a mesma forma de ZERO
+```
+
+**AND:**
+
+```
+AND = λb0. λb1. b0 b1 F
+```
+
+```
+AND T F
+⟹ (λb0. λb1. b0 b1 F) T F
+⟹ (λb1. T b1 F) F           ; b0 := T
+⟹ T F F                     ; b1 := F
+⟹ F                         ; T recebe duas coisas e retorna a primeira
+```
+
+**OR:**
+
+```
+OR = λb0. λb1. b0 T b1
+```
+
+```
+OR F T
+⟹ (λb0. λb1. b0 T b1) F T
+⟹ (λb1. F T b1) T           ; b0 := F
+⟹ F T T                     ; b1 := T
+⟹ T                         ; F recebe duas coisas e retorna a segunda
+```
+
+**NOT:**
+
+```
+NOT = λb. b F T
+```
+
+**Z** (o `zero?` da linguagem, testa se um número de Church é zero):
+
+```
+Z = λx. x F NOT F
+```
+
+```
+Z ZERO
+⟹ (λx. x F NOT F) ZERO
+⟹ ZERO F NOT F        ; ZERO recebe duas coisas e retorna a segunda — nesse caso, NOT
+⟹ NOT F
+⟹ T
+```
+
+```
+Z TRÊS
+⟹ (λx. x F NOT F) TRÊS
+⟹ (TRÊS F NOT) F
+⟹ (F (F (F NOT))) F
+⟹ F
+```
+
+**IF**, a decisão (`if-then-else`) que faltava para completar os 3 requisitos de Turing
+completude:
+
+```
+IF = λb. λe1. λe2. b e1 e2
+```
+
+Com números (valor), `Z` (saber se um número é zero) e `IF` (decisão), esse formalismo de
+texto — o cálculo lambda — é Turing completo.
+
+## Variáveis livres (FV)
+
+No topo do quadro, as regras base para o cálculo de variáveis livres:
+
+- `FV(x) = {x}`
+- `FV(e₁ e₂) = FV(e₁) ∪ FV(e₂)`
+- `FV(λx. e) = FV(e) \ {x}`
+
+<Callout title="Questão da lista 9, Q2(a)" type="info">
+  Desenvolvimento do cálculo de variáveis livres para `FV(λx. x y λz. x z)`:
+
+  ```
+  FV(λx. x y λz. x z)
+  = FV(x y λz. x z) \ {x}
+  = ((FV(x) ∪ FV(y)) ∪ FV(λz. x z)) \ {x}
+  = ({x} ∪ {y} ∪ (FV(x z) \ {z})) \ {x}
+  = ({x, y} ∪ ({x, z} \ {z})) \ {x}
+  = {x, y} \ {x}
+  = {y}
+  ```
+</Callout>
