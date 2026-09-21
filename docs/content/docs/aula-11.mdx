@@ -1,0 +1,280 @@
+---
+title: Aula 11 - Escopo
+description: 16/09 — Lista 11
+---
+
+## O que é escopo?
+
+```c
+int main() {
+    int i = 0;
+    {
+        int i = 1;
+        printf("%d\n", i);
+    }
+    printf("%d\n", i);
+}
+```
+
+Nesse caso foi criado um escopo dentro de outro escopo. Isso é chamado de **blocos**
+(*blocks*).
+
+## Blocos em SML, e por que eles importam
+
+Em SML isso é feito assim, com `let`:
+
+```sml
+let
+  val x0 = 1
+in
+  let
+    val x1 = 2
+  in
+    x1 * x0
+  end
+end
+```
+
+Algol trouxe essa ideia de **pilha** (`in` e `end` empilham e desempilham escopos). Em C,
+por exemplo, muitas coisas acontecem quando uma chave `}` é fechada; em Rust também — os
+ponteiros têm referência, e quando saem do escopo o contador de referência é decrementado
+até chegar a zero.
+
+Essa ideia de blocos é muito boa: só se consegue fazer recursão hoje em dia por causa
+dela — vem do Algol. Se não existissem blocos, seria preciso salvar aquela variável local
+de alguma outra forma.
+
+## Espaços de nomes
+
+**Espaço de nomes**: um jeito de dar um "sobrenome" para uma variável — `x -> i` ou `x.i`.
+
+- **C:** `struct` ou `enum`
+- **C++:** `struct`, `union`, `class` e `namespace`
+- **Java:** `class`, `package`
+
+O que diferencia `namespace`/`package` de `struct`/`class`? Para usar um `struct`/`class`,
+preciso **instanciar** um valor daquele tipo. Já `namespace` e `package` eu não preciso
+instanciar — só pode haver um. Várias linguagens têm esse conceito. C tem um tipo não
+instanciável (o programa inteiro): quando escrevo uma variável global, não consigo criar
+novos espaços de nomes para elas.
+
+Em C++:
+
+```cpp
+namespace A {
+    int a = 1;
+    int b = 3;
+}
+
+namespace B {
+    int a = 23;
+    int b = 2;
+}
+
+struct C {
+public:
+    int a = 23;
+    int b = 2;
+    static int c;
+};
+int C::c = 5;   // atributo estático: conhecido em tempo de compilação, só tem 1
+
+class D {
+public:
+    int a = 23;
+    int b = 2;
+};
+
+union E {
+    int a;
+    double b;
+};
+
+int main() {
+    C c0;
+    C* c1 = new C();
+    D d0;
+    E e0;
+    std::cout << B::b << std::endl;
+    std::cout << A::b << std::endl;
+    std::cout << c0.a << std::endl;
+    std::cout << c1->a << std::endl;
+    std::cout << d0.a << std::endl;
+    std::cout << e0.a << std::endl;
+}
+```
+
+Em C++, o `.` separa o nome de uma instância do seu campo (`c0.a`: `c0` é uma instância de
+`C`); `->` faz a mesma coisa a partir de um ponteiro para uma instância. Já `::` separa o
+**não instanciável** do seu campo — do lado esquerdo de `::` só existe **um** (um
+namespace, ou uma classe, no caso de um atributo estático).
+
+`namespace` é muito usado em C++ porque, conforme o programa cresce, começa a dar conflito
+de nome — o namespace existe para evitar isso. Em Java, uma classe pública é um módulo; em
+C e C++ não existe essa noção, e por isso é comum, na hora de **ligar** (*link*) o
+programa, dar conflito de nome — já que arquivos são compilados separadamente.
+
+## Por que C++ tem `struct` e também `class`?
+
+Tem uma diferença semântica: por padrão, os membros de uma `class` são privados, e os de
+um `struct` são públicos — mas existe `public class`, e aí vira a mesma coisa (o mesmo
+raciocínio vale para `struct` com membros privados).
+
+Mas por quê essa duplicação existe? `struct` surgiu por causa da compatibilidade com C.
+Antigamente, C++ era chamado de "C with classes". Quando o C++ surgiu, a palavra `private`
+não existia — só existia `public`. Eventualmente `private` foi adicionado, porque ajuda a
+documentar o programa. Isso foi nos anos 90, e a partir daí `struct` e `class` ficaram
+redundantes.
+
+Existem várias redundâncias assim em outras linguagens — por exemplo, `do-while` pode ser
+feito com um `if` e um `while` normal.
+
+## Quantos espaços de nomes uma linguagem tem?
+
+C tem **um** espaço de nomes. SML tem **dois**: o de tipos e o de valores. Por isso, em C,
+não consigo usar `int` como valor — a gramática de C não permite essa separação (tipos e
+valores disputam o mesmo espaço).
+
+Já em Java há **pelo menos 4** espaços de nomes — dá para ver isso claramente numa classe
+onde o mesmo nome é reaproveitado para rótulo, tipo, método e valor ao mesmo tempo. É
+exatamente o que a Lista 11, Q2, pede para analisar (lá com o nome `Reuse`; aqui, para
+caber no quadro, só `R`):
+
+```java
+class R {
+    R R (R R) {
+        R:
+        for (;;) {
+            if (R.R(R) == R) {
+                break R;
+            }
+        }
+        return R;
+    }
+}
+```
+
+![Quadro anotado mostrando os 4 espaços de nomes de `class R`: rótulo, tipo, função e valor](/assets/aula-11/namespaces-crop.jpeg)
+
+## SML: função e parâmetro compartilham o namespace de valores
+
+Em SML consigo fazer:
+
+```sml
+- fun s s = s + s;
+- s 2;
+val it = 4 : int
+```
+
+Porém não consigo fazer `fun s s = s(s)` — dentro do corpo, o `s` (parâmetro) esconde o
+`s` (nome da função), e os dois moram no **mesmo** namespace de valores. Então `s(s)`
+tentaria "chamar" um inteiro como se fosse função. Saber separar o que é chamável é
+necessário para não ter esse tipo de conflito.
+
+## Escopo estático × dinâmico
+
+```sml
+val one = 1
+fun inc x = x + one
+
+fun foo x =
+  let
+    val one = 2
+  in
+    inc x
+  end;
+
+- foo 5;
+```
+
+Isso imprime `6` — há linguagens em que um programa assim daria `7` (como um script bash),
+mas na maioria das linguagens uma variável local não deveria modificar uma variável de
+fora. A segunda declaração de `one` (dentro de `foo`) não tem nada a ver com a que `inc`
+enxerga: **o ponto em que uma variável é definida nunca muda**, mesmo que o valor dela
+mude várias vezes.
+
+**Escopo estático:** tudo que o compilador já sabe — por isso é estático. Quase toda
+linguagem de programação tem escopo estático; programas com escopo dinâmico são muito
+difíceis de entender. Mas existem linguagens com escopo dinâmico.
+
+Este programa em C, por exemplo, tem esse comportamento:
+
+```c
+#include <stdio.h>
+
+#define ADD_A(x) (x + a)
+
+void add_one(int* x) {
+    const int a = 1;
+    *x = ADD_A(*x);
+}
+
+void add_two(int* x) {
+    const int a = 2;
+    *x = ADD_A(*x);
+}
+
+int main(int argc, char** argv) {
+    printf("%d\n", argc);
+    add_one(&argc);
+    printf("%d\n", argc);
+    add_two(&argc);
+    printf("%d\n", argc);
+}
+```
+
+<Callout title="Isso é escopo dinâmico de verdade?" type="warn">
+  C **não** tem escopo dinâmico — é estático. O que acontece aqui é outra coisa: a macro
+  `ADD_A` faz **substituição textual** (o pré-processador cola `(x + a)` no lugar), e o `a`
+  dentro dela não é parâmetro nenhum — é só resolvido pelo escopo estático de onde o texto
+  foi colado. Como cada função tem seu próprio `a` local, o resultado *parece* dinâmico
+  (o significado de `a` muda conforme quem chama), mas é só uma macro não higiênica
+  (*unhygienic macro*) — exatamente o tema da Lista 11, Q6(e), sobre por que macros de C
+  não são limpas.
+</Callout>
+
+A primeira versão de Lisp tinha escopo dinâmico — mas isso porque era mais difícil
+escrever escopo estático (Scheme, mais tarde, corrigiu isso — Lista 11, Q6b). Tem uma
+linguagem muito famosa com escopo dinâmico de verdade: **APL**.
+
+Snippet de APL:
+
+![Trecho de código APL implementando o Jogo da Vida de Conway](/assets/aula-11/apl.png)
+
+Referência: [Conway's Game of Life em APL](https://aplwiki.com/wiki/Conway's_Game_of_Life).
+
+As pessoas liam APL como se fosse uma fita, mas a definição das coisas mudava; os
+programas em APL eram todos de uma linha só, com símbolos pequenos. Mesmo assim, APL é
+Turing completa.
+
+## Visibilidade e projeções (interfaces)
+
+Algumas definições dentro de um namespace são públicas e outras são privadas; para
+separar, usam-se **qualificadores** — em C++, por exemplo, escrever `public:` diz que
+tudo dali para baixo é público.
+
+Porém existe outra maneira comum de restringir visibilidade: **projeções**. O nome mais
+comum para uma projeção é **interface**. Em SML:
+
+```sml
+signature SET =
+sig
+  type set
+  val new: set
+  val add: set -> int -> set
+  val contains: set -> int -> bool
+  val remove: set -> int -> set
+end;
+
+structure FunSet :> SET =
+struct
+  type set = int -> bool
+  val new = fn _ => false
+  fun add f i = fn x => if x = i then true else f x
+  fun contains f i = f i
+  fun remove f i = fn x => if x = i then false else f x
+end;
+```
+
+Um programa em que `new`, `add` e `remove` são O(1) — repare que `contains` não está
+nessa lista: seu custo depende de quantos elementos já foram adicionados.

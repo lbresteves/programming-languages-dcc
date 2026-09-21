@@ -1,0 +1,362 @@
+---
+title: Aula 10 - Funções de Alta Ordem
+description: 14/09 — Lista 10
+---
+
+## Currying: funções tupladas × currificadas
+
+```sml
+fun addt (a, b) = a + b;   (* tipo: int * int -> int *)
+fun addc a b = a + b;      (* tipo: int -> int -> int *)
+```
+
+`addt` tem um parâmetro **tuplado**; `addc` tem, a cada passo, um único parâmetro
+**inteiro** (é *currificada* — daí o nome do exemplo). Por isso `addt(2, 3)` funciona, mas
+`addc(2, 3)` não: `(2, 3)` é uma tupla só, e `addc` espera um `int`, não uma tupla.
+
+```sml
+- addc 2;
+val it = fn : int -> int
+- val f = addc 2;
+- f 4;
+val it = 6 : int
+```
+
+`addc` é uma "fábrica de função": cada parâmetro que você passa devolve uma função nova.
+Isso é só açúcar sintático para uma cadeia de abstrações lambda — a mesma coisa que você já
+viu na Aula 09:
+
+```
+addc = λa. λb. a + b
+inc  = addc 1
+     = (λa. λb. a + b) 1
+     = λb. 1 + b
+```
+
+`fun addc a b = a + b;` tem um nome: **notação currificada**.
+
+## Funções como valores de primeira classe
+
+```sml
+- val f = fn x => x + 1;
+val f = fn : int -> int
+```
+
+Funções são valores e podem ser atribuídas — por isso também podem aparecer do lado
+direito de qualquer expressão, inclusive dentro de listas:
+
+```sml
+- val t = [fn x => x + 1, fn y => y * y];
+val t = [fn,fn] : (int -> int) list
+- t;
+val it = [fn,fn] : (int -> int) list
+- val t0 = (fn x => x + x) :: t;
+val t0 = [fn,fn,fn] : (int -> int) list
+- hd (tl t0) 3;
+val it = 4 : int
+- val t0 = (fn x => real x) :: t;
+stdIn:17.5-17.31 Error: operator and operand do not agree [tycon mismatch]
+  operator domain: (int -> real) * (int -> real) list
+  operand:         (int -> real) * (int -> int) list
+  in expression:
+    (fn x => real x) :: t
+```
+
+O erro acima acontece porque o tipo é diferente: `t` é `(int -> int) list`, e
+`fn x => real x` é `int -> real` — as funções de uma lista precisam ser todas do mesmo
+tipo.
+
+## Funções anônimas não podem ser recursivas
+
+```sml
+val addL = fn a => fn b => a + b;
+```
+
+Não é possível fazer um `fn` recursivo, porque ele não tem nome. `addL` até recebe um
+nome — mas só é declarado *depois* do `;`, então não dá para chamá-lo de dentro do próprio
+corpo da função. Daí o nome: expressões lambda são **funções anônimas**, como `addL`.
+
+O mesmo mecanismo existe fora do SML — em Python:
+
+```python
+f = lambda x: lambda y: x + y
+g = f(2)
+g(3)
+# 5
+```
+
+## O que é uma função de alta ordem
+
+Uma função tem **ordem 0** se não usa nenhuma função como parâmetro nem como valor de
+retorno. Tem **ordem n + 1** se usa (como parâmetro ou retorno) uma função de ordem `n`,
+sendo `n` a maior ordem entre as funções usadas. `map`, `foldr` e `foldl` são funções de
+alta ordem.
+
+Funções de alta ordem são um jeito de escrever programas grandes e reutilizáveis em
+linguagens funcionais.
+
+## Números de Church em SML
+
+O protocolo de número de Church — já visto na Aula 09 — é um jeito de escrever números
+usando só funções, em base unária. Em SML:
+
+```sml
+val ZERO = fn s => fn z => z;
+val UM   = fn s => fn z => s z;
+val DOIS = fn s => fn z => s (s z);
+```
+
+Em SML precisa por um `val` na frente de cada definição; em Python, por exemplo, não
+precisa. O desafio de contar quantas funções existem num programa C é muito difícil, mas
+em Python e SML é fácil — Python usa `def`, SML usa `fun`/`fn`, então é só procurar pela
+palavra-chave (um problema *regular*). Já contar o número de variáveis é o oposto: em
+Python é difícil, pois não tem uma notação fixa para isso; em SML é fácil, porque toda
+declaração usa `val` — de novo, um problema regular.
+
+O tipo de `ZERO` é `val ZERO = fn : 'a -> 'b -> 'b`, que não se parece nada com um número.
+Para converter um número de Church de volta para um inteiro comum, `n` recebe dois
+parâmetros (`s` e `z`) e aplica `s` a `z`, `n` vezes:
+
+```sml
+fun P n = n (fn x => x + 1) 0;
+
+- P ZERO;
+val it = 0 : int
+- P UM;
+val it = 1 : int
+```
+
+*(O que eu assumo sobre os números de Church? O número de vezes que algo é aplicado —
+explicar melhor.)*
+
+Para o sucessor, e conseguir expressar todos os números:
+
+```sml
+val SUCC = fn n => fn y => fn x => y (n y x);
+```
+
+Para fazer adição usando notação de Church:
+
+```sml
+val ADD = fn n0 => fn n1 => n1 SUCC n0;
+fun P n = n (fn x => x + 1) 0;
+
+- P (ADD DOIS DOIS);
+val it = 4 : int
+```
+
+<Callout title="Tipo de ADD não confere" type="warn">
+  O tipo impresso pelo REPL para `ADD` ficou com parênteses desbalanceados nas minhas
+  anotações — sinal de que a transcrição em aula saiu incompleta. Não tenho como conferir
+  sem rodar o SML agora; se ainda tiver a sessão salva, vale colar o tipo de novo aqui.
+</Callout>
+
+E `MUL`, a mesma que você resolveu na Lista 9, Q1(a):
+
+```sml
+val MUL = fn n1 => fn n2 => fn z => n1 (n2 z);
+fun P n = n (fn x => x + 1) 0;
+
+- P (MUL DOIS DOIS);
+val it = 4 : int
+```
+
+## Booleanos de Church em SML
+
+```sml
+val T = fn x => fn y => x;
+val F = fn x => fn y => y;
+
+fun B b = b true false;   (* converte booleano de Church em bool de SML *)
+
+val AND = fn b0 => fn b1 => b0 b1 F;
+
+- B (AND T F);
+val it = false : bool
+```
+
+```sml
+val OR  = fn b0 => fn b1 => b0 T b1;
+val NOT = fn b => b F T;
+```
+
+`Z` é o `zero?`: só aceita número de Church como argumento, e retorna `T` se ele for zero.
+
+```sml
+val Z = fn x => x F NOT F;
+
+- B (Z ZERO);
+val it = true : bool
+- B (Z UM);
+val it = false : bool
+```
+
+Para entender por que isso funciona, é preciso fazer a expansão (a mesma conta que você já
+fez na Aula 09/Lista 9, Q8).
+
+```sml
+val IF = fn b => fn e0 => fn e1 => b e0 e1;
+
+- IF T 1 2;
+val it = 1 : int
+```
+
+## `map`, `foldr`, `foldl`
+
+```sml
+- map (fn x => x * x) [2, 3, 4, 5];
+val it = [4, 9, 16, 25] : int list
+```
+
+O tipo de `map` é `('a -> 'b) -> 'a list -> 'b list` — recebe **uma função** de `'a` para
+`'b`, e uma lista de `'a`, devolvendo uma lista de `'b`.
+
+`foldr` (fold **r**ight) percorre a lista da direita para a esquerda, acumulando os
+valores através de uma função binária:
+
+```sml
+- foldr (op +) 0 [1, 2, 3, 4];
+val it = 10 : int
+- foldr (op * ) 1 [2, 3, 4, 5];
+val it = 120 : int
+- foldr (op ^) "" ["a", "b", "c"];
+val it = "abc" : string
+- foldr (op ::) [5] [1, 2, 3, 4];
+val it = [1,2,3,4,5] : int list
+```
+
+`foldr` toma uma função binária `op`, um valor inicial `c`, e uma lista
+$[x_1, x_2, \ldots, x_n]$, e retorna $x_1\ op\ (x_2\ op\ (\ldots (x_n\ op\ c)))$ — por
+exemplo, `foldr (op +) 0 [1, 2, 3, 4]` acima.
+
+```sml
+foldr: ('a * 'b -> 'b) -> 'b -> 'a list -> 'b
+```
+
+```sml
+fun append L0 L1 = foldr (op ::) L1 L0;
+```
+
+```sml
+- fun ins (e, nil) = [e]
+    | ins (e, h::t) = if e < h then e::h::t else h :: ins (e, t);
+val ins = fn : int * int list -> int list
+- ins (4, [2, 3, 5, 6, 7]);
+```
+
+```sml
+fun mystery L = foldr ins nil L;   (* isso é equivalente a um insertion sort *)
+fun inSort L = foldr ins nil L;
+```
+
+`foldl` é muito parecido com `foldr`, só muda a direção do percurso (esquerda para
+direita):
+
+```sml
+- foldl (op ::) [5] [1, 2, 3, 4];
+val it = [4,3,2,1,5] : int list
+- foldl (op +) 0 [1, 2, 3, 4];
+val it = 10 : int
+- foldl (op * ) 1 [1, 2, 3, 4];
+val it = 24 : int
+- foldl (op ^) "" ["a", "b", "c"];
+val it = "cba" : string
+- foldr (op ^) "" ["a", "b", "c"];
+val it = "abc" : string
+```
+
+```sml
+(* foldr op c [x0, x1, x2] = (x0 op (x1 op (x2 op c))) *)
+(* foldl op c [x0, x1, x2] = (x2 op (x1 op (x0 op c))) *)
+
+val sumL = foldr (fn (x, y) => x + y) 0;   (* soma todos os valores de uma lista *)
+```
+
+**Quando `foldr` e `foldl` dão o mesmo resultado:** só quando o operador é **comutativo e
+associativo** ao mesmo tempo.
+
+| Operador | Comutativo | Associativo | `foldr == foldl`? |
+|---|---|---|---|
+| `add` | ✓ | ✓ | ✓ |
+| `sub` | ✗ | ✗ | ✗ |
+| `^` (concatenação) | ✗ | ✓ | ✗ |
+| `avg` | ✓ | ✗ | ✗ |
+
+Para que `foldr == foldl` valha, preciso das duas colunas com ✓ na mesma linha — só `add`
+consegue.
+
+No modelo **PRAM**, o custo para qualquer *thread* ler a memória é o mesmo (não importa a
+posição nem quem lê); por isso um `map` no PRAM é O(1). Um `fold` normal é sequencial, mas
+se o operador for associativo, dá para paralelizar em O(log n) (árvore de redução) — o
+nome técnico disso é *reduce* (o "reduce" do MapReduce), usado para processar grandes
+quantidades de páginas web.
+
+```sml
+fun map f nil = nil
+  | map f (h::t) = f h :: map f t;
+```
+
+<Callout title="Código × dados: C vs. SML" type="idea">
+  Em C, uma função vira código fixo no **segmento de instruções**, decidido em tempo de
+  compilação — não é um dado que existe em tempo de execução. Em SML, como funções são
+  valores de primeira classe (você pode criar uma *closure* em tempo de execução, guardar
+  numa lista, devolver de outra função), elas também precisam ser representadas como
+  **dado** em tempo de execução. É por isso que a memória de um programa SML mistura
+  "código" e "dado" de um jeito que C não mistura.
+</Callout>
+
+## `filter`, o crivo de Eratóstenes e quicksort
+
+```sml
+fun filter p nil = nil
+  | filter p (h::t) = if p h then h :: filter p t else filter p t;
+
+- filter (fn x => x mod 2 = 0) [3, 4, 5, 6, 7];
+val it = [4, 6] : int list
+
+val filterEven = filter (fn x => x mod 2 = 0);
+filterEven [3, 5, 1, 6];
+```
+
+Pseudo crivo de Eratóstenes:
+
+```sml
+fun sieve nil = []
+  | sieve (h::t) = h :: sieve (filter (fn x => (x mod h) <> 0) t);
+
+fun range 1 = nil
+  | range (n:IntInf.int) = n :: range (n - 1);
+
+fun inv nil acc = acc
+  | inv (h::t) acc = inv t (h::acc);
+
+fun primes n = sieve (inv (range n) nil);
+```
+
+`range` para em `1` de propósito (não desce até `0`): como `1` não é primo, o crivo já
+começa direto em `2` depois do `inv` (que reverte a lista para ficar em ordem crescente).
+
+```sml
+fun leq a b = a <= b;
+val f = leq 2;
+val f = (fn a => fn b => a <= b) 2;
+val f = fn b => 2 <= b;
+
+fun grt a b = a > b;
+```
+
+Os operadores `<=` e `>` já são padrão do SML — dava para usar `(op <=)` e `(op >)`
+diretamente, como fizemos com `(op +)` no `foldr` acima. `leq` e `grt` aqui são só nomes
+dados a eles, convenientes para passar como função nomeada em vez de operador infixo.
+
+```sml
+fun qsort nil = nil
+  | qsort (h::t) = qsort (filter (grt h) t) @ h :: qsort (filter (leq h) t);
+```
+
+<Callout title="Por que não precisa de mais parênteses aqui" type="info">
+  `::` e `@` têm a **mesma precedência** e são ambos associativos à direita (`infixr 5`),
+  então `A @ h :: B` agrupa para a direita: `A @ (h :: B)` — exatamente o que o quicksort
+  precisa (concatenar a parte menor com `h` consado à parte maior), sem precisar escrever
+  nenhum parêntese extra.
+</Callout>
