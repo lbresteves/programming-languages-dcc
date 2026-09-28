@@ -1,0 +1,223 @@
+Pablo Diego Jose Francisco de Paula Juan Nepomuceno Maria de los Remedios
+Cipriano de la Santisima Trinidad Ruiz y Picasso
+
+Mar 30 - The Lambda Calculus
+============================
+
+1) Which language is more powerful, SML or C?
+
+The brief history of lambda-calculus.
+
+* Lambda expressions:
+<expr> ::= <name>
+         | \lambda <name> . <expr>
+         | <expr> <expr>
+
+* The semantics of lambda-calculus is roughly defined by a simple substitution
+scheme:
+(\v . E) E1 --> E [with each occurrence of v replaced by E1]
+This kind of reduction is called a beta reduction.
+
+Example:
+Identity = \x.x
+(\x.x) y = y
+
+* We have also alpha reductions: we can change all the occurrences of a name
+n1 by another name n2 in an expression E, given that n2 does not already occur
+in E: \x.x = \z.z = \y.y
+
+1.1) Do you remember the precedence rules in SML?
+* Precedence:
+Application associates to the left:
+E1 E2 E3 = ((E1 E2) E3)
+
+1.1) What is the result of? (\x.\y. x y) (\z.z) w
+  (\y.(\z.z) y) w => (\z.z) w => w
+
+1.2) Would another evaluation order be possible?
+Yes!
+(\y. (\z.z) y)  w
+
+(\y. y)  w
+
+w
+
+1.3) Are these two orders guaranteed to always produce the same result?
+Not always! Consider:
+(\x. y) ( (\x. x x) (\x. x x) )
+
+- Applicative order: loop forever
+- Normal order: terminates with y
+
+* Free and Bound variables:
+Given \x.E, the occurrence of 'x' in E is considered bound.
+Example: \x.xy
+- Intuitively, a free variable is a variable that has not been declared.
+
+* A substitution is only valid as long as it does not cause a free variable
+to become bound:
+1.2) Can you give an example of an unsafe substitution?
+(\y . (\x . (mul y x))) x --> \x . mul x x
+The original function is multiplication by y, and the second is a square.
+
+Recursive definition:
+FV(x) = {x}
+FV(\x.E) = FV(E) \ {x}
+FV(E1 E2) = FV(E1) U FV(E2)
+
+Ex.:
+FV(\x.xy) = FV(xy)\{x} = (FV(x) U FV(y))\{x} = ({x} U {y})\{x} = {y}
+
+* Substitution:
+Be careful not to mix up bound and free variables:
+2) Solve (\x.(\y.xy))y
+
+We can do 'alpha-renaming'
+(\x.(\t.xt))y => \t.yt
+
+* A substitution should not change variables in the scope of other lambda
+declarations: (\x.x(\x.x))y = y(\y.y) is not wrong, but it makes the program
+hard to read.
+or (\x . (\x . x + 1) (x + x)) 2
+--> (\2 . 2 + 1) (2 + 2) --> makes no sense to have \2
+--> (\x . 2 + 1) (2 + 2) --> this is three, which is not probably what we want
+--> (\x . x + 1) (2 + 2) --> this is five, what is fine!
+
+3) How to solve (\x. x(\x.x))y
+We can use alpha-renaming: (\x.x(\x.x))y = (\x.x(\w.w))y = y(\w.w)
+
+4) Solve (\x.(\y.(x(\x.xy))))y
+renaming 1: (\x.(\t.(x(\x.xt))))y
+renaming 2: (\x.(\t.(x(\u.ut))))y
+(\t.(y(\u.ut)))
+
+5) How to code a function Twice, that takes a function and a parameter,
+and applies the function on the parameter twice?
+\f.\p.f(fp)
+
+6) How to represent numbers using lambda-expressions?
+- Everything is a convention!
+A number is a function that takes a function s plus a constant z. The
+number N is formed by applying s N times on z.
+Zero = \s.\z.z
+One = \s.\z.sz
+Two = \s.\z.s(sz)
+Three = \s.\z.s(s(sz))
+
+7) How to define the successor function?
+Succ = \n.\y.\x.y(nyx)
+Example 1 - successor applied to zero:
+  (\n.\y.\x.y(nyx))(\s.\z.z) =
+  \y.\x.y((\s.\z.z)yx) =
+  \y.\x.yx
+Example 2 - successor applied to one
+  (\n.\y.\x.y(nyx))(\s.\z.sz) =
+  \y.\x.y((\s.\z.sz)yx) =
+  \y.\x.y(yx)
+
+8) How to define addition of n and m?
+What about ADD = \m.\n.\x.\y.m x (n x y)
+ex.: ADD 2 3 =
+ (\m.\n.\x.\y.m x (n x y)) 2 3 =
+ \x.\y.2 x (3 x y) =
+ \x.\y.2 x (x (x (x y))) =
+ \x.\y.(\s.\z.s (s z)) x (x (x (x y))) =
+ \x.\y.x (x (x (x (x y)))) =
+
+8.1) Can I use the successor function?
+- Apply the successor function n times on m, e.g: ADD = \m . \n . m SUCC n
+Example:
+  2 + 3 =
+  Two Succ Three =
+  (\s.\z.s(sz)) Succ Three =
+  (\z. Succ Succ z) Three =
+  Succ (Succ Three) =
+  Succ (Four) = Five
+
+9) How to implement multiplication?
+MUL = \n1.\n2.\s. n1 (n2 s)
+
+9.1) How to understant this query? What would happen once we pass a number n1
+as parameter?
+\n1 . \n2 . \s . n1 (n2 s) (\a . \b . a(a(...(a(ab)))))
+\n2 . \s . (\a . \b . a(a(...(a(ab))))) (n2 s)
+           |----------- n1 -----------|
+\n2 . \s . (\b . (n2 s) ( (n2 s) (...( (n2 s) ( (n2 s) b))...)))
+
+9.2) What would happen if I pass another number n2 as parameter?
+\s . (\b . (n2 s) ( (n2 s) (...( (n2 s) (s(s...(s b)...)))...)))
+                                        |------ n2 ------|
+\s . (\b . (n2 s) ( (n2 s) (...( (s(s... s(s(s...(s b)...)...))))...)))
+                                 |----------- n2 + n2 -----------|
+\s . (\b . (s(s(s(s(s...(s(sb))))))))
+           |-- n2 + n2 + ... + n2 --|
+           |---------- n1 ----------|
+
+ex.: MUL 2 3 =
+\s . 2 (3 s)
+\s . 2 ((\a . \b . a(a(a b))) s)
+\s . 2 (\b . s(s(s b)))
+\s . (\c . \d . c(c d)) (\b . s(s(s b)))
+\s . \d. (\b.s(s(s b))) (s(s(s d)))
+\s . (\d . s(s(s(s(s(s d))))))
+
+10) How to define conditionals:
+T = \x.\y.x
+F = \x.\y.y
+
+11) How to define AND, OR and NOT?
+AND = \x.\y.xyF
+OR = \x.\y.xTy
+NOT = \x.xFT
+
+Ex.:
+11.1) AND T F =
+(\x.\y.xyF) T F =
+T F F =
+(\x.\y.x) F F = F
+
+11.2) OR F T =
+(\x.\y.xTy) F T =
+F T T =
+(\x.\y.y) T T = T
+
+11.3) NOT T =
+(\x.xFT) T =
+T F T =
+(\x.\y.x) F T = F
+
+12) How to define a conditional?
+IF = \c . \e1 . \e2 . c e1 e2
+
+12) How to define a function that is true if the argument is the number
+zero, and false otherwise?
+Z = \x.x F NOT F
+
+12.1) What is ZERO F NOT F?  ;; remember, application associates to the left:
+(\s. \z . z) F NOT F =
+(\z . z) NOT F =
+NOT F =
+T
+
+12.2) What is n F NOT F, n > ZERO?
+;; F takes two args, and returns the second.
+(F (F (F ... (F NOT)))) F =
+((\x.\y.y) (F (F ... (F NOT)))) F
+(\y.y) F
+F
+
+Ex.:
+12.3) Evaluate Z Zero =
+(\x.x F NOT F) Zero =
+Zero F NOT F =
+(\s.\z.z) F NOT F =
+NOT F =
+T
+
+12.4) Evaluate Z Three =
+(\x.x F NOT F) Three =
+Three F NOT F =
+(F (F (F NOT))) F =
+((\x.\y.y) (F (F NOT))) F
+(\y.y) F
+F

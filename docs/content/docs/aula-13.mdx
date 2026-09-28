@@ -1,0 +1,317 @@
+---
+title: Aula 13 - Registros de ativação
+description: 23/09 — Lista 13
+---
+
+## Por que funções?
+
+Existem linguagens que não têm funções, mas nas linguagens mais práticas elas existem. Sem
+funções, eu teria que replicar muitas linhas de código. E funções levam a várias
+abstrações — **recursividade** é uma delas.
+
+Mas o que é uma função, e como ela é implementada? No fundo, é um **desvio** (*branch*)
+**que lembra de onde veio**. Uma função, em essência, é um *jump*.
+
+## Onde ficam os valores: a arquitetura de von Neumann
+
+A **arquitetura de von Neumann** é um modelo de computador em que dados e instruções
+compartilham a mesma memória e o mesmo barramento, permitindo que programas sejam
+armazenados e executados diretamente na máquina. Os valores que um programa manipula
+ficam em registradores, caches e memória.
+
+Assembly (ARM64, macOS) de um `main` que chama `foo(23, 41, 73)`:
+
+```asm
+    .p2align 2
+main:
+    .cfi_startproc
+; %bb.0:
+    sub   sp, sp, #48              ; =48
+    stp   x29, x30, [sp, #32]      ; 16-byte Folded Spill
+    add   x29, sp, #32             ; =32
+    .cfi_def_cfa w29, 16
+    .cfi_offset w30, -8
+    .cfi_offset w29, -16
+    mov   w8, #0
+    stur  wzr, [x29, #-4]
+    mov   w0, #23
+    mov   w1, #41
+    mov   w2, #73
+    stur  w0, [x29, #-8]           ; 4-byte Folded Spill
+    bl    foo
+    adrp  x9, l_.str@PAGE
+    add   x9, x9, l_.str@PAGEOFF
+    stur  w0, [x29, #-12]          ; 4-byte Folded Spill
+    mov   x8, x9
+    mov   x0, x9
+```
+
+- `mov w0/w1/w2, ...`: os parâmetros vão em registradores.
+- `bl foo` (*branch with link*): guarda o **endereço de retorno** no registrador `x30` e
+  pula para `foo`. A volta é um salto para o endereço guardado em registrador (`ret`).
+
+Uma chamada de função precisa essencialmente de 4 instruções: o salto, *load* e *store*
+(para salvar e recuperar dados) e o salto para o endereço guardado no registrador.
+
+## Ativação e registro de ativação
+
+- **Ativação** (*activation*): o tempo de vida de uma execução de uma função — do momento
+  em que ela é chamada até retornar.
+- **Registro de ativação** (*activation record*): o conjunto de dados que o programa
+  associa a uma chamada específica da função — o que ela precisa para funcionar.
+
+Numa linguagem **sem recursão**, o registro de ativação precisa salvar 4 coisas:
+
+1. **endereço de retorno** (um endereço de instrução);
+2. **parâmetros** (dados);
+3. **valor de retorno** da função;
+4. **variáveis locais**.
+
+**Tempo de vida** de uma variável: o tempo durante o qual ela está viva. Ele pode ser
+maior que o da função onde ela foi declarada — é o caso de uma variável `static` em C:
+
+```c
+#include <stdio.h>
+int nextcount() {
+  static int count = 0;
+  count = count + 1;
+  return count;
+}
+int main() {
+  printf("%d\n", nextcount());   /* 1 */
+  printf("%d\n", nextcount());   /* 2 */
+  printf("%d\n", nextcount());   /* 3 */
+}
+```
+
+Variável `static` → seu **endereço** é conhecido em tempo de compilação (fica numa posição
+fixa da memória, e vive o programa inteiro).
+
+## Alocação estática: sem recursão
+
+Na **alocação estática**, cada função tem **um único** registro de ativação, guardado em
+posições fixas — como se fossem variáveis globais. As primeiras linguagens eram assim:
+**FORTRAN** e **COBOL** (de Grace Hopper).
+
+O problema: assim não é possível fazer recursão. Se o registro fica em variáveis globais,
+só existe **uma** versão desses dados; se eu chamo a função pela 2ª vez antes de a 1ª
+terminar, a 2ª chamada sobrescreve a primeira. (Também não dá para ter duas *threads*
+executando a mesma função.) A vantagem é a simplicidade: não há custo para alocar nada em
+tempo de execução.
+
+Alguns programas recursivos podem funcionar mesmo assim: quando a chamada recursiva é a
+**última** coisa que a função faz, nada do registro atual é necessário depois dela, e a
+chamada pode virar um salto que reaproveita o mesmo registro (um *loop*). Isso é a
+**recursão de cauda** (*tail recursion*). O `foldl` é recursivo de cauda; o `foldr` não é.
+
+## Por que queremos recursão?
+
+Recursão **não** aumenta o poder computacional de um programa. Nem é por eficiência: uma
+recursão tende a ser **menos** eficiente que o laço equivalente. (Expandir o corpo da
+função no lugar da chamada — *inline* — elimina o custo da chamada, mas uma função
+recursiva não pode ser expandida por completo.)
+
+A recursividade é vantajosa para uma família de algoritmos que é muito mais fácil de
+implementar com ela: **divisão e conquista** (o *merge sort*, por exemplo, é do próprio
+von Neumann). Ganha-se nesse tipo de abstração.
+
+Mas isso não era óbvio, tanto que as primeiras linguagens (FORTRAN, COBOL) não tinham
+recursão. **Algol** resolveu o problema com os blocos `begin`/`end`: blocos abrem e fecham
+em ordem LIFO, o que se implementa com uma **pilha**.
+
+- **Pilha de ativação:** a pilha dos registros das funções atualmente ativas.
+- **Quadro de pilha** (*stack frame*): o conjunto de endereços empilhados quando uma
+  função é chamada — o registro de ativação dela.
+
+Com recursão, além dos 4 itens acima, o registro precisa de mais uma coisa: um **ponteiro
+para o registro de ativação anterior** (o de quem chamou), para saber qual passa a ser o
+topo da pilha quando a função retornar.
+
+## Quando a pilha é corrompida
+
+Esse programa é um bom exemplo (compilado em macOS, M1, 64 bits):
+
+```c
+#include <stdio.h>
+
+void foo() {
+  long v[1];
+  v[3] = v[3] + 12;
+}
+
+int main() {
+  int x;
+  x = 13;
+  foo();
+  x++;
+  printf("%d\n", x);
+  return 0;
+}
+```
+
+Intuitivamente achamos que ele vai imprimir 14 (`x = 13` e depois `x++`). Mas `foo` tem o
+vetor `long v[1]`, que só tem 1 posição, e acessa `v[3]`, que não existe: essa escrita cai
+**fora do vetor, no quadro de pilha**, sobre o **endereço de retorno** de `foo`. Somar 12
+ao endereço de retorno (3 instruções de 4 bytes no ARM) faz `foo` voltar **depois** do
+`x++`.
+
+E o programa acaba imprimindo **13**: o `x++` foi pulado. Isso é comportamento indefinido
+— o índice e o deslocamento que "funcionam" dependem do compilador e da arquitetura (no
+Linux o professor usa `int v[0]; v[5] = v[5] + 4;`).
+
+## Funções aninhadas e o link de aninhamento
+
+Esse programa em SML, por exemplo:
+
+```sml
+fun foo n =
+  let
+    fun bar 0 = []
+      | bar m = n :: bar (m - 1)
+  in
+    bar n
+  end
+```
+
+retorna
+
+```sml
+- foo 3;
+val it = [3,3,3] : int list
+```
+
+e não `[3, 2, 1]` — o `n` no corpo de `bar` é o parâmetro de `foo`, que não muda.
+
+Aqui, `n` não tem um endereço fixo: é uma variável local da função `foo`, alocada no
+registro de ativação de `foo` — isso é **alocação dinâmica** (dinâmico é o que não se
+conhece em tempo de compilação). Então como `bar` encontra o `n`? O registro anterior não
+serve: na recursão, quem chamou `bar 2` foi `bar 3`, não `foo`.
+
+Por isso, em linguagens com funções aninhadas, o registro de ativação ganha mais um campo:
+o **link de aninhamento** (*nesting link*), que aponta para a ativação mais recente da
+**função que envolve** a função atual.
+
+```
+bar 3            /--> foo 3:
+  m = 3         |       n = 3
+  ret. addr     |       ret. addr
+  nest. link ---/       nest. link = NULL
+  prev. a.r. ---------> prev. a.r. = NULL
+```
+
+Como definir o link de aninhamento:
+
+- Chamando uma função de fora (não aninhada): link = `NULL`.
+- De uma função externa para uma interna: link = o registro de ativação de quem chamou.
+- De uma interna para outra interna (mesmo nível): link = o link de aninhamento de quem
+  chamou.
+
+Com vários níveis de aninhamento, basta seguir a cadeia de links — de `f3` até `f1` são
+dois saltos:
+
+```sml
+fun f1 n1 =
+  let
+    fun f2 n2 =
+      let
+        fun f3 n3 = n1 + n2 + n3
+      in
+        f3 3
+      end
+  in
+    f2 5
+  end
+```
+
+(Lista 13, Q1, Q3 e Q6.)
+
+## Closures
+
+Quando passo uma função como parâmetro, o que realmente é passado?
+
+```sml
+fun map _ nil = nil
+  | map f (h::t) = f h :: map f t
+
+fun addToAll (x, L) =
+  let
+    fun addX y = y + x
+  in
+    map addX L
+  end
+```
+
+`addToAll` chama `map`, `map` chama `addX`, e `addX` usa o `x`, que está no registro de
+ativação de `addToAll`. Então um valor-função precisa levar **o código a chamar e o link
+de aninhamento a usar**.
+
+E se a função for usada **depois** que a função que a criou retornou?
+
+```sml
+fun funToAddX x =
+  let
+    fun addX y = y + x
+  in
+    addX
+  end
+
+fun test n =
+  let
+    val f = funToAddX 3
+  in
+    f n
+  end
+```
+
+Quando `f n` roda, a ativação de `funToAddX` já acabou — cadê o `x`? A resposta é o
+**closure**: um par (ponteiro para o código assembly, ponteiro para uma tabela que associa
+as **variáveis livres** a seus valores). Uma função em SML é esse par.
+
+Fazer closures em C é complicado — é preciso montar o par à mão:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct struct_free_variables_addX {
+    int x;
+} FREE_VARIABLES_addX;
+
+typedef struct {
+    FREE_VARIABLES_addX* t;
+    int (*f)(FREE_VARIABLES_addX* t, int x);
+} CLOSURE_addX;
+
+int addX(FREE_VARIABLES_addX* t, int y) {
+    return y + t->x;
+}
+
+void* funToAddX(int x) {
+    CLOSURE_addX* c = (CLOSURE_addX*) malloc(sizeof(CLOSURE_addX));
+    c->t = (FREE_VARIABLES_addX*) malloc(sizeof(FREE_VARIABLES_addX));
+    c->t->x = x;
+    c->f = &addX;
+    return c;
+}
+
+int test(int n) {
+    CLOSURE_addX* c = funToAddX(3);
+    int retVal = c->f(c->t, n);
+    free(c->t);
+    free(c);
+    return retVal;
+}
+
+int main(int argc, char** argv) {
+    printf("%d\n", test(argc));
+    return 0;
+}
+```
+
+O closure é criado **no heap** (não na pilha, que some quando a função retorna). Chamar o
+closure envolve chamar a função passando a tabela de variáveis livres como primeiro
+parâmetro. Em geral é assim que closures são implementados. Em SML, quando não se precisa
+mais deles, eles são recolhidos pelo **coletor de lixo** (*garbage collector*); em C, é
+preciso chamar `free` à mão, como em `test`.
+
+(Lista 13, Q4, Q8, Q9 e Q10.)

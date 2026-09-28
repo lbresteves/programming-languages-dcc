@@ -1,0 +1,479 @@
+---
+title: Aula 12 - Tipos algébricos
+description: 21/09 — Lista 12
+---
+
+## Comportamento aberto, tipos fechados
+
+Linguagens funcionais costumam ter **comportamento aberto** (Aula 10 — funções de alta
+ordem): o algoritmo é o mesmo, mas o comportamento muda conforme a função que eu passo. Se
+eu passo um predicado diferente para um `filter`, obtenho resultados diferentes.
+
+Porém, os **tipos** são **fechados** em linguagens funcionais como SML: um `datatype` lista
+todas as suas variantes na declaração, e ninguém pode acrescentar uma nova depois.
+
+E o que seria uma linguagem com **tipo aberto**? Em Java (C++ funciona parecido):
+
+```java
+void print_all(Iterable i) {
+    for (Object o : i)
+        System.out.println(o);
+}
+```
+
+`Iterable` é uma interface: qualquer classe, escrita inclusive depois de `print_all`, pode
+implementá-la, e `print_all` continua funcionando. Com `datatype` de SML isso é
+impossível — SML perde essa possibilidade de reuso.
+
+Por outro lado, SML **ganha** por ser fechado: o **casamento de padrões** (*pattern
+matching*, Aula 06). Como o compilador conhece todas as possibilidades, o casamento vira
+um `switch` sobre um **rótulo** (*tag*) — o rótulo existe, mas é invisível para o
+programador. Por isso o compilador consegue avisar quando um caso ficou de fora.
+
+Python também tem casamento de padrões (`match`), porém ele é resolvido em tempo de
+execução, testando caso a caso — não escala. Em SML, escolher a variante pelo rótulo é
+O(1).
+
+## Tipos algébricos: produto e soma
+
+Um **tipo é um conjunto de valores**, e consigo criar tipos complicados a partir de tipos
+mais simples, com duas operações:
+
+- **Produto:** um valor de cada componente ao mesmo tempo. Um `struct` de C, ou uma tupla
+  `int * real` de SML, é um produto de tipos.
+- **Soma:** um valor de **uma** das variantes. Em SML, a soma é representada pelo `|`.
+
+**Tipos algébricos** são produtos ou somas de tipos. Um `datatype` é uma **união com
+rótulo**: cada elemento da união carrega uma etiqueta dizendo qual variante ele é. (Um
+`union` de C **não** tem rótulo — nada impede ler o campo errado.)
+
+Um segredo: nem `bool` é realmente "embutido" em SML — ele poderia ser definido assim:
+
+```sml
+datatype bool = true | false;
+```
+
+## Enumerações
+
+```sml
+datatype day = Mon | Tue | Wed | Thu | Fri | Sat | Sun;
+```
+
+Esse tipo tem **7 elementos**: é a soma de 7 construtores sem parâmetro, cada um contribui
+com exatamente um valor.
+
+```sml
+- val x = Mon;
+val x = Mon : day
+```
+
+Porém não consigo fazer `x = "Mon"`: não dá para comparar um `day` com uma `string` (erro
+de tipo).
+
+Com casamento de padrões:
+
+```sml
+fun isWE Sat = true
+  | isWE Sun = true
+  | isWE _ = false;
+(* val isWE = fn : day -> bool *)
+```
+
+Ou comparando com `=` (`day` admite igualdade):
+
+```sml
+fun isWD x = not (x = Sun orelse x = Sat);
+```
+
+Outro exemplo:
+
+```sml
+datatype flip = Heads | Tails;
+
+fun isHeads Heads = true
+  | isHeads Tails = false;
+
+val L = [Heads, Tails, Heads, Heads];
+
+(* se quero mapear para uma lista de booleanos: *)
+- map isHeads L;
+val it = [true,false,true,true] : bool list
+```
+
+`isHeads Mon` é erro de tipo: `Mon` é `day`, e `isHeads` espera `flip`.
+
+### Qual a diferença para um `enum` de C?
+
+```c
+#include <stdio.h>
+enum Dia {Mon = 3, Tue, Wed, Thu, Fri, Sat, Sun};
+int main() {
+  printf("%d, %d, %d, %d, %d, %d, %d\n",
+    Mon, Tue, Wed, Thu, Fri, Sat, Sun);
+  printf("%d\n", Mon + Tue);   /* 7 */
+}
+```
+
+Em C o `enum` é só um conjunto de **nomes para inteiros** — é totalmente transparente para
+o programador, então `Mon + Tue` compila e vale `3 + 4 = 7`. Em SML, `Mon + Mon` **não** é
+possível: `day` é um tipo novo, não um inteiro disfarçado.
+
+(Lista 12, Q1–Q2: enumeração `suit` e a função `suitname`.)
+
+## Construtores de dados
+
+```sml
+datatype exint = Value of int | PlusInf | MinusInf;
+```
+
+A cardinalidade de `exint` é |`int`| + 2 (ver Aula 07 — cardinalidade da união).
+
+Os rótulos de um tipo algébrico são chamados de **construtores de dados** (*data
+constructors*): são como funções, pois recebem dados e produzem novos dados daquele tipo.
+`Value` recebe um `int` e devolve um `exint`; `PlusInf` é um construtor sem parâmetro.
+
+O construtor de dados é quase igual a uma função, porém tem coisas que faço com construtor
+que não faço com função: **não consigo usar uma função como cláusula de casamento de
+padrões**, mas consigo usar um construtor — é assim que "desembrulho" o valor:
+
+```sml
+- val x = Value 5;
+- x + x;                  (* erro: exint não é int *)
+- val (Value y) = x;      (* casamento com o construtor: y = 5 *)
+- y + y;
+val it = 10 : int
+
+fun e2i (Value x) = x;    (* exint -> int, quando possível *)
+```
+
+Quadrado de um `exint`, tratando estouro (*overflow*) — casamento de padrões também é
+usado no tratamento de exceções (`handle`):
+
+```sml
+fun sq PlusInf = PlusInf
+  | sq MinusInf = PlusInf
+  | sq (Value n) = Value (n * n)
+      handle Overflow => PlusInf;
+
+- sq (Value 4);
+val it = Value 16 : exint
+- sq (Value 99999);
+val it = PlusInf : exint
+```
+
+Escrever uma função com várias cláusulas assim é só **açúcar sintático** para `case`:
+
+```sml
+val toStr = fn x => case x of
+    PlusInf => "Infinito (e avante)"
+  | MinusInf => "Menos Infinito"
+  | Value y => Int.toString y;
+```
+
+(Lista 12, Q3–Q4: o tipo `number`, inteiro ou real, e a função `plus`.)
+
+## Construtores de tipos e `option`
+
+O **nome** de um `datatype` é um **construtor de tipos** (*type constructor*): é como uma
+função, mas em vez de receber valores, recebe **tipos**, e em vez de produzir um valor,
+produz um **tipo**. `option` recebe `int` e produz `int option`. Com a variável de tipo
+`'a`, isso é **polimorfismo paramétrico**.
+
+```sml
+datatype 'a option = NONE | SOME of 'a;
+```
+
+```sml
+- val x = SOME 4;
+val x = SOME 4 : int option
+- val x = SOME [2, 3, 4];
+val x = SOME [2,3,4] : int list option
+- val x = SOME [SOME 4];
+val x = SOME [SOME 4] : int option list option
+```
+
+`option` é famoso em outras linguagens — em Swift (`Optional`) para tratamento de erro,
+em Java (`Optional<T>`), em Haskell (`Maybe`). Esse padrão de encadear computações que
+podem falhar é um exemplo clássico de **mônada** (*monad*).
+
+Divisão que devolve `NONE` quando o denominador é zero:
+
+```sml
+fun optdiv a 0 = NONE
+  | optdiv a b = SOME (a div b);
+```
+
+Eu poderia mudar para:
+
+```sml
+fun baddiv a 0 = 0
+  | baddiv a b = a div b;
+```
+
+O problema é que, se sai um zero, eu não sei se `b` era zero ou se a divisão deu zero
+mesmo — `baddiv` não é um bom `div`. Se eu quero um valor especial de erro, em SML eu
+preciso **especificá-lo no tipo**.
+
+Em Python isso não é um problema, porque o sistema de tipos não entra no caminho — a mesma
+função pode devolver um `int` ou `None`:
+
+```python
+def optdiv(a, b):
+    return None if not b else a // b
+
+>>> optdiv(30, 4)
+7
+>>> optdiv(30, 0)       # devolve None; o interpretador não imprime nada
+```
+
+## `bunch`: um elemento ou uma lista
+
+Mais um tipo algébrico:
+
+```sml
+datatype 'x bunch = One of 'x | Group of 'x list;
+
+- One 1.0;
+val it = One 1.0 : real bunch
+- One [1.0];
+val it = One [1.0] : real list bunch
+- Group [true, false];
+val it = Group [true,false] : bool bunch
+```
+
+Função `size` que dá o tamanho de uma instância de `bunch`:
+
+```sml
+fun size (One _) = 1
+  | size (Group nil) = 0
+  | size (Group (h::t)) = 1 + size (Group t);
+```
+
+Outras maneiras de escrever o caso `Group`:
+
+```sml
+(* com length *)
+fun size (One _) = 1
+  | size (Group L) = length L;
+
+(* com foldr *)
+fun size (One _) = 1
+  | size (Group L) = foldr (fn (_, acc) => acc + 1) 0 L;
+
+(* com map + foldr *)
+fun size (One _) = 1
+  | size (Group L) = foldr (op +) 0 (map (fn _ => 1) L);
+```
+
+### E `bunch` em C?
+
+Se eu quiser implementar `bunch` em C, preciso **mesclar um `struct` com um `union`**, e
+guardar o rótulo à mão:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+enum bunch_tab {ONE, GROUP};
+
+typedef union {
+  int one;
+  int* group;
+} bunch_element_type;
+
+typedef struct {
+  bunch_element_type bunch_element;
+  unsigned tag;
+} bunch;
+
+bunch* createOne(int i) {
+  bunch* b = (bunch*)malloc(sizeof(bunch));
+  b->tag = ONE;
+  b->bunch_element.one = i;
+  return b;
+}
+```
+
+O casamento de padrões em C seria implementado com `switch` sobre o rótulo:
+
+```c
+void printBunch(bunch* b) {
+  switch (b->tag) {
+    case ONE:
+      printf("%d\n", b->bunch_element.one);
+      break;
+    case GROUP:
+      {
+        int i = 0;
+        while (b->bunch_element.group[i] != 0) {
+          printf("%8d", b->bunch_element.group[i]);
+          i++;
+        }
+      }
+  }
+}
+```
+
+Vantagens da abordagem de ML sobre a de C:
+
+- **Segurança de tipos:** em C, nada impede ler `group` de um `bunch` cujo rótulo é `ONE`.
+- **Cobertura de casos:** em SML, se eu tratar só um padrão e não todos, o compilador dá o
+  aviso de *match nonexhaustive*.
+- **Padrões mortos:** SML avisa quando um padrão já é coberto por um anterior e nunca será
+  alcançado (*redundant*).
+
+## Tipos dependentes (e o que SML não consegue dizer)
+
+Existem linguagens que permitem que o **tipo** carregue um valor — por exemplo, "lista de
+*n* inteiros". Aí daria para escrever (pseudocódigo):
+
+```
+tl : list(n) -> list(n - 1)
+```
+
+Isso não é possível em SML: o tipo de `tl` é só `'a list -> 'a list`, não dá para dizer
+que a lista sai com um elemento a menos. Linguagens com **tipos dependentes** (*dependent
+types*), como **Idris** e **Lean**, permitem.
+
+## Tipos recursivos
+
+Uma lista é ou vazia, ou um elemento seguido de outra lista. Essa é a representação de uma
+lista de inteiros:
+
+```sml
+datatype int_list = INTNIL | INTCONS of int * int_list;
+
+INTCONS (1, INTCONS (2, INTNIL));
+
+fun isize INTNIL = 0
+  | isize (INTCONS (_, t)) = 1 + isize t;
+```
+
+Versão genérica (polimórfica):
+
+```sml
+datatype 'e mylist = NIL | CONS of 'e * 'e mylist;
+
+infixr 5 CONS;
+```
+
+`infixr 5 CONS` transforma `CONS` num operador infixo, associativo à direita. Assim,
+`2 CONS 3 CONS 4 CONS NIL` é o mesmo que `op CONS (2, op CONS (3, op CONS (4, NIL)))` —
+depois do `infixr`, a forma prefixa precisa do `op`.
+
+Função que soma os valores de uma lista usando `CONS`:
+
+```sml
+fun sum NIL = 0
+  | sum (h CONS t) = h + sum t;
+```
+
+Usando fold — nossa própria `foldr` para `mylist`:
+
+```sml
+fun myfoldr _ c NIL = c
+  | myfoldr f c (h CONS t) = f (h, myfoldr f c t);
+
+fun fsum L = myfoldr (op +) 0 L;
+```
+
+E a `myfoldl`, que acumula da esquerda para a direita:
+
+```sml
+fun myfoldl _ c NIL = c
+  | myfoldl f c (h CONS t) = myfoldl f (f (h, c)) t;
+```
+
+Até as listas nativas de SML são definidas desse jeito:
+
+```sml
+datatype 'e list = nil | :: of 'e * 'e list;
+infixr 5 ::;
+```
+
+(Lista 12, Q5–Q8: `intnest`, e `prod`, `reverse` e `append` sobre `mylist`.)
+
+## Árvores binárias
+
+Uma árvore binária é parecida com uma lista: ou é **vazia**, ou é um **nó** com um
+elemento e duas sub-árvores.
+
+```sml
+datatype 'd tree = Empty | Node of 'd tree * 'd * 'd tree;
+
+fun toTree nil = Empty
+  | toTree (h::t) = Node (toTree t, h, Empty);
+```
+
+Para incrementar cada elemento de uma árvore binária:
+
+```sml
+fun incAll Empty = Empty
+  | incAll (Node (t0, n, t1)) = Node (incAll t0, n + 1, incAll t1);
+```
+
+As estruturas de dados que criamos são **persistentes**: elas não mudam. Não consigo
+incrementar direto na árvore; na verdade preciso criar uma árvore nova. O `Node` funciona
+como um construtor.
+
+(Lista 12, Q9–Q13: `revTree`, `appendall`, `isComplete`, `makeBST`, `searchBST`.)
+
+## Um interpretador de expressões
+
+```sml
+datatype exp = ADD of exp * exp | MUL of exp * exp | NUM of int;
+
+fun interp (NUM n) = n
+  | interp (ADD (e0, e1)) = interp e0 + interp e1
+  | interp (MUL (e0, e1)) = interp e0 * interp e1;
+
+- interp (MUL (ADD (NUM 3, NUM 4), NUM 5));
+val it = 35 : int
+```
+
+Se eu quiser fazer algo equivalente em Python, orientado a objetos — cada construtor vira
+uma classe, e cada cláusula de `interp` vira um método `eval`:
+
+```python
+class NUM:
+    def __init__(self, n):
+        self.n = n
+    def eval(self):
+        return self.n
+
+class ADD:
+    def __init__(self, e0, e1):
+        self.e0 = e0
+        self.e1 = e1
+    def eval(self):
+        return self.e0.eval() + self.e1.eval()
+
+class MUL:
+    def __init__(self, e0, e1):
+        self.e0 = e0
+        self.e1 = e1
+    def eval(self):
+        return self.e0.eval() * self.e1.eval()
+
+e = ADD(MUL(NUM(3), NUM(4)), NUM(5))
+e.eval()   # 17
+```
+
+Repare na troca: em Python, acrescentar uma variante nova (uma classe `SUB`) não mexe no
+código existente — o tipo é aberto; mas acrescentar uma operação nova (`toStr`) exige
+editar todas as classes. Em SML é o contrário.
+
+(Lista 12, Q14: o mesmo interpretador, com `UNMINUS`.)
+
+No fim, programar com tipos algébricos segue uma receita: uma função `f` recebe um tipo `T`
+e devolve um tipo `R`; **para cada padrão que constitui `T`, escrevo uma cláusula de `f`**.
+
+## Tipo soma em cada linguagem
+
+| Linguagem | Como se faz uma "soma" de tipos | Rótulo verificado? |
+|---|---|---|
+| **SML** | `datatype` com construtores | Sim, pelo compilador (e aviso de casos faltando) |
+| **C** | `struct` com `union` + campo `tag` manual | Não — ler o campo errado compila |
+| **Java** | interface/classe base + subclasses (tipo aberto) | Em tempo de execução (despacho de método) |
+| **Python** | classes + `match`/`isinstance` | Em tempo de execução, caso a caso |
+| **Prolog** | termos compostos, ex.: `node(L, X, R)` ou `empty` | Não há declaração de tipo; só unificação |
