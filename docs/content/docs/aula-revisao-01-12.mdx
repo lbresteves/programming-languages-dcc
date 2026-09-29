@@ -1,0 +1,369 @@
+---
+title: Aula Revisão - Aulas 01 a 12
+description: 28/09 — Revisão para a 1ª prova (Listas 1–12)
+---
+
+## Avisos sobre a prova
+
+- Data / horário / sala: 28/09 — 90 min, sem consulta, 30 pontos.
+- Formato (tipos de questão que ele mencionou):
+- O que **não** cai:
+-
+
+## Aula 01 — 10/08 · A grande diversidade
+
+[Minhas anotações](/docs/aula-01) · Lista 1
+
+- Interpretador × compilador.
+- Compiladores *just-in-time* (JIT).
+- Complexidade assintótica (do compilador / da linguagem): a mesma tarefa pode sair O(n)
+  numa linguagem e O(n²) em outra.
+- Linguagens **imperativas** e **declarativas** (funcionais e lógicas).
+
+O que separa imperativas de declarativas? O **estado**. Nas imperativas o verbo é
+**"faça"** (sequência de comandos que mudam o estado — *como* fazer); nas declarativas o
+verbo é **"é"** (descreve *o que* é o resultado, sem estado mutável).
+
+Linguagens que **competem** entre si: C# e Java; Python e R; Zig, Rust e C.
+Linguagens que **não** competem: C++ e Python; JavaScript e Python.
+
+Existem vários motivos para isso, como ser dinamicamente tipada ou não, Python ser feita
+mais voltada para *scripts* e Java para programas complexos.
+
+**Ênfase / pode cair:** *just-in-time*, complexidade assintótica.
+
+## Aula 02 — 12/08 · Sintaxe
+
+[Minhas anotações](/docs/aula-02) · Lista 2
+
+- **Ambiguidade** de uma gramática: ela é ambígua se for possível construir **duas árvores
+  de sintaxe diferentes** para o mesmo texto.
+- Ambiguidade não é uma boa coisa para linguagens de programação: por causa da precedência
+  de operadores, por exemplo — árvores diferentes dão significados diferentes.
+- Para operadores **associativos** (como `+` sobre inteiros) a ambiguidade não é um grande
+  problema: `(a + b) + c` e `a + (b + c)` dão o mesmo valor. Com `-` já muda:
+  `(1 - 2) - 3 = -4`, mas `1 - (2 - 3) = 2`.
+- Ser associativo à esquerda / à direita.
+- A gramática de C **não é livre de contexto**: pouquíssimas linguagens reais têm gramática
+  livre de contexto; neste curso só vimos SML. Em SML não existe `if` sem `else`, então
+  não há o problema do *else* pendurado (*dangling else*). Em C, só pela gramática, não dá
+  para saber se um nome é **nome de tipo** ou **nome de variável**.
+
+Então `(x)-y`, por exemplo, pode ser uma **coerção** ou uma **subtração**:
+
+```c
+typedef int x;                        /* x é nome de tipo           */
+int f(int y) { return (x)-y; }        /* coerção de -y para o tipo x */
+```
+
+```c
+int g(int x, int y) { return (x)-y; } /* x é variável: subtração     */
+```
+
+Em SML não tem esse problema: SML não tem coerção (as conversões são funções explícitas,
+como `real` e `floor`), e o menos unário em SML é `~`, então `(x)-y` é sempre subtração.
+
+**Ênfase / pode cair:** associatividade, comutatividade.
+
+## Aula 03 — 17/08 · Mais sobre árvores de sintaxe
+
+[Minhas anotações](/docs/aula-03) · Lista 3
+
+- Precedência e associatividade.
+- Associativo à esquerda / à direita. Poucos operadores associam à direita: o `=` de C
+  (`a = b = c` é `a = (b = c)`) e o `::` de SML:
+
+```sml
+- 2 :: 1 :: nil;          (* lido como 2 :: (1 :: nil) *)
+val it = [2,1] : int list
+- op ::;
+val it = fn : 'a * 'a list -> 'a list
+```
+
+Gramática de expressões em Prolog (a do professor, `num0.pl`), com `*` mais precedente que
+`+` e ambos associando à direita:
+
+```prolog
+expr --> mulexp, [+], expr.
+expr --> mulexp.
+mulexp --> rootexp, [*], mulexp.
+mulexp --> rootexp.
+rootexp --> ['('], expr, [')'].
+rootexp --> number.
+number --> digit.
+number --> digit, number.
+digit --> [0] ; [1] ; [2] ; [3] ; [4] ; [5] ; [6] ; [7] ; [8] ; [9].
+```
+
+Consulta: `expr([2,+,3,*,4], []).`
+
+- **Precedência:** quanto mais "funda" na gramática a regra, mais precedente o operador
+  (`mulexp` está abaixo de `expr`).
+- **Associatividade:** `expr --> mulexp, [+], expr` recursa à **direita** → associa à
+  direita.
+
+**Ênfase / pode cair:** como ler e escrever gramáticas em Prolog (com certeza vai cair uma
+de Prolog). Nas listas: Lista 3, Q4 (escrever a gramática em Prolog e calcular o valor da
+expressão) e Q5 (aⁿbⁿ e aⁿbⁿcⁿ).
+
+## Aula 04 — 19/08 · Sistemas de Computação
+
+[Minhas anotações](/docs/aula-04) · Lista 4
+
+```bash
+gcc -S hello.c     # para no assembly (gera hello.s)
+gcc -E hello.c     # só o pré-processador: expande macros e #include
+gcc -O1 hello.c    # otimização: diminuir o número de instruções executadas
+gcc -O2 hello.c    # mais otimizações
+gcc -Os hello.c    # diminuir o tamanho do binário
+gcc -Ofast hello.c # relaxa as regras de ponto flutuante (IEEE 754)
+```
+
+- `-Ofast`: os programas mexem com números de ponto flutuante e aí às vezes a conta não
+  fecha — por exemplo, o compilador passa a trocar `x * 0.0` por `0.0` (errado se `x`
+  for `NaN` ou infinito) e a reassociar somas (ver o exemplo `0.1 + 0.2 + 0.3` na Aula 05).
+- Se o `-O1` já chama otimizações, por que existem `-O2`, `-O3`? Esses outros fazem mais
+  otimizações, mas a compilação demora mais. E tem otimizações que, apesar de deixarem o
+  código mais rápido, têm efeitos colaterais: *inline*, por exemplo, ou *templates*. O
+  programa começa a ficar muito grande e pode ficar mais devagar, pois os computadores têm
+  **hierarquia de memória** (cache): se o código crescer muito, ele não cabe mais na cache
+  de instruções, e isso pode até virar um problema.
+
+**Ênfase / pode cair:** se o `-O1` chama otimizações, por que existem `-O2`, `-O3`?
+Nas listas: Lista 4, Q1 (etapas do `gcc`: `-E`, `-S`, `as`, `ld`) e Q4 (`register` e
+`inline` como "dicas" para o otimizador).
+
+## Aula 05 — 24/08 · Introdução a ML
+
+[Minhas anotações](/docs/aula-05) · Lista 5
+
+- Ele pode dar uma função e perguntar qual o tipo dela:
+
+```sml
+- map;
+val it = fn : ('a -> 'b) -> 'a list -> 'b list
+- val sqAll = map (fn x => x * x);
+val sqAll = fn : int list -> int list
+- map real;
+val it = fn : int list -> real list
+```
+
+- Tamanho de uma lista:
+
+```sml
+- fun my_len L = if L = [] then 0 else 1 + my_len (tl L);
+val my_len = fn : ''a list -> int
+```
+
+Tem **dois apóstrofos** nesse tipo: `''a` é um **tipo de igualdade** (*equality type*). A
+função aceita infinitas listas, apesar de não funcionar com todos os tipos — por exemplo,
+`my_len [1.0, 2.0]` é **erro de tipo**, porque `real` não é tipo de igualdade. Qualquer
+função que aplique `=` sobre um valor de tipo polimórfico assume que esse tipo não pode
+ser ponto flutuante. Então, se usa `=` sobre uma variável de tipo, ela vira `''a` (com
+dois apóstrofos). Para aceitar qualquer lista, troque `L = []` por `null L`.
+
+Um exemplo famoso de ponto flutuante (em JavaScript):
+`0.1 + 0.2 + 0.3 === 0.1 + (0.2 + 0.3)` é **falso** — a soma de reais não é associativa.
+
+**Ênfase / pode cair:** dar uma função e perguntar qual o tipo dela.
+Nas listas: Lista 7, Q5 (inferir o tipo de `f(g, x) = g(g(x))` etc.).
+
+## Aula 06 — 26/08 · Casamento de padrões em ML
+
+[Minhas anotações](/docs/aula-06) · Lista 6
+
+- *Match redundant* — dá **erro**, pois o primeiro padrão (`L`) já cobre todos os casos e
+  os outros nunca seriam alcançados:
+
+```sml
+fun f L = 0
+  | f nil = 1
+  | f (h::t) = 2;
+```
+
+- Aqui não há redundância e funciona (os dois padrões juntos cobrem todas as listas):
+
+```sml
+fun f (_::_) = 2
+  | f nil = 0;
+```
+
+- Se é **não exaustivo** (*match nonexhaustive*): compila com *warning*, mas lança a
+  exceção `Match` ao receber `nil`:
+
+```sml
+fun my_len (_::t) = 1 + my_len t;
+fun my_hd (h::_) = h;
+```
+
+**Ênfase / pode cair:** ele vai pedir para fazer alguma coisa em SML, talvez resolver
+algum problema em SML. Nas listas: Lista 6 (`member`, `less`, `repeats`, `quicksort`,
+`powerset`).
+
+## Aula 07 — 31/08 · Tipos de Dados
+
+[Minhas anotações](/docs/aula-07) · Lista 7
+
+- Ser **fracamente** ou **fortemente** tipado: um sistema de tipos serve para guiar o
+  programa para passar longe daquilo que não é definido, que a máquina não saberia o que
+  fazer. C e C++ podem ficar instáveis por conta da **falta** de verificação de tipos: ler
+  índices fora do arranjo, declarar uma `union` e usá-la como o outro tipo — isso é
+  comportamento indefinido.
+- **Dinamicamente** ou **estaticamente** tipadas. SML é estaticamente tipada (os tipos são
+  resolvidos em tempo de compilação); a **inferência de tipos** é o jeito como SML descobre
+  esses tipos sem que o programador os escreva.
+  - Vantagens da tipagem estática: erros de tipo aparecem antes de executar, código mais
+    eficiente, os tipos documentam o programa.
+  - Vantagem da dinâmica: possibilidade de reúso — não precisa pensar nos tipos.
+- Quando dois tipos são iguais:
+  - **Equivalência nominal:** mesmos tipos só se tiverem o mesmo nome — C, C++, Java.
+  - **Equivalência estrutural:** mesmos tipos se tiverem a mesma estrutura — SML
+    (`type T0 = int * real` e `type T1 = int * real` são o mesmo tipo).
+
+**Ênfase / pode cair:**
+Nas listas: Lista 7, Q1 e Q2 (programa C inseguro, *buffer overrun*), Q3 (estática ×
+dinâmica); Lista 8, Q5 (nominal × estrutural em SML e C).
+
+## Aula 08 — 02/09 · Polimorfismo
+
+[Minhas anotações](/docs/aula-08) · Lista 8
+
+- Polimorfismo **ad hoc** (sobrecarga e coerção — finitos tipos) e **universal**
+  (paramétrico e subtipagem — infinitos tipos).
+- Tipo sobrecarregado: o `+` é sobrecarregado em quase toda linguagem.
+- *Name mangling* em **C++**: é como a sobrecarga é implementada — o compilador codifica os
+  tipos dos parâmetros no nome do símbolo (`sum(int, int)` e `sum(double, double)` viram
+  símbolos diferentes no assembly). C não tem sobrecarga, então não precisa de *mangling*.
+- Polimorfismo é uma característica de tipagem **estática** (em Python toda função já
+  aceita qualquer tipo). Por quê? **Reúso**: programas polimórficos são mais reutilizáveis.
+
+**Ênfase / pode cair:**
+Nas listas: Lista 8, Q1 (sistema de precedência, sobrecarga e coerção) e Q3/Q4 (C
+fracamente tipado × Java fortemente tipado).
+
+## Aula 09 — 12/09 · O Cálculo Lambda
+
+[Minhas anotações](/docs/aula-09) · Lista 9
+
+- **Redução β** (*beta reduction*): é a regra de avaliação do cálculo λ — aplicar a função
+  substituindo o parâmetro pelo argumento:
+  `(λx.E) A → E[x → A]`. Ex.: `(λx.x) y → y`.
+
+Gramática das expressões λ:
+
+```
+<e> ::= <x>
+      | λ<x>.<e>
+      | <e> <e>
+      | (<e>)
+```
+
+Multiplicação:
+
+```
+MUL = λm.λn.λx. m (n x)
+```
+
+Nesse caso `n x` aplica `x` **n vezes**; `m (n x)` repete isso m vezes → x aplicado
+m · n vezes.
+
+- Outros pontos da aula que caem nas listas:
+  - **Redução α**: renomear a variável ligada (`λx.x = λz.z`) para não capturar variável
+    livre.
+  - **Variáveis livres**: `FV(λx.xy) = {y}`.
+  - **Ordem normal × aplicativa**: em `(λx.y)((λx.xx)(λx.xx))` a ordem normal termina em
+    `y` e a aplicativa entra em *loop*.
+  - Números de Church: `0 = λs.λz.z`, `1 = λs.λz.sz`, `2 = λs.λz.s(sz)`;
+    `T = λx.λy.x`, `F = λx.λy.y`.
+
+**Ênfase / pode cair:**
+Nas listas: Lista 9, Q1 (reduzir `MUL 2 2`, definir `ADD` com `SUCC`, `XOR`), Q2
+(variáveis livres), Q3 (substituições).
+
+## Aula 10 — 14/09 · Funções de Alta Ordem
+
+[Minhas anotações](/docs/aula-10) · Lista 10
+
+- Quando `foldr` e `foldl` gerariam resultados diferentes:
+
+```sml
+foldr (op -) 0 [1, 2, 3, 4];   (* 1 - (2 - (3 - (4 - 0))) = ~2 *)
+foldl (op -) 0 [1, 2, 3, 4];   (* 4 - (3 - (2 - (1 - 0))) =  2 *)
+```
+
+Essas duas dão resultados diferentes.
+
+- A média é **comutativa**, mas **não é associativa** — por isso `foldl` e `foldr` também
+  dão resultados diferentes:
+
+```sml
+foldl (fn (a, b) => (a + b) / 2.0) 1.0 [1.0, 2.0, 3.0, 3.0, 4.0];  (* 3.3125  *)
+foldr (fn (a, b) => (a + b) / 2.0) 1.0 [1.0, 2.0, 3.0, 3.0, 4.0];  (* 1.71875 *)
+```
+
+Regra: `foldr` e `foldl` só dão sempre o mesmo resultado quando o operador é
+**comutativo e associativo** ao mesmo tempo.
+
+| Operador | Associativo | Comutativo | `foldr = foldl`? |
+|---|---|---|---|
+| `+` | ✓ | ✓ | ✓ |
+| `^` (concatenação) | ✓ | ✗ | ✗ |
+| média, `nand` | ✗ | ✓ | ✗ |
+| `-` | ✗ | ✗ | ✗ |
+
+**Ênfase / pode cair:**
+Nas listas: Lista 10 inteira (funções de uma linha com `map`, `foldr`, `foldl`).
+
+## Aula 11 — 16/09 · Escopo
+
+[Minhas anotações](/docs/aula-11) · Lista 11
+
+- Escopo **dinâmico** × **estático**:
+
+```sml
+val one = 1;
+fun inc x = one + x;
+let
+  val one = 2
+in
+  inc 3
+end;
+```
+
+Esse programa, por exemplo, imprime **4** (não 5), por conta do escopo estático: o `one`
+dentro de `inc` é o da definição de `inc` (`one = 1`), não o do `let`. Bash tem escopo
+dinâmico: um programa parecido com esse em bash imprimiria **5**.
+
+- **Espaços de nomes** (*namespaces*): podem ser
+  - **instanciáveis** — o "sobrenome" das variáveis é o nome da instância (`p.x`, `p->x`).
+    Ex.: `class`, `struct`, `union` (C++); `class` (Java).
+  - **não instanciáveis** — dão nome a outros símbolos, e o "sobrenome" é o próprio espaço
+    de nomes, pois só existe um (`A::a`). Ex.: `namespace` (C++); `package` e classe
+    `static` (Java); `structure` (SML).
+
+Quando se coloca `static` na frente, significa que só tem um.
+
+**Ênfase / pode cair:** quanto imprime esse programa em SML?
+Nas listas: Lista 11, Q1 (blocos e escopo em SML, valor de `g 5`) e Q5 (escopo dinâmico
+em bash).
+
+## Aula 12 — 21/09 · Tipos algébricos
+
+[Minhas anotações](/docs/aula-12) · Lista 12
+
+- Definir uma lista em SML.
+- **Tipos recursivos**: a lista, por exemplo, é definida em termos dela mesma. O tipo
+  lista é definido como `nil` **ou** `h :: t`:
+
+```sml
+datatype 'e mylist = NIL | CONS of 'e * 'e mylist;
+
+(* a lista nativa de SML é, conceitualmente, definida do mesmo jeito:
+     datatype 'e list = nil | :: of 'e * 'e list;
+     infixr 5 ::;
+   (não dá para digitar isso: SML proíbe redefinir nil e ::) *)
+```
+
+**Ênfase / pode cair:**
+Nas listas: Lista 12 (`datatype` de naipes, `mylist`, árvore binária `'data tree`,
+interpretador de `exp`).
