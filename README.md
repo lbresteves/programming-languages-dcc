@@ -15,7 +15,7 @@
 ![Java](https://img.shields.io/badge/Java-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
 ![C](https://img.shields.io/badge/C-A8B9CC?style=flat-square&logo=c&logoColor=black)
 
-![Claude Code](https://img.shields.io/badge/Claude_Code-4_skills-D97757?style=flat-square&logo=anthropic&logoColor=white)
+![Claude Code](https://img.shields.io/badge/Claude_Code-5_skills-D97757?style=flat-square&logo=anthropic&logoColor=white)
 ![Fumadocs](https://img.shields.io/badge/Fumadocs-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em_curso-yellow?style=flat-square)
 
@@ -41,6 +41,7 @@ Programação** da UFMG, lecionada pelo professor **Fernando**, e usar o
 - 📚 **estudar os tópicos da ementa** em nível de livro-texto, um de cada vez;
 - ✍️ **resolver as listas de exercícios** de forma guiada (dica → minha tentativa → correção);
 - 📄 **transcrever os PDFs da disciplina** (listas, provas antigas, slides) para Markdown pra facilitar minha vida e gastar menos token;
+- 📊 **descobrir o que mais cai nas provas**, agrupando as questões antigas por tópico;
 - 🖥️ **transformar minhas anotações de aula** num site bonito e navegável.
 
 
@@ -62,6 +63,7 @@ Claude.
 | 📝 **resolver-lista** | `/resolver-lista` | Resolver uma lista de exercícios de forma guiada |
 | 🗂️ **ajustar-anotacoes** | `/ajustar-anotacoes` | Deixar as anotações de aula consistentes com o material |
 | 📄 **transcrever-pdf** | `/transcrever-pdf` | Transcrever um PDF da disciplina para Markdown fiel |
+| 📊 **compilar-prova** | `/compilar-prova` | Agrupar as questões das provas antigas por tópico, do que mais cai ao que menos cai |
 
 <details>
 <summary><b>📚 (1) <code>/estudar-topico</code> — gerar um módulo do handbook</b></summary>
@@ -127,7 +129,14 @@ Minhas anotações de aula são bagunçadas. Esta skill acessa **apenas** o `doc
 
 - as **notas do professor** em `material/professor-notes/` (o roteiro passo a passo que ele
   segue em aula), e
-- o **conteúdo das listas**, que mostra o que é importante.
+- o **conteúdo das listas**, que mostra o que é importante, e
+- as **provas antigas** (de preferência pelo `compilado-de-questoes.md`), que mostram o que
+  ele de fato cobra e como.
+
+Quando um assunto da aula cai em **25% ou mais das provas** (ou o professor disse na revisão
+que cai), a skill acrescenta um **adendo** logo depois da explicação: um callout
+`Cai em prova: 37,5% (provas 24, 28 e 29)` com o formato da pergunta, uma questão de exemplo
+e a pegadinha que se repete.
 
 Regra de ouro: **não remove informação** das minhas anotações. Se houver algo errado,
 corrige — **mas me avisa**.
@@ -153,6 +162,31 @@ resolve, não resume, não corrige.
 
 É a mesma transcrição que a `resolver-lista` e a `ajustar-anotacoes` fazem sob demanda,
 agora disponível isolada.
+
+</details>
+
+<details>
+<summary><b>📊 (5) <code>/compilar-prova</code> — o que mais cai nas provas</b></summary>
+
+<br>
+
+O professor repete assuntos, e às vezes provas inteiras (a midterm25 é cópia da midterm23).
+Esta skill lê todos os `.md` de `material/provas-antigas/1a-prova/` ou `2a-prova/` e gera
+`compilado-de-questoes.md` na mesma pasta:
+
+- **Tabela no topo** com cada tópico, a frequência (provas em que caiu ÷ total), as provas,
+  o número de itens e a aula correspondente.
+- **Um bloco por tópico**, do que mais cai para o que menos cai:
+  `## Tópico 4 — Dar o tipo de uma função SML [aparece em 37,5% das provas (provas 24, 28 e 29)]`,
+  com as questões numeradas (`4.3 (prova 28, Q2a)`) e os enunciados copiados fielmente.
+- **Um item, um tópico:** a classificação é por item (a, b, c…), não por questão inteira,
+  porque uma mesma questão costuma misturar assuntos.
+- **Dicas da revisão:** cruza com a aula de revisão (`aula-revisao-*.mdx`, blocos "Ênfase /
+  pode cair") e marca com ⭐ e **[Altas chances de cair (revisão)]** o que o professor disse
+  que cai, inclusive o que nunca caiu antes.
+
+Só copia enunciados, sem resolver nada. No chat, cruza a tabela com os `learning-records/`:
+tópico frequente + conceito frágil = prioridade de revisão.
 
 </details>
 

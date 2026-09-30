@@ -41,7 +41,7 @@ listas/        lista-NN/ com enunciado.pdf, enunciado.md e resolucao.md
 handbook/      módulos de estudo (lidos uma vez) + respostas/ das questões
 reference/     folhas comprimidas por tópico (revisitadas até a véspera)
 learning-records/ um arquivo por conceito: demonstrado / frágil / não demonstrado
-provas-antigas/ provas dos semestres anteriores
+material/provas-antigas/ 1a-prova/ e 2a-prova/ dos semestres anteriores + compilado-de-questoes.md
 rascunho/      opcional, para experimentar código quando eu quiser rodar algo
 docs/          site Fumadocs com minhas anotações de aula (content/docs/aula-NN.mdx)
 ```
@@ -55,8 +55,14 @@ resolver: não reensine o que está *demonstrado*, e aprofunde o que está *frá
 
 ## Como me ajudar
 
-Duas habilidades cobrem o trabalho: `/estudar-topico` para gerar material de estudo e
-`/resolver-lista` para as listas de exercícios.
+Cinco habilidades cobrem o trabalho:
+
+- `/estudar-topico` para gerar material de estudo;
+- `/resolver-lista` para as listas de exercícios;
+- `/ajustar-anotacoes` para deixar minhas anotações de aula consistentes com o material;
+- `/transcrever-pdf` para transcrever um PDF da disciplina em Markdown;
+- `/compilar-prova` para agrupar as questões das provas antigas por tópico, do que mais cai
+  ao que menos cai, em `material/provas-antigas/<pasta>/compilado-de-questoes.md`.
 
 **Nas listas, nunca me entregue a resposta pronta de saída.** Resolução guiada: dica,
 minha tentativa, correção. Se eu pedir a solução direto, dê — mas em seguida proponha uma
