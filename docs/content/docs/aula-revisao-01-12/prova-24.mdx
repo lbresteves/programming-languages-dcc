@@ -1,0 +1,125 @@
+---
+title: Prova 24 - Resolução
+description: Validade sintática, de tipos e comportamento indefinido em C; inv e xch em SML; simulando um laço de C com zip, map e foldr
+---
+
+Resolução da 1ª prova 24 (`material/provas-antigas/1a-prova/midterm24.md`). Tente cada
+questão no papel antes de abrir a resposta.
+
+## Questão 1 — O diagrama de Venn da linguagem C
+
+**Assunto:** sintaxe, verificação de tipos e comportamento indefinido (Aulas 02 e 07) · **Tipo:** conceitual
+
+> Um exemplo para cada região: (1) não é sintaticamente válido; (2) é válido, mas não passa
+> na verificação de tipos; (3) passa nos tipos, mas tem comportamento indefinido; (4) passa
+> nos tipos e executa sem comportamento indefinido.
+
+<details>
+<summary>Resposta</summary>
+
+| Região | Exemplo | Por que está ali |
+|---|---|---|
+| (1) não é sintaticamente válido | `int x = ;` | a gramática exige uma expressão depois do `=` |
+| (2) sintaticamente válido, erro de tipo | `int x = "abc" * 2;` | a forma `expr * expr` é válida, mas não existe `*` entre ponteiro e inteiro |
+| (3) passa nos tipos, comportamento indefinido | `int v[2]; v[5] = 1;` | tipos corretos, mas escreve fora do vetor |
+| (4) passa nos tipos e é bem definido | `int x = 1 + 2;` | tudo certo |
+
+Para a região 3, outros bons exemplos: `int *p = NULL; *p = 1;` ou `int x; printf("%d", x);`
+(variável não inicializada).
+
+**Por quê:** cada verificação do compilador elimina uma camada: a gramática recusa a região
+1, o verificador de tipos recusa a 2. A região 3 é o que **nenhuma** verificação de C pega.
+Em Java ou Python ela praticamente não existe, porque os testes invisíveis transformam esses
+casos em exceções.
+
+</details>
+
+## Questão 2 — `inv`, `xch` e o tipo de `xch`
+
+**Assunto:** casamento de padrões em listas e tuplas; inferência de tipos (Aulas 05–06) · **Tipo:** implementação + dar o tipo
+
+> (a) `inv : 'a list -> 'a list` troca os pares de posição: `inv [1, 2, 3, 4] = [2, 1, 4, 3]`,
+> `inv ["a", "b", "c"] = ["b", "a", "c"]`. (b) `xch` troca o primeiro e o terceiro elementos
+> de uma tripla. (c) O tipo de `xch`. (d) O resultado de `xch (3.14, #"a", false, 314)`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+fun inv (a :: b :: t) = b :: a :: inv t
+  | inv L = L;
+```
+
+A segunda cláusula cobre a lista vazia e a lista de um elemento, que ficam como estão.
+
+**(b)**
+
+```sml
+fun xch (a, b, c) = (c, b, a);
+```
+
+**(c)** `xch : 'a * 'b * 'c -> 'c * 'b * 'a`.
+
+**(d)** **Erro de tipo**, na compilação. `xch` recebe uma tupla de **três** elementos, e
+`(3.14, #"a", false, 314)` tem tipo `real * char * bool * int`, uma tupla de **quatro**. Não
+há resultado. (O SML diz algo como `operator and operand don't agree`.)
+
+**Por quê:** em SML o tamanho de uma tupla faz parte do tipo (`'a * 'b * 'c` e
+`'a * 'b * 'c * 'd` são tipos diferentes), e o erro é pego antes da execução. Em Python, uma
+função que desmonta uma tupla de três com `(a, b, c) = t` receberia a de quatro e só falharia
+na execução.
+
+</details>
+
+## Questão 3 — Simulando `incs` de C em SML
+
+**Assunto:** funções de alta ordem e tradução de laços (Aula 10) · **Tipo:** implementação
+
+> `incs` em C conta quantas vezes `v[i] > v[i-1]`. Em SML: (a) `zip`; (b) `toIncs`, que
+> mapeia a lista para uma lista de booleanos; (c) `incs : int list -> int`.
+
+<details>
+<summary>Resposta</summary>
+
+O enunciado dá `toIncs : int list -> int list`, mas os exemplos devolvem `bool list`; a
+resposta segue os exemplos.
+
+**(a)**
+
+```sml
+fun zip (a :: at) (b :: bt) = (a, b) :: zip at bt
+  | zip _ _ = nil;
+```
+
+`zip : 'a list -> 'b list -> ('a * 'b) list`. Para quando **qualquer uma** das listas acaba.
+
+**(b)**
+
+```sml
+fun toIncs L = map (fn (a, b) => b > a) (zip L (tl L));
+```
+
+`zip L (tl L)` forma os pares de vizinhos: `[3, 2, 3, 3, 1, 4]` vira
+`[(3,2), (2,3), (3,3), (3,1), (1,4)]`. Para cada par, `b > a` diz se houve aumento.
+
+**(c)**
+
+```sml
+fun incs L = foldr (fn (b, acc) => if b then acc + 1 else acc) 0 (toIncs L);
+```
+
+**Por quê:** o laço de C percorre índices (`v[i]` e `v[i-1]`). Em SML não há índices, então
+a ideia vira **dados**: `zip` com a própria cauda produz os pares de vizinhos, `map`
+transforma cada par e `foldr` conta. Cada função faz uma coisa só.
+
+</details>
+
+## Onde treinar
+
+| Questão | Lista |
+|---|---|
+| 1 | [Lista 7, Q1–Q2](/docs/aula-07/lista-07), [Lista 8, Q3](/docs/aula-08/lista-08) |
+| 2 | [Lista 5](/docs/aula-05/lista-05) (`red3`, `del3`) e [Lista 7, Q5](/docs/aula-07/lista-07) |
+| 3 | [Lista 10](/docs/aula-10/lista-10) |

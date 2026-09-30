@@ -1,0 +1,319 @@
+---
+title: Lista 09 - Resolução
+description: Cálculo λ — números e booleanos de Church, variáveis livres, substituição, forma normal, SKK e tipos em SML
+---
+
+Resolução completa da Lista 9. Tente cada questão no papel antes de abrir a resposta.
+
+Notação: `0`, `1`, `2`... são os números de Church (`2 = λs.λz.s(s z)`); `T = λx.λy.x` e
+`F = λx.λy.y`. A aplicação associa à esquerda (`a b c = (a b) c`) e o corpo de um `λ` vai
+o mais à direita possível.
+
+## Questão 1 — Aritmética e lógica com Church
+
+**Assunto:** codificação de Church (Aula 09) · **Tipo:** rastreio + implementação
+
+> (a) Reduza `MUL 2 2`, com `MUL = λn₁.λn₂.λz.n₁(n₂ z)`. (b) Defina `ADD` usando
+> `SUCC = λn.λy.λx.y(n y x)`. (c) Defina `XOR`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Renomeando o `z` de dentro de `2` para `w` (para não confundir com o `z` de `MUL`),
+`2 = λs.λw.s(s w)`:
+
+```
+MUL 2 2
+⟹ (λn₂.λz. 2 (n₂ z)) 2                       ; n₁ := 2
+⟹ λz. 2 (2 z)                                 ; n₂ := 2
+⟹ λz. 2 ((λs.λw. s (s w)) z)
+⟹ λz. 2 (λw. z (z w))                          ; s := z
+⟹ λz. (λs.λw'. s (s w')) (λw. z (z w))
+⟹ λz. λw'. (λw. z (z w)) ((λw. z (z w)) w')    ; s := λw. z (z w)
+⟹ λz. λw'. (λw. z (z w)) (z (z w'))
+⟹ λz. λw'. z (z (z (z w')))                    ; = 4
+```
+
+**(b)**
+
+```
+ADD = λm. λn. m SUCC n
+```
+
+`m` aplica `SUCC` m vezes a `n`: somar m é tomar o sucessor m vezes. (Sem `SUCC`, também
+vale `ADD = λm.λn.λs.λz. m s (n s z)`: n aplicações de `s`, e depois mais m.)
+
+**(c)**
+
+```
+XOR = λb₁. λb₂. b₁ (NOT b₂) b₂          com NOT = λb. b F T
+```
+
+Se `b₁ = T`, escolhe o primeiro: `NOT b₂` (verdadeiro XOR b₂ é o contrário de b₂). Se
+`b₁ = F`, escolhe o segundo: `b₂` (falso XOR b₂ é b₂).
+
+**Por quê:** em Church, **dados são funções**. Um número n é "aplique algo n vezes"; um
+booleano é "escolha entre duas coisas". Todas as operações saem daí: `MUL` compõe as
+repetições, e `XOR` usa o próprio `b₁` como um `if`.
+
+</details>
+
+## Questão 2 — Variáveis livres
+
+**Assunto:** variáveis livres e ligadas (Aula 09) · **Tipo:** rastreio
+
+> Encontre o conjunto de variáveis livres.
+
+<details>
+<summary>Resposta</summary>
+
+Regras: `FV(x) = {x}`, `FV(e₁ e₂) = FV(e₁) ∪ FV(e₂)`, `FV(λx.e) = FV(e) \ {x}`.
+
+| Expressão | Com parênteses | Variáveis livres |
+|---|---|---|
+| (a) `λx.xy λz.xz` | `λx.(x y (λz.x z))` | **`{y}`** |
+| (b) `(λx.xy) λz.w λw.wzyx` | `(λx.x y) (λz.(w (λw.w z y x)))` | **`{w, x, y}`** |
+| (c) `x λz.x λw.wzy` | `x (λz.(x (λw.w z y)))` | **`{x, y}`** |
+| (d) `λx.xy λx.yx` | `λx.(x y (λx.y x))` | **`{y}`** |
+
+Detalhe do (b): na primeira parte só `y` é livre. Na segunda, o primeiro `w` está **fora**
+do `λw` (é livre), e dentro dele `z`, `y`, `x` são livres até o `λz` ligar o `z`. Sobra
+`{w, y, x}`. O (d) tem dois `λx`: o `x` de `y x` é ligado pelo `λx` **mais próximo**.
+
+**Por quê:** uma variável é livre quando **nenhum `λ` acima dela** tem o seu nome. O que
+decide é a estrutura (o corpo vai até o fim), e não a aparência.
+
+</details>
+
+## Questão 3 — Substituição sem captura
+
+**Assunto:** substituição e captura de variáveis (Aula 09) · **Tipo:** rastreio
+
+> `e[x → y]` troca as ocorrências **livres** de `x` em `e` por `y`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `(f (λx.xy) λz.xyz)[x → g]` = **`f (λx.x y) (λz.g y z)`**. O `x` de `λx.xy` é
+ligado e não muda; o de `λz.xyz` é livre.
+
+**(b)** `((λx.fx) λf.fx)[f → gx]`. O `f` de `λx.fx` é livre, mas colocar `g x` ali dentro
+faria o `x` ser **capturado** pelo `λx`. Primeiro renomeia-se o `λx` para `λu`:
+**`(λu.g x u) (λf.f x)`**. Na segunda parte o `f` é ligado e não muda.
+
+**(c)** `(λx.λy.fxy)[y → x]` = **`λx.λy.f x y`**, sem mudança: `y` não é livre.
+
+**(d)** `(λf.λy.fxy)[x → fy]`. Os dois nomes de `f y` seriam capturados (`λf` e `λy`).
+Renomeando: **`λg.λz.g (f y) z`**.
+
+**Por quê:** nomes de variáveis ligadas não importam (`λx.x` = `λu.u`), mas **as livres
+importam**: elas se referem a algo de fora. Substituir sem renomear muda o significado da
+expressão. É o mesmo problema das macros de C que não são "limpas" (Lista 11, Q6e).
+
+</details>
+
+## Questão 4 — Precedência no cálculo λ
+
+**Assunto:** precedência e ambiguidade no cálculo λ (Aulas 03 e 09) · **Tipo:** conceitual
+
+> (a) Diferença entre `λx.(xy)` e `(λx.x)x`; qual é `λx.x y`? (b) Pela gramática dada,
+> mostre a árvore de `λx.x y`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+- `λx.(xy)` é uma **função**: recebe `x` e aplica `x` a `y`.
+- `(λx.x)x` é uma **aplicação**: a identidade aplicada a `x`, que reduz para `x`.
+
+Pela convenção de que o corpo do `λ` vai o mais à direita possível,
+**`λx.x y` = `λx.(x y)`**.
+
+**(b)**
+
+```
+          <expr>
+            |
+          <fun>
+     ┌──┬───┼────┐
+     λ <var> .  <expr>
+         x        |
+                <app>
+              ┌───┴───┐
+           <head>   <atom>
+              |        |
+            <var>   <head>
+              x        |
+                     <var>
+                       y
+```
+
+A regra `<fun> ::= λ<var>.<expr>` põe **toda** a expressão restante no corpo. Para obter
+`(λx.x) y`, a função teria que estar entre parênteses (`<head> ::= (<fun>)`).
+
+**Por quê:** é a mesma questão de precedência das gramáticas de expressões: a gramática
+decide o significado, e esta foi escrita para que a abstração tenha a menor precedência.
+
+</details>
+
+## Questão 5 — Forma normal
+
+**Assunto:** forma normal e Turing completude (Aula 09) · **Tipo:** conceitual
+
+> (a) Uma expressão sem forma normal. (b) Por que isso é essencial para a equivalência com a
+> máquina de Turing?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```
+Ω = (λx.x x) (λx.x x)
+```
+
+Reduzir `Ω` produz `Ω` de novo, para sempre.
+
+**(b)** Uma máquina de Turing pode **não parar**. Um formalismo em que toda expressão
+chegasse a uma forma normal seria um formalismo em que **toda computação termina**, e ele
+não conseguiria simular as máquinas que rodam para sempre. Além disso, se toda expressão
+terminasse, o problema da parada seria trivial; como ele é indecidível para máquinas de
+Turing, também tem de ser indecidível saber se uma expressão λ tem forma normal.
+
+**Por quê:** "sempre termina" e "Turing completo" não combinam. É o mesmo motivo pelo qual
+o SQL original, que sempre termina, não é Turing completo (Lista 1).
+
+</details>
+
+## Questão 6 — `S K K`
+
+**Assunto:** redução β com combinadores (Aula 09) · **Tipo:** rastreio
+
+> `S = λxyz.(xz)(yz)`, `K = λxy.x`. Qual a forma normal de `S K K`?
+
+<details>
+<summary>Resposta</summary>
+
+```
+S K K
+⟹ λz. (K z) (K z)      ; x := K, y := K
+⟹ λz. z                ; K z (K z) = z, porque K a b = a
+```
+
+**`S K K = λz.z`**, a identidade (`I`).
+
+**Por quê:** a dica do enunciado é o segredo: com as abreviações, basta lembrar que `K`
+**devolve o primeiro argumento e descarta o segundo**. Não é preciso expandir `K z` por
+dentro.
+
+</details>
+
+## Questão 7 — Uma expressão curta com forma normal gigantesca
+
+**Assunto:** números de Church e exponenciação (Aula 09) · **Tipo:** conceitual
+
+> Até 20 cm (40 símbolos de 5 mm), com forma normal de pelo menos 10^(10^10) anos-luz.
+
+<details>
+<summary>Resposta</summary>
+
+```
+(λn.n n n n) (λs.λz.s(s(s z)))
+```
+
+São 25 símbolos: 12,5 cm.
+
+O segredo: aplicar um número de Church a outro é **exponenciação**. `a b` = bᵃ, porque `a`
+compõe a função `b` consigo mesma a vezes. Com `n = 3`:
+
+- `n n` = 3³ = 27;
+- `(n n) n` = 3²⁷ ≈ 7,6 × 10¹²;
+- `((n n) n) n` = 3^(3²⁷) ≈ 10^(3,6 × 10¹²).
+
+A forma normal é o número de Church com esse tanto de `s`: cerca de 10^(3,6 × 10¹²) símbolos.
+Um ano-luz tem cerca de 2 × 10¹⁸ símbolos de 5 mm, então isso dá muito mais que 10^(10^10)
+anos-luz.
+
+**Por quê:** uma expressão pequena pode descrever uma computação enorme. Não existe limite
+para o tamanho da forma normal em função do tamanho da expressão.
+
+</details>
+
+## Questão 8 — `zero?` em cálculo λ
+
+**Assunto:** codificação de Church e Turing completude (Aula 09) · **Tipo:** implementação
+
+> Escreva a função que testa se um número é zero.
+
+<details>
+<summary>Resposta</summary>
+
+```
+ZERO? = λn. n (λx.F) T
+```
+
+O número `n` aplica a função `λx.F` n vezes ao valor inicial `T`:
+- se `n = 0`, nenhuma aplicação acontece e sobra `T`;
+- se `n ≥ 1`, a primeira aplicação já troca tudo por `F`.
+
+A anotação da aula usa uma versão equivalente, `Z = λx. x F NOT F`.
+
+**Por quê:** com zero, sucessor, predecessor, `zero?` e recursão, a linguagem é Turing
+completa. O teste de zero é o que permite a **decisão** (junto com `IF = λb.λe₁.λe₂.b e₁ e₂`).
+
+</details>
+
+## Questão 9 — Tipos e resultados de `insertHead` e `comb`
+
+**Assunto:** inferência de tipos, listas de listas e complexidade (Aulas 05–09) · **Tipo:** dar o tipo + rastreio
+
+```sml
+fun insertHead _ nil = nil
+  | insertHead e (h::t) = (e::h) :: insertHead e t
+
+fun comb 0 _ = [[]]
+  | comb _ [] = []
+  | comb n (h::t) = insertHead h (comb (n-1) t) @ comb n t
+```
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `insertHead : 'a -> 'a list list -> 'a list list`. Em `e :: h`, `h` precisa ser uma
+lista de elementos do tipo de `e`, então a entrada `h :: t` é uma **lista de listas**.
+
+**(b)** `insertHead 3 [[1], [2]]` = **`[[3,1], [3,2]]`**: põe `3` na frente de cada lista.
+
+**(c)** `comb : int -> 'a list -> 'a list list`. O `0` e o `n - 1` fixam o primeiro
+argumento como `int`.
+
+**(d)** `comb 2 [1,2,3]` = **`[[1,2], [1,3], [2,3]]`**, as combinações de 2 elementos:
+
+```
+comb 2 [1,2,3] = insertHead 1 (comb 1 [2,3]) @ comb 2 [2,3]
+comb 1 [2,3]   = [[2], [3]]          →  insertHead 1 dá [[1,2], [1,3]]
+comb 2 [2,3]   = [[2,3]]
+```
+
+**(e)** **Exponencial**, O(2ⁿ) no pior caso, com n o tamanho da lista. Cada chamada gera
+duas (com o elemento e sem ele), como na árvore de decisões de um subconjunto. O número de
+combinações devolvidas, C(n, k), já chega a cerca de 2ⁿ/√n quando k ≈ n/2.
+
+**Por quê:** a regra de `comb` é a mesma do `powerset` (Lista 6): cada elemento **entra ou
+não entra**. A diferença é que `comb` para quando já escolheu k elementos.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Booleanos de Church em SML: `print`, `AND`, `OR` e seus tipos | [Prova 29, Q1](/docs/aula-revisao-01-12/prova-29) | a Questão 1c com `fn x => fn y => ...` |
+| Cálculo λ como modelo do paradigma funcional | [Prova 22, Q1b](/docs/aula-revisao-01-12/prova-22) | "qual o modelo computacional?" |
+| Dar o tipo de uma função SML | [Prova 24, Q2c](/docs/aula-revisao-01-12/prova-24), [Prova 28, Q2a](/docs/aula-revisao-01-12/prova-28), [Prova 29, Q1b](/docs/aula-revisao-01-12/prova-29) | a Questão 9 |
+
+## Para treinar
+
+1. Reduza `ADD 1 1` passo a passo.
+2. Defina `NOT` e `OR` em SML usando `val T = fn x => fn y => x`, como na Prova 29.
+3. Qual o tipo de `fun pairs x L = map (fn y => (x, y)) L`?

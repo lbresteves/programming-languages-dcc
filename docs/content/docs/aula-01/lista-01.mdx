@@ -1,0 +1,225 @@
+---
+title: Lista 01 - Resolução
+description: Turing completude, Brainfuck, imperativo × declarativo e quines
+---
+
+Resolução completa da Lista 1. Tente cada questão no papel antes de abrir a resposta.
+
+## Questão 1 — Turing completude
+
+**Assunto:** Turing completude e poder das linguagens (Aula 01) · **Tipo:** conceitual
+
+> (a) O que uma linguagem precisa ter para ser Turing completa? (b) Descreva uma linguagem
+> que não seja. (c) Um problema que ela não resolve. (d) HTML é Turing completa? E SQL?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Ela precisa conseguir simular uma máquina de Turing. Na prática, bastam três
+ingredientes:
+
+1. **desvio condicional** (um `if`: fazer coisas diferentes dependendo de um valor);
+2. **repetição ilimitada** (um laço sem limite fixo de voltas, ou recursão);
+3. **memória ilimitada** (em teoria), que o programa pode ler e escrever.
+
+**(b)** **Expressões regulares** (ou autômatos finitos), vistas em FTC. Elas não têm memória
+além do estado atual do autômato: o número de estados é fixo e finito.
+
+**(c)** Reconhecer `aⁿbⁿ` (n letras `a` seguidas de n letras `b`), ou parênteses
+balanceados. Para isso é preciso **contar** quantos `a` vieram, e um autômato finito só
+consegue contar até o seu número de estados.
+
+**(d)**
+- **HTML: não.** É uma linguagem de marcação: descreve a estrutura de um documento e não
+  tem condicional nem repetição. (Combinado com CSS e interação do usuário, já se mostrou
+  que dá para simular computação, como está na anotação da aula; HTML sozinho, não.)
+- **SQL: o SQL original (SQL-92) não era.** Uma consulta sempre termina. A partir do
+  SQL:1999, as consultas recursivas (`WITH RECURSIVE`) tornaram o SQL Turing completo.
+
+**Por quê:** "Turing completa" é sobre **poder de expressão**, não sobre eficiência nem
+conveniência. Brainfuck é Turing completa e HTML não, mesmo HTML sendo muito mais útil.
+Isso também quer dizer que C, Java, Python, SML e Prolog são **equivalentes em poder**: o
+que muda entre elas é como se expressa a solução e quanto ela custa.
+
+</details>
+
+## Questão 2 — Brainfuck
+
+**Assunto:** a menor linguagem Turing completa: fita, cursor e laço (Aula 01) · **Tipo:** implementação
+
+> Brainfuck tem oito comandos que manipulam uma fita de células inteiras. Escreva os
+> programas pedidos.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Os oito comandos:
+
+| Símbolo | O que faz |
+|---|---|
+| `>` | move o cursor uma célula para a direita |
+| `<` | move o cursor uma célula para a esquerda |
+| `+` | soma 1 na célula corrente |
+| `-` | subtrai 1 da célula corrente |
+| `.` | imprime a célula corrente como caractere |
+| `,` | lê um caractere da entrada para a célula corrente |
+| `[` | se a célula corrente é 0, pula para depois do `]` correspondente |
+| `]` | se a célula corrente não é 0, volta para depois do `[` correspondente |
+
+**(b)** Zerar a célula corrente:
+
+```
+[-]
+```
+
+Enquanto a célula não for 0, subtrai 1.
+
+**(c)** Copiar a célula corrente para a da esquerda, **sem perder o valor original**. É
+preciso uma célula auxiliar (a da direita), porque a única forma de "ler" um valor é
+decrementá-lo até zero:
+
+```
+<[-]>[-<+>>+<]>[-<+>]<
+```
+
+- `<[-]>`: zera a célula da esquerda (o destino).
+- `[-<+>>+<]`: tira 1 da corrente e põe 1 na esquerda e 1 na direita, até a corrente
+  zerar. Agora a esquerda e a direita têm o valor; a corrente tem 0.
+- `>[-<+>]<`: devolve o valor da direita para a corrente e volta o cursor.
+
+Assume que a célula da direita começa em 0. Se só quisesse **mover** (perdendo o
+original), bastaria `[-<+>]`.
+
+**(d)** Três na corrente, quatro na próxima, soma na segunda:
+
+```
++++>++++<[->+<]>
+```
+
+`[->+<]` transfere a primeira célula para a segunda, uma unidade por vez. No fim, a
+primeira vale 0, a segunda vale 7, e o cursor está na segunda.
+
+**(e)** Ler a entrada para a fita e imprimir na ordem em que foi lida:
+
+```
+>,[>,]<[<]>[.>]
+```
+
+- `>`: deixa a primeira célula em 0, como marcador de início.
+- `,[>,]`: lê caracteres para células consecutivas até ler 0 (fim da entrada, na convenção
+  em que `,` devolve 0 no EOF).
+- `<[<]`: volta até o marcador 0.
+- `>[.>]`: avança imprimindo até achar a célula 0 depois do último caractere.
+
+**Por quê:** Brainfuck mostra que Turing completude pede pouco: memória ilimitada (a fita)
+e um laço condicional (`[` e `]`). Todo o resto (cópia, soma, entrada e saída) é montado
+com esses dois ingredientes.
+
+</details>
+
+## Questão 3 — Imperativo × declarativo
+
+**Assunto:** paradigmas: estado e "faça" × "é" (Aula 01) · **Tipo:** conceitual
+
+> (a) Escreva um algoritmo de forma imperativa e declarativa. (b) Uma vantagem da
+> declarativa. (c) Uma vantagem da imperativa.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Fatorial:
+
+Imperativo (sequência de comandos que **mudam o estado**):
+
+```
+fat(n):
+  r := 1
+  i := 1
+  enquanto i <= n:
+    r := r * i
+    i := i + 1
+  devolva r
+```
+
+Declarativo (descreve **o que** o fatorial é, sem estado):
+
+```sml
+fun fat 0 = 1
+  | fat n = n * fat (n - 1);
+```
+
+**(b)** Vantagem da declarativa: **não há estado mutável**, então cada parte do programa
+pode ser entendida isoladamente, e o mesmo termo sempre vale a mesma coisa. Isso facilita
+provar que o programa está correto e também **paralelizar** (partes sem estado
+compartilhado podem rodar ao mesmo tempo).
+
+**(c)** Vantagem da imperativa: **controle direto do custo**. O modelo imperativo segue a
+máquina de von Neumann (memória + comandos que a alteram), então o programador decide
+exatamente o que é alocado, reutilizado e sobrescrito. Um laço que atualiza `r` em lugar
+usa memória constante; a versão recursiva ingênua empilha n registros de ativação.
+
+**Por quê:** a diferença de fundo é o **estado**. Imperativo = "faça" (como); declarativo =
+"é" (o quê). Nos exemplos do curso: C e Java favorecem o imperativo, SML favorece o
+funcional (declarativo) e Prolog é declarativo lógico. Python permite os dois.
+
+</details>
+
+## Questão 4 — Quines
+
+**Assunto:** programas que imprimem o próprio código; consequência da Turing completude (Aula 01) · **Tipo:** implementação
+
+> Escreva um quine (a) na sua linguagem favorita, (b) em Bash, sem ler o próprio arquivo, e
+> (c) "em Português".
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Python:
+
+```python
+s='s=%r;print(s%%s)';print(s%s)
+```
+
+A string `s` é um **modelo** do programa inteiro, com um buraco (`%r`) onde entra a
+própria `s`. `%r` insere a representação da string **com as aspas**, e `%%` vira `%`.
+
+**(b)** Bash:
+
+```bash
+s='s=\47%s\47;printf "$s" "$s"';printf "$s" "$s"
+```
+
+Mesma ideia: `$s` é usado **como formato** e **como argumento**. No formato, `\47` é o
+código octal da aspa simples, então o `printf` recria as aspas em volta de `s`. O argumento
+não é interpretado, então o `\47` aparece literalmente onde precisa aparecer.
+
+**(c)** Português:
+
+> Escreva a frase a seguir duas vezes, a segunda vez entre aspas: "Escreva a frase a seguir
+> duas vezes, a segunda vez entre aspas:"
+
+**Por quê:** todo quine tem a mesma estrutura: um **dado** que descreve o programa e um
+**código** que imprime esse dado duas vezes, uma como código e outra como dado (entre
+aspas). O `cat $0` do enunciado não vale porque lê o próprio arquivo: é uma entrada.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Modelos computacionais: máquina de Turing (imperativo) × cálculo λ (funcional) | [Prova 22, Q1](/docs/aula-revisao-01-12/prova-22) | "qual modelo fundamenta o paradigma?", "por que imperativo tem esse nome?" |
+| Paradigma é da linguagem ou do programa? | [Prova 22, Q1e](/docs/aula-revisao-01-12/prova-22) | defender um ponto de vista |
+| Turing completude do cálculo λ | [Prova 29, Q1](/docs/aula-revisao-01-12/prova-29) | escrever booleanos de Church em SML |
+
+A Questão 3 desta lista é a base da Prova 22, Q1: imperativo vem de **comandos** (modo
+imperativo do verbo) que mudam o estado da máquina de von Neumann.
+
+## Para treinar
+
+1. Em Brainfuck, escreva um programa que multiplique a célula corrente por 2, colocando o
+   resultado na célula à direita.
+2. Escreva a soma dos elementos de uma lista de forma imperativa (pseudocódigo) e
+   declarativa (SML).
+3. Por que uma consulta SQL-92 sempre termina, e o que isso diz sobre a sua Turing
+   completude?

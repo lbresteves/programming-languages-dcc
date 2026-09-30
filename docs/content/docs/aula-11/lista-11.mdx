@@ -1,0 +1,305 @@
+---
+title: Lista 11 - Resolução
+description: Blocos e escopo em SML, espaços de nomes em Java, map e folds na mão, escopo em JavaScript, bash e Scheme
+---
+
+Resolução completa da Lista 11. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Cai em prova: escopo estático × dinâmico" type="warn">
+  A Prova 27 (Q1) é as Questões 1 e 5 desta lista juntas: um programa em Bash e o mesmo em
+  SML, "o que cada um imprime?". Na revisão o professor repetiu: **"quanto imprime esse
+  programa em SML?"**.
+</Callout>
+
+## Questão 1 — Blocos e escopo em SML
+
+**Assunto:** blocos, definições e escopo estático (Aula 11) · **Tipo:** rastreio
+
+```sml
+fun g x =
+  let val inc = 1
+      fun f y = y + inc
+      fun h z =
+        let val inc = 2
+        in
+          f z
+        end
+  in
+    h x
+  end
+```
+
+> (a) Circule e numere os blocos. (b) Quais os nomes definidos? (c) O escopo de cada
+> definição. (d) A qual definição cada uso se liga. (e) Quanto vale `g 5`?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Blocos:
+
+| Bloco | Trecho |
+|---|---|
+| 1 | a função `g` inteira (parâmetro `x` e corpo) |
+| 2 | o `let` de fora: `let val inc = 1 ... in h x end` |
+| 3 | a função `f` (parâmetro `y` e corpo `y + inc`) |
+| 4 | a função `h` (parâmetro `z` e corpo) |
+| 5 | o `let` de dentro: `let val inc = 2 in f z end` |
+
+**(b)** `g`, `x`, `inc` (o de fora, = 1), `f`, `y`, `h`, `z` e `inc` (o de dentro, = 2).
+
+**(c)**
+
+| Definição | Escopo |
+|---|---|
+| `g` | o resto do programa, depois da definição (bloco externo a 1) |
+| `x` | o corpo de `g` (bloco 1) |
+| `inc` = 1 | o resto do bloco 2 depois dela: `f`, `h` e `h x` (exceto onde for sombreado) |
+| `f` | o resto do bloco 2: `h` e `h x` |
+| `y` | o corpo de `f` (bloco 3) |
+| `h` | o `in h x` do bloco 2 |
+| `z` | o corpo de `h` (bloco 4) |
+| `inc` = 2 | o `in f z` do bloco 5 |
+
+**(d)**
+- `inc` em `y + inc` → `inc` = 1 (o de fora; `f` foi escrita dentro do bloco 2, não do 5).
+- `y` → parâmetro de `f`. `z` em `f z` → parâmetro de `h`. `x` em `h x` → parâmetro de `g`.
+- `f` em `f z` → a `f` do bloco 2. `h` em `h x` → a `h` do bloco 2.
+- O `inc` = 2 **não é usado por ninguém**.
+
+**(e)** `g 5` = `h 5` = `f 5` = `5 + 1` = **`6`**.
+
+**Por quê:** SML tem **escopo estático** (léxico): o `inc` que `f` enxerga é o que está em
+volta de `f` **no texto do programa**. O `inc` = 2 existe no momento em que `f` é chamada,
+mas isso não importa. Com escopo dinâmico (como em bash), `f` veria o `inc` mais recente na
+pilha de chamadas, e `g 5` daria 7.
+
+</details>
+
+## Questão 2 — `Reuse`, `Reuse` e `Reuse`
+
+**Assunto:** espaços de nomes separados em Java (Aula 11) · **Tipo:** rastreio
+
+```java
+1  class Reuse {
+2    Reuse Reuse (Reuse Reuse) {
+3      Reuse:
+4      for (;;) {
+5        if (Reuse.Reuse(reuse) == Reuse)
+6          break Reuse;
+7      }
+8      return Reuse;
+9    }
+10 }
+```
+
+<details>
+<summary>Resposta</summary>
+
+A transcrição tem `reuse` minúsculo na linha 5; no original (livro do Webber) é `Reuse`, e a
+resposta considera assim.
+
+**(a)** As definições:
+
+| Onde | O que define |
+|---|---|
+| linha 1 | a **classe** `Reuse` |
+| linha 2, 2º `Reuse` | o **método** `Reuse` |
+| linha 2, 4º `Reuse` | o **parâmetro** `Reuse` |
+| linha 3 | o **rótulo** `Reuse` |
+
+**(b)** Os usos:
+
+| Onde | Refere-se a |
+|---|---|
+| linha 2, 1º `Reuse` (tipo de retorno) | a classe (linha 1) |
+| linha 2, 3º `Reuse` (tipo do parâmetro) | a classe (linha 1) |
+| linha 5, `Reuse` antes do ponto | o parâmetro (linha 2) |
+| linha 5, `Reuse` depois do ponto | o método (linha 2) |
+| linha 5, `Reuse` entre parênteses | o parâmetro (linha 2) |
+| linha 5, `Reuse` depois do `==` | o parâmetro (linha 2) |
+| linha 8 | o parâmetro (linha 2) |
+
+**Por quê:** Java tem **espaços de nomes separados** para tipos, métodos, variáveis e
+rótulos. O compilador sabe qual procurar pela **posição sintática**: antes de um nome de
+variável é um tipo; seguido de `(` é um método; depois de `break` é um rótulo. SML também
+separa alguns espaços (tipos e valores), mas C não permite um tipo e uma variável com o
+mesmo nome no mesmo escopo.
+
+</details>
+
+## Questão 3 — `map`, `foldr` e `foldl` na mão
+
+**Assunto:** funções de alta ordem com recursão explícita (Aulas 10–11) · **Tipo:** implementação + dar o tipo
+
+> Sem usar `map`, `foldr` nem `foldl`, defina (a) `mymap`, (c) `myfoldr`, (e) `myfoldl`, e
+> dê os tipos de (b) `mymap` e (d) `myfoldr`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+fun mymap _ nil = nil
+  | mymap f (h :: t) = f h :: mymap f t;
+```
+
+**(b)** `mymap : ('a -> 'b) -> 'a list -> 'b list`.
+
+**(c)**
+
+```sml
+fun myfoldr _ c nil = c
+  | myfoldr f c (h :: t) = f (h, myfoldr f c t);
+```
+
+**(d)** `myfoldr : ('a * 'b -> 'b) -> 'b -> 'a list -> 'b`.
+
+**(e)**
+
+```sml
+fun myfoldl _ c nil = c
+  | myfoldl f c (h :: t) = myfoldl f (f (h, c)) t;
+```
+
+`myfoldl` tem o mesmo tipo de `myfoldr`.
+
+**Por quê:** a diferença está em **quando** `f` é aplicada.
+- No `foldr`, `f` recebe a cabeça e o resultado **já calculado para a cauda**: a recursão
+  vem antes, e o primeiro `f` a terminar é o do último elemento.
+- No `foldl`, `f` é aplicada **antes** da recursão, e o resultado vira o novo acumulado.
+  A chamada recursiva é a última coisa feita: **recursão de cauda**.
+
+Nos tipos, `'a` é o tipo dos elementos e `'b` o do resultado. Eles podem ser diferentes (é
+o que a Prova 27 Q2a pede para mostrar).
+
+</details>
+
+## Questão 4 — O `var` de JavaScript
+
+**Assunto:** escopo de função × escopo de bloco (Aula 11) · **Tipo:** conceitual
+
+> Três `var x` em blocos aninhados; o programa mostra `3` três vezes. Como é o escopo?
+
+<details>
+<summary>Resposta</summary>
+
+Uma variável declarada com `var` tem **escopo de função** (ou global), e **não de bloco**.
+As chaves do `if` não criam um novo escopo para `var`: os três `var x` declaram **a mesma
+variável**, e a última atribuição (`x = 3`) vale para os três `alert`.
+
+**Por quê:** compare com as outras linguagens:
+
+| Linguagem | Blocos `{ }` criam escopo? | Resultado do programa |
+|---|---|---|
+| JavaScript com `var` | não | `3 3 3` |
+| JavaScript com `let` (ES6) | sim | `3 2 1` |
+| Java | sim, e redeclarar `x` num bloco interno é **erro** de compilação | não compila |
+| C | sim (sombreamento permitido) | `3 2 1` |
+| SML | `let ... in ... end` cria escopo | `3 2 1` |
+
+O `let` foi acrescentado ao JavaScript justamente para corrigir isso.
+
+</details>
+
+## Questão 5 — Escopo em bash
+
+**Assunto:** escopo dinâmico (Aula 11) · **Tipo:** rastreio
+
+```bash
+x=1
+function g () { echo $x ; x=2 ; }
+function f () { local x=3 ; g ; }
+f          # 1 ou 3?
+echo $x    # 1 ou 2?
+```
+
+<details>
+<summary>Resposta</summary>
+
+Imprime:
+
+```
+3
+1
+```
+
+- `f` cria um `x` local com 3 e chama `g`. `g` procura `x` **na pilha de chamadas**: o mais
+  recente é o de `f`, então imprime `3`.
+- `x=2` dentro de `g` também muda o `x` **de `f`**, que some quando `f` termina.
+- O `x` global continua `1`.
+
+**Bash tem escopo dinâmico.**
+
+**Por quê:** no escopo **dinâmico**, um nome se refere à definição mais recente **em tempo
+de execução** (quem chamou). No **estático**, à definição que envolve o uso **no texto**. O
+mesmo programa em SML imprimiria `1` (o `x` global que envolve `g` no texto). É exatamente
+a Prova 27, Q1.
+
+</details>
+
+## Questão 6 — Scheme
+
+**Assunto:** escopo léxico, blocos `let` e macros (Aula 11) · **Tipo:** conceitual
+
+> (a) Que linguagem Guy Steele ajudou a criar? (b) O que é escopo léxico? (c) "Hello, World!"
+> em Scheme. (d) `let`, `let*`, `letrec`. (e) Por que as macros de C não são "limpas"?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** **Java**: Guy Steele foi coautor da especificação da linguagem Java (e também
+participou do Common Lisp).
+
+**(b)** Escopo **léxico** é o mesmo que escopo **estático**: o nome se refere à definição que
+o envolve no **texto** do programa, e isso pode ser decidido antes da execução. O LISP
+original tinha escopo dinâmico.
+
+**(c)**
+
+```scheme
+(display "Hello, World!")
+(newline)
+```
+
+**(d)**
+
+| Construto | Como liga os nomes |
+|---|---|
+| `let` | em **paralelo**: nenhuma expressão de inicialização enxerga os nomes do próprio `let` |
+| `let*` | em **sequência**: cada inicialização enxerga os nomes anteriores |
+| `letrec` | **recursivo**: as inicializações enxergam todos os nomes, inclusive o próprio (para funções recursivas) |
+
+```scheme
+(let* ((a 1) (b (+ a 1))) b)          ; 2 (com let seria erro: a ainda não existe)
+```
+
+**(e)** Porque são **substituição de texto**: o pré-processador cola o corpo da macro no
+ponto de uso, e os nomes da macro podem **capturar** ou ser capturados pelos nomes do
+programa.
+
+```c
+#define SWAP(a, b) { int tmp = a; a = b; b = tmp; }
+
+int tmp = 1, y = 2;
+SWAP(tmp, y);   /* vira { int tmp = tmp; tmp = y; y = tmp; } e não troca nada */
+```
+
+Uma macro **limpa** (*hygienic*) renomeia os nomes internos (`tmp`) para que não colidam com
+os do programa. É o mesmo problema da captura de variáveis no cálculo λ (Lista 9, Q3).
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Escopo estático (SML) × dinâmico (Bash): o que cada programa imprime | [Prova 27, Q1](/docs/aula-revisao-01-12/prova-27) | as Questões 1 e 5 |
+| Espaços de nomes instanciáveis e não instanciáveis | [Prova 27, Q3i–j](/docs/aula-revisao-01-12/prova-27) | citar a palavra-chave (`class`, `namespace`/`structure`) |
+| `foldr` × `foldl`; tipo do `foldr` | [Prova 27, Q2](/docs/aula-revisao-01-12/prova-27) | a Questão 3 |
+
+## Para treinar
+
+1. No programa da Questão 1, troque `f z` por `f (z + inc)`. Quanto vale `g 5` agora?
+2. No programa da Questão 5, o que imprime se `f` não usar `local`?
+3. Escreva `myfilter : ('a -> bool) -> 'a list -> 'a list` com recursão explícita.

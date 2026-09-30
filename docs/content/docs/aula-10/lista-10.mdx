@@ -1,0 +1,229 @@
+---
+title: Lista 10 - Resolução
+description: Vinte e cinco funções de uma linha com map, foldr e foldl
+---
+
+Resolução completa da Lista 10. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="A lista mais cobrada em prova" type="warn">
+  Funções de alta ordem caem em **50% das provas** (22, 27, 28 e 29), e na revisão o
+  professor citou "a Lista 10 inteira". Tente escrever cada uma de cabeça, **com a sintaxe
+  exata**: `fn (x, acc) => ...`, parênteses e ordem dos argumentos do `foldr`.
+</Callout>
+
+## Antes de começar: os três tipos
+
+```sml
+map   : ('a -> 'b) -> 'a list -> 'b list
+foldr : ('a * 'b -> 'b) -> 'b -> 'a list -> 'b
+foldl : ('a * 'b -> 'b) -> 'b -> 'a list -> 'b
+```
+
+- `map f L` aplica `f` a cada elemento e devolve a lista dos resultados, **do mesmo
+  tamanho**.
+- `foldr f c [a, b, c3]` = `f (a, f (b, f (c3, c)))`: combina **da direita para a
+  esquerda**, começando do valor inicial `c`.
+- `foldl f c [a, b, c3]` = `f (c3, f (b, f (a, c)))`: combina **da esquerda para a
+  direita**.
+
+A função passada para os *folds* recebe **um par**: `(elemento, acumulado)`. Regra prática:
+se a resposta tem o mesmo tamanho da entrada, é `map`; se reduz a lista a outra coisa (um
+número, um booleano, uma lista filtrada), é `foldr`.
+
+## Questões 1–5 e 12, 14 — `map`
+
+**Assunto:** `map` e funções anônimas (Aula 10) · **Tipo:** implementação
+
+> 1 `il2rl`, 2 `ordList`, 3 `squareList`, 4 `multPairs`, 5 `incList` (currificada),
+> 12 `is2absrl`, 14 `maxPairs`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun il2rl L = map real L;
+fun ordList L = map ord L;
+fun squareList L = map (fn x => x * x) L;
+fun multPairs L = map (fn (a, b) => a * b) L;
+fun incList L n = map (fn x => x + n) L;
+fun is2absrl L = map (fn x => real (abs x)) L;
+fun maxPairs L = map (fn (a, b) => if a > b then a else b) L;
+```
+
+**Por quê:** em todas, a saída tem um elemento para cada elemento da entrada. Quando a
+função já existe (`real`, `ord`), passa-se o **nome**; quando não existe, escreve-se uma
+função anônima com `fn`. Em `multPairs` e `maxPairs`, o `fn` desmonta o par com um padrão:
+`fn (a, b) => ...`. `incList` é currificada (`L n`, sem tupla), e o `n` é usado dentro do
+`fn`, que o "enxerga" do escopo de fora.
+
+</details>
+
+## Questões 6–9, 11, 13 — `foldr` reduzindo a um valor
+
+**Assunto:** `foldr` com acumulador (Aula 10) · **Tipo:** implementação
+
+> 6 `sqSum`, 7 `bor`, 8 `band`, 9 `bxor`, 11 `myLength`, 13 `trueCount`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun sqSum L = foldr (fn (x, acc) => x * x + acc) 0 L;
+fun bor L = foldr (fn (b, acc) => b orelse acc) false L;
+fun band L = foldr (fn (b, acc) => b andalso acc) true L;
+fun bxor L = foldr (fn (b, acc) => b <> acc) false L;
+fun myLength L = foldr (fn (_, acc) => acc + 1) 0 L;
+fun trueCount L = foldr (fn (b, acc) => if b then acc + 1 else acc) 0 L;
+```
+
+**Por quê:** o valor inicial é **a resposta para a lista vazia**: `0` para somas e
+contagens, `false` para o "ou" e para o "ou exclusivo", `true` para o "e" (é o elemento
+neutro de cada operação). Em `bxor`, `b <> acc` é o "ou exclusivo": ele inverte o acumulado
+a cada `true`, então o resultado é `true` quando há um número ímpar deles. Em `myLength`, o
+elemento é ignorado com `_`, e é por isso que o tipo é `'a list -> int`.
+
+</details>
+
+## Questões 10, 15, 16, 20 — `foldr` construindo uma lista ou *string*
+
+**Assunto:** `foldr` com `::`, `@` e `^` (Aula 10) · **Tipo:** implementação
+
+> 10 `dupList`, 15 `myImplode`, 16 `lconcat`, 20 `append` (sem `@` nem `concat`).
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun dupList L = foldr (fn (x, acc) => x :: x :: acc) nil L;
+fun myImplode L = foldr (fn (c, s) => str c ^ s) "" L;
+fun lconcat L = foldr (fn (l, acc) => l @ acc) nil L;
+fun append L1 L2 = foldr (fn (x, acc) => x :: acc) L2 L1;
+```
+
+**Por quê:** o `foldr` percorre da direita para a esquerda, então pôr o elemento **na
+frente** do acumulado (`x :: acc`) preserva a ordem original. Em `append`, o truque é o
+**valor inicial ser a segunda lista**: os elementos de `L1` são colocados, um a um, na frente
+de `L2`. Em `myImplode`, `str` converte o `char` em `string` e `^` concatena *strings*.
+
+</details>
+
+## Questões 17–19, 21, 22 — `foldr`/`foldl` escolhendo elementos
+
+**Assunto:** *folds* com condição (Aula 10) · **Tipo:** implementação
+
+> 17 `max`, 18 `min`, 19 `member`, 21 `less`, 22 `evens`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun max L = foldl (fn (x, m) => if x > m then x else m) (hd L) (tl L);
+fun min L = foldl (fn (x, m) => if x < m then x else m) (hd L) (tl L);
+fun member (e, L) = foldr (fn (x, acc) => x = e orelse acc) false L;
+fun less (e, L) = foldr (fn (x, acc) => if x < e then x :: acc else acc) nil L;
+fun evens L = foldr (fn (x, acc) => if x mod 2 = 0 then x :: acc else acc) nil L;
+```
+
+**Por quê:**
+- Em `max` e `min` não existe um valor inicial neutro (qual seria o "menor inteiro"?),
+  então o valor inicial é **o primeiro elemento** (`hd L`) e o *fold* percorre o resto
+  (`tl L`). Com a lista vazia, `hd` lança `Empty`, e o enunciado permite. Compare com o
+  `~1073741824` que escrevi na Prova 28: um número inventado dá resposta errada.
+- `member` compara com `=`, e o tipo sai `''a * ''a list -> bool`.
+- `less` e `evens` são **filtros**: o elemento entra no acumulado só se passa no teste.
+
+</details>
+
+## Questão 23 — `convert : ('a * 'b) list -> 'a list * 'b list`
+
+**Assunto:** `foldr` com acumulador em forma de par (Aula 10) · **Tipo:** implementação
+
+> `convert [(1, 2), (3, 4), (5, 6)] = ([1, 3, 5], [2, 4, 6])`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun convert L = foldr (fn ((a, b), (la, lb)) => (a :: la, b :: lb)) (nil, nil) L;
+```
+
+**Por quê:** o acumulado pode ser qualquer coisa, inclusive um **par de listas**. O `fn`
+desmonta tanto o elemento `(a, b)` quanto o acumulado `(la, lb)` com padrões. É o `unzip`
+da biblioteca.
+
+</details>
+
+## Questão 24 — `myMap`
+
+**Assunto:** `map` definido com `foldr` (Aula 10) · **Tipo:** implementação
+
+> Mesmo tipo e semântica de `map`, sem usar `map`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun myMap f L = foldr (fn (x, acc) => f x :: acc) nil L;
+```
+
+`myMap : ('a -> 'b) -> 'a list -> 'b list`.
+
+**Por quê:** `map` é um caso particular de `foldr`: o *fold* em que cada elemento vira
+`f x` e é posto na frente do resto. `foldr` é a operação mais geral das três.
+
+</details>
+
+## Questão 25 — `eval : real list -> real -> real`
+
+**Assunto:** `foldr` e a regra de Horner (Aulas 06 e 10) · **Tipo:** implementação
+
+> Avaliar o polinômio (constante primeiro) em uma linha, currificado.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun eval L x = foldr (fn (a, acc) => a + x * acc) 0.0 L;
+```
+
+`eval [1.0, 5.0, 3.0] 2.0` = `1.0 + 2.0 * (5.0 + 2.0 * (3.0 + 2.0 * 0.0))` = `23.0`.
+
+**Por quê:** é a mesma recursão da Lista 6 (`h + x * eval (t, x)`), e o `foldr` faz
+exatamente esse aninhamento da direita para a esquerda. Toda recursão da forma "combina a
+cabeça com o resultado da cauda" é um `foldr`.
+
+</details>
+
+## `foldl` × `foldr`: quando dão resultados diferentes
+
+Quando a operação **não é associativa e comutativa**, ou quando constrói uma lista:
+
+```sml
+- foldr (op ::) nil [1, 2, 3];
+val it = [1,2,3] : int list
+- foldl (op ::) nil [1, 2, 3];
+val it = [3,2,1] : int list
+- foldr (op -) 0 [1, 2, 3];
+val it = 2 : int
+- foldl (op -) 0 [1, 2, 3];
+val it = 2 : int
+```
+
+Cuidado com o último par: com `-` os dois **coincidem** nesse exemplo, porque
+`1 - (2 - (3 - 0)) = 2` e `3 - (2 - (1 - 0)) = 2`. Com `[1, 2, 3, 4]` dão `-2` e `2`. O
+exemplo seguro para a prova é o `(op ::)`, que devolve a lista na mesma ordem ou invertida.
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Completar uma aplicação de `foldr` com `'a ≠ 'b`; `foldl` com resultado diferente de `foldr` | [Prova 27, Q2](/docs/aula-revisao-01-12/prova-27) | como `convert` e `dupList`; o exemplo do `(op ::)` |
+| `maxL` de uma linha com `map` | [Prova 28, Q2e](/docs/aula-revisao-01-12/prova-28) | `map max L` |
+| `len` com `foldr`, e com `foldr` + `map` | [Prova 29, Q3c–d](/docs/aula-revisao-01-12/prova-29) | a Questão 11 |
+| Busca com predicado (`find_aux`, `find`) | [Prova 22, Q3c–d](/docs/aula-revisao-01-12/prova-22) | função passada como parâmetro |
+
+## Para treinar
+
+1. `fun f L = foldr (fn (x, acc) => acc @ [x]) nil L` faz o quê? Qual a complexidade?
+2. Escreva `countIf : ('a -> bool) -> 'a list -> int` em uma linha.
+3. Escreva `len3` da Prova 29: o tamanho da lista com `foldr (op +)` e `map`.

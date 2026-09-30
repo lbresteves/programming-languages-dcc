@@ -1,0 +1,160 @@
+---
+title: Prova 28 - Resolução
+description: Instruções invisíveis, max exponencial e linear, e o sistema de tipos de uma linguagem hipotética
+---
+
+Resolução da 1ª prova 28 (`material/provas-antigas/1a-prova/midterm28.md`, que também tem a
+resolução em Markdown). Resolvi esta prova numa sessão guiada; os blocos **⚠️ Meu erro**
+marcam onde errei. Tente cada questão no papel antes de abrir a resposta.
+
+**Questão extra:** Novos Baianos.
+
+## Questão 1 — Instruções invisíveis
+
+**Assunto:** verificações em tempo de execução (Aula 07) · **Tipo:** conceitual
+
+> SML guarda a divisão com um teste invisível que lança `Div`. (a) Outra operação guardada
+> em SML/NJ. (b) Uma operação guardada em Java. (c) Uma vantagem de C não ter esses testes,
+> em **uma palavra**. (d) Uma desvantagem. (e) Um exemplo dela.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `hd []` (ou `tl []`): antes de pegar a cabeça, SML testa se a lista é vazia e lança
+a exceção `Empty`. Também vale o casamento de padrões não exaustivo, que lança `Match`.
+
+**(b)** Acesso a vetor:
+
+```java
+int[] lista = new int[2];
+lista[3] = 999;
+```
+
+Java verifica **em tempo de execução** se `0 <= i < lista.length`, e lança
+`ArrayIndexOutOfBoundsException`. O `javac` compila normalmente, porque o índice poderia ser
+uma variável.
+
+**(c)** **Eficiência.**
+
+**(d)** Falta de segurança: um acesso inválido não é detectado e pode corromper dados em
+silêncio ou derrubar o programa.
+
+**(e)**
+
+```c
+int lista[5];
+lista[10] = 42;
+```
+
+C não verifica o índice e grava 42 fora do vetor, possivelmente sobre outra variável. O
+programa pode continuar com um valor corrompido, sem avisar, ou terminar com *segmentation
+fault*. Em Java, a mesma linha lançaria `ArrayIndexOutOfBoundsException`.
+
+> ⚠️ **Meu erro:** (a) citei `explode` e `implode`, que não têm o que verificar; (b) disse
+> só "dá erro", sem dizer qual nem quando; (c) respondi "determinismo", e é o contrário: sem
+> as verificações, C tem **comportamento indefinido**; (e) escrevi só o código, sem o efeito,
+> e esqueci o `;`.
+
+</details>
+
+## Questão 2 — `max`
+
+**Assunto:** tipos, modelo de custo, `let`, não-exaustividade e `map` (Aulas 05, 06 e 10) · **Tipo:** dar o tipo + implementação
+
+```sml
+fun max [e] = e
+  | max (h::t) = if max t > h then max t else h
+```
+
+> (a) O tipo de `max`. (b) A entrada que força O(2ⁿ). (c) Reescreva linear. (d) Por que
+> `match nonexhaustive`? (e) `maxL`, de uma linha, que devolve o máximo de cada lista de uma
+> lista de listas.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `int list -> int`. O `>` é sobrecarregado e, sem outra pista, fixa `int`.
+
+> ⚠️ **Meu erro:** respondi `'a list -> 'a`. Sem operação, `'a`; com operador
+> sobrecarregado e sem pista, `int`.
+
+**(b)** Uma lista em **ordem crescente** (`[1, 2, ..., n]`). A condição `max t > h` é
+verdadeira em todo nível, e `max t` é chamado duas vezes.
+
+> ⚠️ **Meu erro:** disse só "ordenada". Em ordem decrescente a função é linear.
+
+**(c)**
+
+```sml
+fun max [e] = e
+  | max (h::t) =
+      let
+        val m = max t
+      in
+        if m > h then m else h
+      end;
+```
+
+> ⚠️ **Meu erro:** pus o `let` na cláusula `max [e]`, onde `h` e `t` não existem, e apaguei
+> o caso base.
+
+**(d)** Nenhum padrão casa com `[]`: não é `[e]` nem `h::t`. `max []` lança `Match`.
+
+**(e)**
+
+```sml
+fun maxL L = map max L;
+```
+
+`maxL : int list list -> int list`, porque `map : ('a -> 'b) -> 'a list -> 'b list` com
+`'a = int list` e `'b = int`.
+
+> ⚠️ **Meu erro (de estilo):** reescrevi o `max` com `foldl` e o número mágico
+> `~1073741824`, em vez de reusar o `max` da questão.
+
+</details>
+
+## Questão 3 — O sistema de tipos de uma linguagem hipotética
+
+**Assunto:** estático × dinâmico e os quatro polimorfismos (Aulas 07–08) · **Tipo:** conceitual
+
+```
+def f(x) = x + 2
+def h(g) = g(false)
+h(f)
+```
+
+> Para cada cenário, diga se a tipagem é estática ou dinâmica e se há coerção, sobrecarga,
+> polimorfismo paramétrico ou subtipagem. (a) Não compila: `Linha 2. Tipo esperado: 'int'.
+> Tipo encontrado: 'bool'`. (b) Compila e falha: `Tipo esperado: 'int * int'. Tipo
+> encontrado: 'bool * int'`. (c) O original devolve 2, e `h(g) = g(f)` não compila. (d) O
+> original devolve 2, e `h(g) = g(f)` compila, mas falha:
+> `Operador +: int*int -> int não definido para type<fun>`.
+
+<details>
+<summary>Resposta</summary>
+
+Regras de leitura: **não compila → estático**; **compila e falha → dinâmico**. Estático e
+paramétrico são **independentes** (SML é os dois). Coerção, sobrecarga e subtipagem são
+**explicações alternativas** para `false + 2 = 2`: escolha uma.
+
+| Item | Tipagem | Coerção | Sobrecarga | Paramétrico | Subtipagem |
+|---|---|---|---|---|---|
+| (a) | estática | não | não | **não**: o erro está na linha 2, então `g` já foi fixado como `int -> int` | não |
+| (b) | dinâmica | não: `+` parou com `(false, 2)` | não para `bool` | **sim** (implícito): a linha 2 passou, `h` aceita qualquer `g` | não |
+| (c) | estática | **sim**: `false` virou `0` | não é necessária | **não dá para concluir**: `f(f)` faz `f + 2`, erro em qualquer sistema estático | não é necessária (alternativa: `bool` subtipo de `int`, como em Python) |
+| (d) | dinâmica | **sim, limitada**: `bool` vira `int`, função não | não: só existe `int*int -> int` | **sim** (implícito) | não é necessária |
+
+> ⚠️ **Meus erros:** omiti "estático ou dinâmico" em três itens; copiei a resposta da (a)
+> na (b); justifiquei "não paramétrico" com "verifica antes, logo não é genérico"; e afirmei
+> coerção **e** subtipagem juntas ("convertido" e "sem conversão").
+
+</details>
+
+## Onde treinar
+
+| Questão | Lista |
+|---|---|
+| 1 | [Lista 7, Q1–Q2](/docs/aula-07/lista-07) |
+| 2 | [Lista 5, Q13](/docs/aula-05/lista-05), [Lista 10](/docs/aula-10/lista-10) |
+| 3 | [Lista 8, Q1](/docs/aula-08/lista-08) |

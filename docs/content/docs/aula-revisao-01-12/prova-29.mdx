@@ -1,0 +1,185 @@
+---
+title: Prova 29 - Resolução
+description: Booleanos de Church em SML, gramática booleana em Prolog e len de quatro jeitos
+---
+
+Resolução da 1ª prova 29 (`material/provas-antigas/1a-prova/midterm29.md`). Tente cada
+questão no papel antes de abrir a resposta.
+
+## Questão 1 — Booleanos de Church em SML
+
+**Assunto:** cálculo λ e inferência de tipos (Aulas 05 e 09) · **Tipo:** implementação + dar o tipo
+
+```sml
+val T = fn x => fn y => x
+val F = fn x => fn y => y
+```
+
+> (a) `print`, que converte um booleano de Church em `bool`. (b) O tipo de `print`. (c) `AND`.
+> (d) O tipo de `AND` é `('a -> ('b -> 'c -> 'c) -> 'd) -> 'a -> 'd`: quantos parâmetros tem
+> esse construtor de tipos? (e) `OR`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+fun print b = b true false;
+```
+
+Um booleano de Church **escolhe** entre dois argumentos: `T` devolve o primeiro (`true`) e
+`F` o segundo (`false`).
+
+**(b)** `print : (bool -> bool -> 'a) -> 'a`. `b` é aplicado a dois `bool`; o resultado
+dele não é restringido por nada.
+
+**(c)**
+
+```sml
+fun AND b1 b2 = b1 b2 F;
+```
+
+Se `b1 = T`, escolhe `b2` (verdadeiro E b2 é b2). Se `b1 = F`, escolhe `F`.
+`print (AND T F)` = `print (T F F)` = `print F` = `false`.
+
+**(d)** **Quatro**: as variáveis de tipo `'a`, `'b`, `'c` e `'d`. Cada uma pode ser
+substituída por um tipo concreto.
+
+**(e)**
+
+```sml
+fun OR b1 b2 = b1 T b2;
+```
+
+Se `b1 = T`, escolhe `T`; se `b1 = F`, escolhe `b2`. `print (OR F F)` = `print F` = `false`.
+
+**Por quê:** no cálculo λ os booleanos **são** o `if`: `b x y` é "se b então x senão y".
+`AND` e `OR` são só escolhas bem feitas. (A função `print` desta questão esconde o `print` da
+biblioteca, que imprime *strings*.)
+
+</details>
+
+## Questão 2 — Uma gramática booleana, e ela em Prolog
+
+**Assunto:** ambiguidade, associatividade, precedência e gramáticas em Prolog (Aulas 02–03) · **Tipo:** conceitual + implementação
+
+```
+e ::= b and e | b or e | b
+b ::= 0 | 1
+```
+
+> (a) É ambígua? (b) Associatividade de `and` e `or`. (c) `and` com precedência maior que
+> `or`. (d) A gramática original em Prolog. (e) Com atributos que calculem o valor lógico
+> (ignorando precedência e associatividade).
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** **Não.** Toda regra de `e` começa com **um único** `b`, e a recursão está só à
+direita. Depois de ler um `0` ou `1`, o próximo símbolo decide a regra: `and` escolhe a
+primeira, `or` a segunda, e o fim da entrada a terceira. A cada passo há uma única escolha,
+então cada sentença tem uma única árvore.
+
+**(b)** Os dois são **associativos à direita**: a recursão está à direita.
+`1 and 0 or 1` é lido como `1 and (0 or 1)`. E os dois têm a **mesma** precedência (estão no
+mesmo nível).
+
+**(c)**
+
+```
+e ::= t or e | t
+t ::= b and t | b
+b ::= 0 | 1
+```
+
+O `and` fica num nível mais distante do símbolo de partida, então agrupa primeiro.
+
+**(d)**
+
+```prolog
+e --> b, [and], e.
+e --> b, [or], e.
+e --> b.
+b --> [0] ; [1].
+```
+
+**(e)**
+
+```prolog
+e(V) --> b(V1), [and], e(V2), {V is V1 * V2}.
+e(V) --> b(V1), [or], e(V2), {V is max(V1, V2)}.
+e(V) --> b(V).
+b(0) --> [0].
+b(1) --> [1].
+```
+
+```prolog
+?- e(V, [1, and, 0, or, 1], []).
+V = 1.
+```
+
+Com 0 e 1, o "e" é a multiplicação e o "ou" é o máximo.
+
+**Por quê:** é a mesma sequência da Lista 3: a gramática define a estrutura, os atributos
+definem o valor. Na revisão o professor disse que gramática em Prolog **"com certeza vai
+cair"**.
+
+</details>
+
+## Questão 3 — `len` de quatro jeitos
+
+**Assunto:** recursão, casamento de padrões, `foldr`, `map` e tipos de igualdade (Aulas 05, 06 e 10) · **Tipo:** implementação + conceitual
+
+> (a) `len0 : ''a list -> int` em uma linha, sem padrões e sem *folds*, podendo usar `tl`.
+> (b) `len1 : 'a list -> int` com padrões, em duas linhas. (c) `len2` com `foldr`, sem `map`.
+> (d) `len3` com `foldr (op +)` e `map`. (e) A diferença entre `''a list -> int` e
+> `'a list -> int`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+fun len0 L = if L = nil then 0 else 1 + len0 (tl L);
+```
+
+**(b)**
+
+```sml
+fun len1 nil = 0
+  | len1 (_ :: t) = 1 + len1 t;
+```
+
+**(c)**
+
+```sml
+fun len2 L = foldr (fn (_, acc) => acc + 1) 0 L;
+```
+
+**(d)**
+
+```sml
+fun len3 L = foldr (op +) 0 (map (fn _ => 1) L);
+```
+
+Troca cada elemento por `1` e soma tudo.
+
+**(e)** `''a` é uma variável de **tipo de igualdade**: só aceita tipos em que `=` funciona.
+Aparece em `len0` por causa do `L = nil`. Então `len0 [1.0, 2.0]` é **erro de tipo**
+(`real` não admite `=`), e também uma lista de funções. `len1` não compara nada (o padrão
+`nil` não usa `=`), e aceita **qualquer** lista.
+
+**Por quê:** SML rastreia no sistema de tipos quem pode ser comparado com `=`, para recusar
+na compilação comparações que não fazem sentido (reais imprecisos, funções).
+
+</details>
+
+## Onde treinar
+
+| Questão | Lista |
+|---|---|
+| 1 | [Lista 9, Q1 e Q8](/docs/aula-09/lista-09) |
+| 2 | [Lista 2, Q2](/docs/aula-02/lista-02) e [Lista 3](/docs/aula-03/lista-03) |
+| 3 | [Lista 6, Q1](/docs/aula-06/lista-06) (`''a`) e [Lista 10](/docs/aula-10/lista-10) |

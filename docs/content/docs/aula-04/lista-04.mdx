@@ -1,0 +1,232 @@
+---
+title: Lista 04 - Resolução
+description: Etapas do gcc, tempos de ligação em Java, um compilador JIT, register/inline e depuradores
+---
+
+Resolução completa da Lista 4. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Conceito frágil: tempos de ligação" type="warn">
+  A Questão 2 está no learning-record `0001-tempos-de-ligacao` como **frágil** (errei 6 de
+  9 itens na sessão guiada). Refaça de cabeça antes de abrir.
+</Callout>
+
+## Questão 1 — O que o `gcc` faz por baixo
+
+**Assunto:** pipeline de compilação (Aula 04) · **Tipo:** conceitual
+
+> Descreva cada passo: (a) `gcc -E hello.c > hello.p.c`, (b) `gcc -S hello.p.c -o hello.p.s`,
+> (c) `as hello.p.s -o hello.o`, (d) `/usr/bin/ld hello.o -o a.out`.
+
+<details>
+<summary>Resposta</summary>
+
+| Passo | Ferramenta | Entrada → saída | O que faz |
+|---|---|---|---|
+| (a) `-E` | pré-processador | `.c` → `.c` pré-processado | expande `#include` (cola o conteúdo dos cabeçalhos), substitui as macros de `#define`, resolve `#if`/`#ifdef` e remove comentários. Ainda é C. |
+| (b) `-S` | compilador propriamente dito | `.c` → `.s` | análise léxica, sintática e de tipos, otimizações, e geração de **código de montagem** (*assembly*) em texto. |
+| (c) `as` | montador (*assembler*) | `.s` → `.o` | traduz cada instrução de montagem para **código de máquina** binário. O `.o` é um **objeto**: ainda tem referências a símbolos externos não resolvidas (ex.: `printf`). |
+| (d) `ld` | ligador (*linker*) | `.o` → executável | junta os objetos e as bibliotecas, **resolve os símbolos** (onde está `printf`?) e fixa os endereços, produzindo o executável. |
+
+Chamado assim, sozinho, o `ld` do item (d) costuma falhar: faltam a biblioteca C (`-lc`) e
+os arquivos de inicialização (`crt1.o`, que define `_start`). O `gcc` passa tudo isso
+automaticamente, e dá para ver com `gcc -v`.
+
+**Por quê:** "o compilador" é, na verdade, uma **cadeia de ferramentas**, cada uma com uma
+representação do programa: texto C → C expandido → *assembly* → código de máquina com
+buracos → executável.
+
+</details>
+
+## Questão 2 — Tempos de ligação em Java
+
+**Assunto:** tempos de ligação, *binding times* (Aula 04) · **Tipo:** conceitual
+
+> Em Java, qual o tempo de ligação de cada construto (a)–(i)?
+
+<details>
+<summary>Resposta</summary>
+
+| Item | Construto | Tempo de ligação |
+|---|---|---|
+| a | localização de variável local | tempo de execução |
+| b | localização de campo não estático | tempo de execução |
+| c | significado de `while` | definição da linguagem |
+| d | tamanho em bits do `int` | definição da linguagem |
+| e | *bytecodes* de uma classe | tempo de compilação |
+| f | definição de `m` chamado em `a.m()` | tempo de execução (despacho dinâmico) |
+| g | tipo de uma variável local | tempo de compilação |
+| h | valores atribuídos a uma variável | tempo de execução |
+| i | tamanho de uma referência | implementação da linguagem |
+
+**Por quê:** aplique o teste em cascata:
+1. Fixo antes de qualquer implementação existir? → **definição da linguagem** (c, d: a
+   especificação Java fixa `while` e o `int` de 32 bits; em C o tamanho do `int` varia).
+2. Fixo pela implementação, igual para todo programa? → **implementação da linguagem** (i:
+   a especificação não diz o tamanho de uma referência; cada JVM escolhe).
+3. Depende do programa escrito e é decidido pelo `javac`? → **tempo de compilação** (e, g).
+4. Só existe quando o código roda? → **tempo de execução** (a, b, h; e f, porque o método
+   chamado depende da **classe real** do objeto, conhecida só na execução).
+
+> ⚠️ **Meu erro** (sessão guiada): confundi a sequência de ferramentas (compilar, montar,
+> ligar, carregar) com os tempos de ligação, e troquei compilação ↔ execução ↔ definição
+> em vários itens. Chamei o valor de uma variável de "tempo de compilação" e o *bytecode* de
+> "definição da linguagem".
+
+</details>
+
+## Questão 3 — Um compilador JIT de brinquedo
+
+**Assunto:** compilação *just-in-time* (Aula 04) · **Tipo:** rastreio + conceitual
+
+> O programa C escreve os bytes `B8 34 12 00 00 C3` numa região de memória obtida com
+> `mmap` (com permissão de execução), converte o endereço em ponteiro de função e o chama.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Imprime:
+
+```
+Result = 1234
+```
+
+**(b)** Os seis bytes são código de máquina x86:
+
+| Bytes | Instrução | Efeito |
+|---|---|---|
+| `B8 34 12 00 00` | `mov eax, 0x1234` | põe `0x1234` no registrador `eax` (o `0x1234` está em *little endian*: o byte menos significativo vem primeiro) |
+| `C3` | `ret` | retorna; o valor de retorno de uma função fica em `eax` |
+
+Ou seja, o "programa" gerado é a função `int f(void) { return 0x1234; }`. Ele fica numa
+região de memória alocada **em tempo de execução** pelo `mmap`, com permissão de leitura,
+escrita **e execução** (`PROT_EXEC`), e não no segmento de código do executável.
+
+**(c)** Não. `B8` e `C3` são *opcodes* da arquitetura x86. Um processador ARM, por
+exemplo, interpretaria esses bytes como outras instruções (ou instruções inválidas). Um JIT
+de verdade tem um gerador de código **para cada arquitetura** que suporta. (Além disso,
+alguns sistemas, como o macOS em ARM, proíbem páginas ao mesmo tempo graváveis e
+executáveis.)
+
+**(d)** Porque JavaScript é **dinamicamente tipada**. Um interpretador de JavaScript precisa
+testar os tipos a cada operação (`a + b` é soma de números ou concatenação de *strings*?).
+O JIT observa os tipos que aparecem de fato durante a execução e gera código de máquina
+**especializado** para eles, eliminando esses testes: o ganho é enorme. Em Java os tipos já
+são conhecidos na compilação e o *bytecode* já é tipado, então o interpretador tem menos
+trabalho a economizar e o ganho relativo do JIT é menor.
+
+**Por quê:** o JIT fica entre interpretar e compilar: compila durante a execução, quando já
+se sabe **quais tipos e quais caminhos** o programa realmente usa, informação que um
+compilador estático não tem.
+
+</details>
+
+## Questão 4 — Dicas para o otimizador: `register` e `inline`
+
+**Assunto:** otimização guiada pelo programador (Aula 04) · **Tipo:** conceitual
+
+> (a) Para que serve `register` em C, e como ele "guia" o otimizador? Mostre código.
+> (b) O mesmo para `inline` em C++.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `register` sugere que a variável seja mantida num **registrador** do processador, e
+não na memória, porque é muito usada (ex.: contador de laço). Acesso a registrador é muito
+mais rápido que acesso à memória.
+
+```c
+int soma(int *v, int n) {
+  register int i;
+  register int s = 0;
+  for (i = 0; i < n; i++)
+    s += v[i];
+  return s;
+}
+```
+
+Consequência: não se pode pegar o endereço (`&i`) de uma variável `register`, porque
+registrador não tem endereço de memória.
+
+**(b)** `inline` sugere **substituir a chamada da função pelo seu corpo**, eliminando o custo
+da chamada (empilhar argumentos, desviar, criar o registro de ativação, retornar) e abrindo
+espaço para outras otimizações no ponto de uso.
+
+```cpp
+inline int quadrado(int x) { return x * x; }
+
+int f(int y) {
+  return quadrado(y) + 1;   // pode virar: return y * y + 1;
+}
+```
+
+**Por quê:** as duas palavras são **dicas**, não ordens. Compiladores modernos alocam
+registradores e decidem o *inlining* melhor que o programador, e costumam ignorá-las. Elas
+existem porque, quando C e C++ foram projetadas, os otimizadores eram fracos e o
+programador sabia mais que o compilador.
+
+</details>
+
+## Questão 5 — `gdb` e `valgrind`
+
+**Assunto:** ferramentas de depuração (Aula 04) · **Tipo:** conceitual + rastreio
+
+> (a) Por que o binário cresce com `-g`? (b) Qual a saída do `valgrind` para o programa com
+> `malloc` sem `free`, e depois com o `free`?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** O `-g` acrescenta **informação de depuração** (no formato DWARF) ao binário: os
+nomes das funções e variáveis, seus tipos, e a correspondência entre cada instrução de
+máquina e a **linha do código-fonte**. É isso que permite ao `gdb` mostrar a linha atual e
+imprimir `buffer[4]` pelo nome. O código de máquina executado é o mesmo; o que cresce são
+as tabelas extras.
+
+**(b) i.** O programa imprime `3` e o `valgrind` acusa o vazamento. Trecho típico da saída:
+
+```
+HEAP SUMMARY:
+    in use at exit: 4 bytes in 1 blocks
+  total heap usage: 2 allocs, 1 frees, 1,028 bytes allocated
+
+LEAK SUMMARY:
+   definitely lost: 4 bytes in 1 blocks
+```
+
+Os 4 bytes são o `int` alocado em `problem`: o ponteiro `i` some quando a função retorna, e
+ninguém mais consegue liberar aquela memória. (A outra alocação é o *buffer* interno do
+`printf`, que é liberado; os números exatos variam com a versão.)
+
+**ii.** Com o `free(i)`:
+
+```
+HEAP SUMMARY:
+    in use at exit: 0 bytes in 0 blocks
+  total heap usage: 2 allocs, 2 frees, 1,028 bytes allocated
+
+All heap blocks were freed -- no leaks are possible
+```
+
+**Por quê:** C deixa a gerência do *heap* com o programador (`malloc`/`free`). Java,
+Python e SML têm **coletor de lixo**, então esse vazamento não acontece do mesmo jeito. É
+por isso que ferramentas como o `valgrind` existem para C e C++.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Formas de execução: compilada, interpretada, *bytecode*; por que toda linguagem tem *parsing*; por que compilar | [Provas 23 e 25, Q3](/docs/aula-revisao-01-12/prova-23) | citar linguagens e justificar |
+| Instruções invisíveis e o custo de C não tê-las | [Prova 28, Q1](/docs/aula-revisao-01-12/prova-28) | vantagem de C em uma palavra (eficiência) |
+
+Na revisão, o professor citou *just-in-time* (Questão 3) e perguntou: se o `-O1` já chama
+otimizações, por que existem `-O2` e `-O3`? Essa pergunta **nunca caiu** nas provas
+antigas. Resposta curta: cada nível troca **mais tempo de compilação e código maior** por
+**mais velocidade**, e otimizações agressivas podem não compensar para todo programa.
+
+## Para treinar
+
+1. Em C, qual o tempo de ligação do tamanho em bits do `int`? Por que é diferente de Java?
+2. Que bytes o JIT da Questão 3 deveria escrever para devolver `0xFF`?
+3. Por que uma variável `register` não pode ter o endereço tomado com `&`?

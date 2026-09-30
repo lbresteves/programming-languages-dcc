@@ -15,7 +15,7 @@
 ![Java](https://img.shields.io/badge/Java-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
 ![C](https://img.shields.io/badge/C-A8B9CC?style=flat-square&logo=c&logoColor=black)
 
-![Claude Code](https://img.shields.io/badge/Claude_Code-5_skills-D97757?style=flat-square&logo=anthropic&logoColor=white)
+![Claude Code](https://img.shields.io/badge/Claude_Code-6_skills-D97757?style=flat-square&logo=anthropic&logoColor=white)
 ![Fumadocs](https://img.shields.io/badge/Fumadocs-Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em_curso-yellow?style=flat-square)
 
@@ -61,6 +61,7 @@ Claude.
 |---|---|---|
 | 📚 **estudar-topico** | `/estudar-topico` | Gerar material de estudo de um tópico da ementa |
 | 📝 **resolver-lista** | `/resolver-lista` | Resolver uma lista de exercícios de forma guiada |
+| ✅ **completar-lista** | `/completar-lista` | Resolução completa de uma lista ou prova antiga, publicada no site |
 | 🗂️ **ajustar-anotacoes** | `/ajustar-anotacoes` | Deixar as anotações de aula consistentes com o material |
 | 📄 **transcrever-pdf** | `/transcrever-pdf` | Transcrever um PDF da disciplina para Markdown fiel |
 | 📊 **compilar-prova** | `/compilar-prova` | Agrupar as questões das provas antigas por tópico, do que mais cai ao que menos cai |
@@ -116,6 +117,28 @@ objetivo é eu **saber resolver**, nunca receber a resposta pronta de saída.
 Ao final grava a versão final em `listas/lista-NN/resolucao.md` e faz o fechamento: onde
 tropecei, o que revisar antes da prova (priorizando o que já apareceu em mais de uma lista) e
 2–3 questões extras sobre os pontos fracos.
+
+</details>
+
+<details>
+<summary><b>✅ <code>/completar-lista</code> — o gabarito comentado</b></summary>
+
+<br>
+
+A `/resolver-lista` é o modo guiado; esta é o modo **gabarito**. Resolve a lista inteira e
+publica no Fumadocs como **subtópico da aula** (`/docs/aula-NN/lista-NN`). Para cada
+questão: o **assunto** (conceito + aula), o **tipo** (conceitual, rastreio, implementação), a
+resposta com código sintaticamente correto e o **porquê**. A resposta fica recolhida num
+`<details>`, para eu tentar antes de ler.
+
+- Traz os meus erros das sessões guiadas (`resolucao.md`) como blocos **⚠️ Meu erro** e avisa
+  quando a questão toca um conceito frágil dos `learning-records/`.
+- No fim: as **questões de prova relacionadas** (pelo compilado) e duas ou três variações
+  **para treinar**.
+- Também resolve as **provas antigas**, como subtópicos da aula de revisão
+  (`/docs/aula-revisao-01-12/prova-NN`), apontando as listas onde cada assunto foi treinado.
+
+`/completar-lista 1a-prova` gera tudo da 1ª prova: Listas 1–12 e as provas 22 a 29.
 
 </details>
 

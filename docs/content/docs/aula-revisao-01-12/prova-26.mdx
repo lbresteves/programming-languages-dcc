@@ -1,0 +1,128 @@
+---
+title: Prova 26 - Resolução
+description: Cardinalidade de tipos, campos do registro de ativação por linguagem e a mediana traduzida de Python para SML
+---
+
+Resolução da 1ª prova 26 (`material/provas-antigas/1a-prova/midterm26.md`). Tente cada
+questão no papel antes de abrir a resposta.
+
+Notação: |T| é a cardinalidade (o número de valores) do tipo T.
+
+## Questão 1 — Cardinalidade
+
+**Assunto:** tipos soma, produto e recursivos (Aulas 07 e 12) · **Tipo:** conceitual
+
+> Informe a cardinalidade do tipo `T` em cada caso.
+
+<details>
+<summary>Resposta</summary>
+
+| Item | Tipo | Cardinalidade | Por quê |
+|---|---|---|---|
+| (a) | `datatype T = I of int \| R of real` | \|int\| + \|real\| | **soma**: um valor é um inteiro **ou** um real, e o construtor diz qual |
+| (b) | `type T = int * real` | \|int\| × \|real\| | **produto**: um inteiro **e** um real |
+| (c) | `type T = bool list` | **infinita** (enumerável) | uma lista pode ter qualquer tamanho: 1 + 2 + 2² + ... |
+| (d) | `datatype 'a T = NONE \| SOME of 'a` | 1 + \|'a\| | o `NONE`, mais um valor para cada `'a` |
+| (e) | `datatype T = Sat \| Sun` | 2 | dois construtores sem dados |
+| (f) | `struct { int i; char c; }` | \|int\| × \|char\| (2³² × 2⁸ = 2⁴⁰ com `int` de 32 bits) | produto: os dois campos existem ao mesmo tempo |
+| (g) | `union { int i; char c; }` | \|int\| (2³²) | os dois campos **ocupam os mesmos bytes**; o `char` é só um pedaço do `int` |
+| (h) | `enum T { LOW, MEDIUM, HIGH }` | 3 | três constantes (que em C são inteiros 0, 1, 2) |
+
+**Por quê:** o item (g) é a pegadinha. A `union` de C não guarda **qual** campo está em uso
+(não tem rótulo), então os valores possíveis são só os padrões de bits do maior campo. O
+`datatype` do item (a) tem rótulo (o construtor), e por isso é uma soma de verdade:
+|int| + |real|.
+
+</details>
+
+## Questão 2 — O que vai em cada registro de ativação
+
+**Assunto:** registros de ativação (Aula 13) · **Tipo:** conceitual
+
+> S ou N para: valores de parâmetros e locais; endereço de retorno; `Prev-Record`;
+> `Nesting-Link`; `Closure-Table`. Em Fortran 66, ANSI C, C com funções aninhadas do `gcc` e
+> SML/NJ.
+
+<details>
+<summary>Resposta</summary>
+
+| Informação | Fortran 66 | ANSI C | C (`gcc`, aninhadas) | SML/NJ |
+|---|---|---|---|---|
+| Parâmetros e variáveis locais | S | S | S | S |
+| Endereço de retorno | S | S | S | S |
+| `Prev-Record` | **N** | S | S | S |
+| `Nesting-Link` | N | **N** | **S** | S |
+| `Closure-Table` | N | N | **N** | **S** |
+
+**Por quê:** cada campo aparece com o recurso da linguagem que o exige.
+- **Fortran 66**: alocação estática, sem recursão. Há um só registro por função, em posição
+  fixa, então não há pilha e não há `Prev-Record`.
+- **ANSI C**: recursão exige a pilha e o `Prev-Record`, mas sem funções aninhadas não há de
+  onde herdar variáveis, e o `Nesting-Link` não é necessário.
+- **C com `gcc`**: funções aninhadas acessam variáveis da função de fora, e isso exige o
+  `Nesting-Link`. Mas elas não podem ser usadas depois que a função de fora retorna, então não
+  há closures.
+- **SML**: funções aninhadas **devolvidas** como valor (`funToAddX`) precisam das variáveis
+  livres depois do retorno: `Closure-Table`.
+
+</details>
+
+## Questão 3 — A mediana, de Python para SML
+
+**Assunto:** tradução de programas, recursão e tipos (Aulas 05, 06 e 10) · **Tipo:** implementação
+
+> Traduza `split`, `select` e `median` (o algoritmo de seleção em O(N)) de Python para
+> SML/NJ.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun split (lst, pivot) =
+  (foldr (fn (x, acc) => if x < pivot then x :: acc else acc) nil lst,
+   foldr (fn (x, acc) => if x > pivot then x :: acc else acc) nil lst);
+
+fun select (_, [x]) = x
+  | select (k, pivot :: rest) =
+      let
+        val (small, large) = split (rest, pivot)
+        val sLen = length small
+      in
+        if k = sLen then pivot
+        else if k < sLen then select (k, small)
+        else select (k - sLen - 1, large)
+      end;
+
+fun median lst =
+  let
+    val n = length lst
+  in
+    if n mod 2 = 1 then real (select (n div 2, lst))
+    else real (select (n div 2 - 1, lst) + select (n div 2, lst)) / 2.0
+  end;
+```
+
+Tipos: `split : int list * int -> int list * int list`, `select : int * int list -> int` e
+`median : int list -> real`.
+
+**Por quê:** o que muda na tradução:
+- As *list comprehensions* viram **filtros** com `foldr` (ou `List.filter`).
+- `lst[0]` e `lst[1:]` viram o **padrão** `pivot :: rest`, e `len(lst) == 1` vira o padrão
+  `[x]`.
+- A tupla devolvida por `split` é desmontada no `let` com `val (small, large) = ...`.
+- Em Python, `median` devolve um `int` no caso ímpar e um `float` no par. Em SML uma função
+  tem **um** tipo de retorno, então os dois ramos precisam ser `real`, com conversão
+  explícita (`real`) e divisão real (`/`, e não `div`).
+
+Uma observação sobre o original: `split` descarta os elementos **iguais** ao pivô (`<` e
+`>`). A tradução fiel mantém esse comportamento.
+
+</details>
+
+## Onde treinar
+
+| Questão | Lista |
+|---|---|
+| 1 | [Lista 12](/docs/aula-12/lista-12) e [Lista 8, Q3](/docs/aula-08/lista-08) |
+| 2 | [Lista 13](/docs/aula-13/lista-13) |
+| 3 | [Lista 6, Q5](/docs/aula-06/lista-06) (quicksort com `partition`) e [Lista 10](/docs/aula-10/lista-10) |

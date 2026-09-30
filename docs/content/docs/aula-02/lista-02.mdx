@@ -1,0 +1,249 @@
+---
+title: Lista 02 - Resolução
+description: Gramáticas ambíguas, gramáticas lógicas em Prolog e sistemas-L
+---
+
+Resolução completa da Lista 2. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Erro de digitação no enunciado" type="info">
+  A gramática da Questão 1 usa `<expr_propos>` em duas regras e define `<expr_prepos>`. As
+  duas são a mesma coisa (expressão preposicional); a resolução usa `expr_prepos`.
+</Callout>
+
+## Questão 1 — Uma frase, duas árvores
+
+**Assunto:** ambiguidade de gramáticas (Aula 02) · **Tipo:** rastreio
+
+> Com a gramática de frases em português da lista: (a) construa duas árvores de derivação
+> para "A menina toca o pato com a pena"; (b) quais as duas interpretações da frase?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** A diferença está em **quem recebe** a expressão preposicional "com a pena".
+
+Árvore 1: "com a pena" pertence ao **predicado** (regra `<verbo> <expr_nominal> <expr_prepos>`):
+
+```
+                       frase
+             ┌───────────┴───────────┐
+        expr_nominal             predicado
+         ┌───┴───┐      ┌──────────┼──────────────┐
+      artigo   nome   verbo   expr_nominal     expr_prepos
+         a    menina   toca    ┌───┴───┐      ┌────┴─────┐
+                             artigo  nome  preposicao  expr_nominal
+                               o     pato     com       ┌───┴───┐
+                                                      artigo  nome
+                                                        a     pena
+```
+
+Árvore 2: "com a pena" pertence ao **pato** (regra `<artigo> <nome> <expr_prepos>` dentro da
+expressão nominal):
+
+```
+                       frase
+             ┌───────────┴───────────┐
+        expr_nominal             predicado
+         ┌───┴───┐           ┌──────┴──────┐
+      artigo   nome        verbo       expr_nominal
+         a    menina        toca    ┌──────┼─────────┐
+                                 artigo  nome     expr_prepos
+                                   o     pato   ┌────┴─────┐
+                                             preposicao  expr_nominal
+                                                com       ┌───┴───┐
+                                                        artigo  nome
+                                                          a     pena
+```
+
+**(b)**
+1. A menina usa **a pena como instrumento** para tocar o pato (árvore 1).
+2. A menina toca **o pato que está com a pena** (árvore 2).
+
+**Por quê:** uma gramática é ambígua quando **a mesma sentença** tem **duas árvores de
+derivação diferentes**. As árvores diferentes dão **significados** diferentes, e é por isso
+que ambiguidade é ruim em linguagem de programação: o compilador precisa de exatamente um
+significado para cada programa.
+
+</details>
+
+## Questão 2 — A gramática em Prolog
+
+**Assunto:** gramáticas lógicas em Prolog, DCG (Aula 02) · **Tipo:** implementação
+
+> (a) Escreva a gramática da questão 1 em Prolog. (b) Como saber que a frase longa tem duas
+> derivações e `a,menina,toca,o,pato` só uma? (c) Quantas soluções tem
+> `frase([a,Sujeito,toca,o,pato],[])`?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```prolog
+frase --> expr_nominal, predicado.
+
+expr_nominal --> artigo, nome.
+expr_nominal --> artigo, nome, expr_prepos.
+
+predicado --> verbo.
+predicado --> verbo, expr_nominal.
+predicado --> verbo, expr_nominal, expr_prepos.
+
+expr_prepos --> preposicao, expr_nominal.
+
+nome --> [menino] ; [menina] ; [pato] ; [telescopio] ; [musica] ; [pena].
+preposicao --> [com] ; [ate].
+verbo --> [viu] ; [esta] ; [e] ; [canta] ; [surpreende] ; [toca].
+artigo --> [um] ; [uma] ; [o] ; [a].
+```
+
+Cada `-->` vira uma cláusula com dois argumentos a mais (a lista de entrada e o que sobra
+dela). Por isso a consulta é `frase(Lista, [])`: "a frase consome a lista inteira e não
+sobra nada".
+
+**(b)** Fazendo a consulta e pedindo **todas** as respostas com `;`. O Prolog procura
+derivações por *backtracking*, então cada derivação diferente é uma resposta `true`:
+
+```prolog
+?- frase([a,menina,toca,o,pato,com,a,pena], []).
+true ;
+true ;
+false.
+
+?- frase([a,menina,toca,o,pato], []).
+true ;
+false.
+```
+
+Duas respostas para a primeira (as duas árvores da questão 1) e uma para a segunda.
+
+**(c)** **Seis soluções**, uma para cada nome da gramática: `Sujeito` pode ser `menino`,
+`menina`, `pato`, `telescopio`, `musica` ou `pena`. Como `[a, X, toca, o, pato]` tem uma
+única árvore, cada valor de `Sujeito` aparece uma vez. A gramática não checa gênero, então
+"a menino" também é aceita.
+
+**Por quê:** em Prolog a gramática **é** o programa. Não é preciso escrever um *parser*:
+a busca com *backtracking* já percorre todas as derivações. E a mesma gramática serve para
+**reconhecer** (lista dada) e para **gerar** (lista com variáveis), porque em Prolog não há
+direção fixa de entrada e saída.
+
+</details>
+
+## Questão 3 — Parênteses e colchetes balanceados
+
+**Assunto:** ambiguidade de gramáticas (Aulas 02–03) · **Tipo:** conceitual
+
+> Duas gramáticas para parênteses e colchetes balanceados (`E` é a palavra vazia). Alguma é
+> ambígua? Se sim, mostre duas árvores; se não, explique.
+
+<details>
+<summary>Resposta</summary>
+
+**(a) A primeira é ambígua.** A regra `<string> ::= <string> <string>` não diz como agrupar
+três pedaços. A cadeia `()()()` tem duas árvores:
+
+```
+agrupando à esquerda                 agrupando à direita
+       string                              string
+     ┌───┴────┐                          ┌───┴────┐
+   string   string                     string   string
+  ┌──┴──┐     ()                         ()    ┌──┴──┐
+string string                                 string string
+  ()     ()                                     ()     ()
+```
+
+(Cada `()` abreviado é `( <string> )` com o `<string>` de dentro virando `E`.) Há ainda
+um caso mais simples: a cadeia vazia pode ser `E` ou `<string> <string>` com os dois
+virando `E`, e isso de infinitas maneiras.
+
+**(b) A segunda não é ambígua.** Olhando o próximo símbolo da entrada, só uma regra serve:
+
+- se é `(`, só a primeira regra começa com `(`;
+- se é `[`, só a segunda;
+- se é `)`, `]` ou o fim, só `E`.
+
+E o `)` que fecha o `(` inicial é sempre **o primeiro ponto em que os parênteses se
+equilibram**, então a divisão entre "o que está dentro" e "o que vem depois" também é
+única. A cada passo não há escolha, então há uma única árvore.
+
+**Por quê:** as duas gramáticas reconhecem **a mesma linguagem**. Ambiguidade é
+propriedade da **gramática**, não da linguagem. A segunda remove a ambiguidade fixando a
+forma "um bloco, depois o resto", que é a mesma ideia de reescrever `<E> ::= <E> + <E>`
+com recursão só de um lado (Lista 3, Q2c).
+
+</details>
+
+## Questão 4 — Sistemas-L
+
+**Assunto:** sistemas-L e *turtle graphics*: reescrita paralela (Aula 02) · **Tipo:** rastreio
+
+> No sistema de Fibonacci (A → B, B → AB), a razão entre os tamanhos é agradável? E as três
+> primeiras iterações dos sistemas (a), (b) e (c) com a tartaruga.
+
+<details>
+<summary>Resposta</summary>
+
+**Fibonacci.** Os tamanhos são 1, 1, 2, 3, 5, 8, 13, 21, ... e a razão entre o tamanho da
+string n e o da n − 1 se aproxima de **φ ≈ 1,618, a razão áurea**, usada no Partenon.
+(O enunciado pula n = 4: a string é `ABBAB`, com 5 símbolos.)
+
+**(a)** F → F + F − F − F + F, com `+` = 90° e `−` = 270° (= 90° para o outro lado):
+
+```
+n = 0:  F
+n = 1:  F+F−F−F+F
+n = 2:  F+F−F−F+F + F+F−F−F+F − F+F−F−F+F − F+F−F−F+F + F+F−F−F+F
+```
+
+(os espaços em n = 2 só separam as cópias). A cada iteração o número de `F` multiplica por
+5: 1, 5, 25, 125. O desenho de n = 1 é um segmento com um "degrau" quadrado no meio
+(`_|‾|_`); em n = 2 cada segmento vira um degrau desses. É a **curva de Koch quadrada**.
+
+**(b)** A → B − A − B, B → A + B + A, com 60°:
+
+```
+n = 0:  A
+n = 1:  B−A−B
+n = 2:  A+B+A−B−A−B−A+B+A
+n = 3:  B−A−B+A+B+A+B−A−B−A+B+A−B−A−B−A+B+A−B−A−B+A+B+A+B−A−B
+```
+
+É o mesmo sistema da anotação da aula: a **curva ponta de flecha de Sierpinski**, que se
+aproxima do **triângulo de Sierpinski** a cada iteração.
+
+**(c)** Axioma F + + F + + F, regra F → F − F + + F − F, com 60°:
+
+```
+n = 0:  F++F++F
+n = 1:  F−F++F−F ++ F−F++F−F ++ F−F++F−F
+```
+
+Em n = 0, `++` é uma volta de 120°, então o axioma é um **triângulo equilátero**. A regra
+troca cada lado por um lado com uma "ponta" triangular no meio. Em n = 2 cada um dos 12
+segmentos vira 4 (48 no total). É o **floco de neve de Koch**.
+
+**Por quê:** a diferença para as gramáticas da Questão 1 é que no sistema-L **todas** as
+regras são aplicadas **ao mesmo tempo**, em cada iteração (reescrita paralela). Por isso
+um sistema-L não "reconhece" frases: ele gera uma sequência determinística de strings, e a
+tartaruga dá a elas uma interpretação geométrica.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Demonstrar que uma gramática `and`/`or` é ambígua | [Provas 23 e 25, Q2a](/docs/aula-revisao-01-12/prova-23) | mostrar duas árvores para a mesma sentença |
+| Gramática ambígua? Mostrar duas derivações | [Prova 29, Q2a](/docs/aula-revisao-01-12/prova-29) | idem, gramática `e ::= b and e ...` |
+| Escrever a gramática em Prolog (DCG) | [Prova 29, Q2d–e](/docs/aula-revisao-01-12/prova-29) | a mesma técnica da Questão 2 |
+
+Na revisão, o professor disse que gramática em Prolog **"com certeza vai cair"**. A Questão 2
+é o treino direto para isso.
+
+## Para treinar
+
+1. Escreva em Prolog uma gramática para `<string> ::= ( <string> ) <string> | E` (a segunda
+   gramática da Questão 3) e teste com `string(['(', ')', '(', ')'], [])`.
+2. Mostre que `<E> ::= <E> - <E> | 1` é ambígua usando a sentença `1 - 1 - 1`. Os dois
+   significados dão o mesmo valor?
+3. Escreva n = 1 e n = 2 do sistema-L com axioma `F`, regra `F → F+F−F` e 90°.

@@ -331,3 +331,45 @@ há três versões de `print`, só uma, que aceita qualquer subtipo de `Object`)
   - **Subtipagem:** infinito, contanto que não haja limite para o número de subtipos de um
     tipo.
 </Callout>
+
+## Diagnosticando pela mensagem de erro (prova 28, Q3)
+
+Um formato recorrente de prova: um programa numa linguagem hipotética e vários cenários
+("não compila com erro X", "compila e falha com Y", "devolve 2"). Para **cada** cenário,
+responda as cinco coisas, sempre com a mensagem como evidência:
+
+1. **Estático ou dinâmico.** Não compila → estático. Compila e falha na execução →
+   dinâmico.
+2. **Coerção**
+3. **Sobrecarga**
+4. **Paramétrico**
+5. **Subtipagem**
+
+<Callout title="Estático e paramétrico são independentes" type="warn">
+  "O compilador verifica antes, então não é genérico" está **errado**. SML é estático **e**
+  tem polimorfismo paramétrico nativo (`'a`). Para decidir sobre paramétrico, veja **onde**
+  o erro aparece: se a função genérica foi rejeitada no próprio corpo, o tipo do parâmetro
+  já estava fixado.
+</Callout>
+
+<Callout title="Coerção, sobrecarga e subtipagem explicam o mesmo fato" type="warn">
+  Se `false + 2` devolve `2`, há três explicações possíveis:
+
+  | Explicação | Como dá `2` |
+  |---|---|
+  | **Coerção** | `false` é **convertido** em `0` (C) |
+  | **Sobrecarga** | existe **outro** `+`, para `bool * int` |
+  | **Subtipagem** | `bool` **é** subtipo de `int`, então `false` já é um inteiro (Python: `bool` é subclasse de `int`) |
+
+  Basta **uma**. Escolha a mais natural e diga que as outras não são necessárias. Afirmar
+  "convertido" e "sem conversão" na mesma resposta é contradição.
+</Callout>
+
+Numa linguagem **dinâmica**, uma função como `def h(g) = g(false)` aceita qualquer `g`: o
+mesmo código serve para infinitos tipos. É polimorfismo paramétrico **implícito**, sem
+variável de tipo escrita.
+
+
+---
+
+**Resolução da lista:** [Lista 08 - Resolução](/docs/aula-08/lista-08)

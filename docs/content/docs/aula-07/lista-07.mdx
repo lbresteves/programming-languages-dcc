@@ -1,0 +1,235 @@
+---
+title: Lista 07 - Resolução
+description: Segurança de tipos, buffer overrun, tipagem estática × dinâmica, crivo em SML e inferência de tipos
+---
+
+Resolução completa da Lista 7. Tente cada questão no papel antes de abrir a resposta.
+
+## Questão 1 — C é uma linguagem insegura
+
+**Assunto:** segurança de tipos e comportamento indefinido (Aula 07) · **Tipo:** implementação + conceitual
+
+> (a) Um programa C ou C++ que mostre a insegurança. (b) ML é mais antiga que C++ e é
+> segura. Por que C++ foi projetada insegura?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```c
+#include <stdio.h>
+
+int main() {
+  float f = 3.14f;
+  int *p = (int *) &f;
+  printf("%d\n", *p);   /* imprime 1078523331 */
+  return 0;
+}
+```
+
+A conversão de ponteiro faz o programa ler os **bits de um `float` como se fossem um
+`int`**. Nenhum erro é acusado, nem na compilação nem na execução: a operação de inteiros
+foi aplicada a um valor que não é inteiro.
+
+**(b)** **Compatibilidade com C**, e com ela a eficiência. C++ foi projetada para compilar
+código C e para programar sistemas (sistemas operacionais, jogos, compiladores), onde o
+programador precisa de controle direto sobre a memória e não quer pagar pelas verificações
+em tempo de execução. Ser segura exigiria testes invisíveis e proibir as conversões livres
+de ponteiros que C permite.
+
+**Por quê:** segurança não é desconhecimento do problema: é uma **decisão de projeto** que
+troca eficiência e controle por garantias. ML escolheu as garantias; C e C++, o controle.
+
+</details>
+
+## Questão 2 — *Buffer overrun*
+
+**Assunto:** comportamento indefinido e registros de ativação na pilha (Aula 07) · **Tipo:** rastreio
+
+> Em `function`, `int buffer[1]; buffer[4] += 3;`. `main` faz `x = 13; function(); x++;` e
+> imprime `x`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Imprime **`13`**, e não 14. (Com `gcc 4.2` no Mac OS X 10.5, como no enunciado;
+compiladores atuais com proteção de pilha podem abortar ou dar outro resultado.)
+
+**(b)** Com a linha 4 comentada, imprime **`14`**, o esperado.
+
+**(c)** `buffer[4]` é o **endereço de retorno** de `function`: o endereço da instrução de
+`main` logo depois da chamada, guardado na pilha, no registro de ativação. `buffer` tem uma
+posição só, então `buffer[4]` está 4 posições além do fim do vetor, onde fica esse
+endereço.
+
+**(d)** Soma 3 ao endereço de retorno. Quando `function` retorna, o processador salta **3
+bytes adiante** do ponto certo, pulando exatamente a instrução do `x++`. Por isso `x`
+continua 13.
+
+**(e)** Numa linguagem fortemente tipada (Java, Python, SML), **todo acesso a vetor é
+verificado** em tempo de execução: `buffer[4]` lançaria uma exceção
+(`ArrayIndexOutOfBoundsException` em Java) em vez de escrever fora do vetor. E essas
+linguagens não permitem aritmética de ponteiros, então não há como chegar ao endereço de
+retorno.
+
+**Por quê:** é a vulnerabilidade clássica de segurança em C: quem controla o que é escrito
+além do vetor controla **para onde o programa volta**. A causa é a ausência das
+"instruções invisíveis" de verificação.
+
+</details>
+
+## Questão 3 — Estática × dinâmica
+
+**Assunto:** tipagem estática e dinâmica (Aula 07) · **Tipo:** conceitual
+
+> (a) Uma linguagem estática e como o compilador descobre os tipos. (b) Uma dinâmica e um
+> programa que mostre isso. (c) Vantagem da estática. (d) Vantagem da dinâmica.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** SML. O compilador descobre os tipos por **inferência**: olha como cada valor é usado
+(`x + 1` obriga `x : int`). Em C e Java, por **anotações** que o programador escreve
+(`int x`).
+
+**(b)** Python:
+
+```python
+x = 1
+print(type(x))    # <class 'int'>
+x = "um"
+print(type(x))    # <class 'str'>
+```
+
+A mesma variável guarda valores de tipos diferentes; o tipo pertence ao **valor**, e é
+descoberto durante a execução.
+
+**(c)** Os erros de tipo são encontrados **antes de o programa rodar**, na compilação. Além
+disso, o código gerado não precisa testar tipos a cada operação, então é mais eficiente.
+
+**(d)** **Flexibilidade**: a mesma função serve para valores de tipos diferentes sem
+declarar nada, e o programa é mais curto. Na anotação da aula: em Python, `fact(10)` é
+`int` e `fact(100)` é `long` sem o programador fazer nada.
+
+**Por quê:** a diferença é **quando** o tipo é conhecido. Cedo (compilação) dá segurança e
+velocidade; tarde (execução) dá flexibilidade.
+
+</details>
+
+## Questão 4 — O crivo de Eratóstenes
+
+**Assunto:** recursão sobre listas e acumuladores (Aulas 06–07) · **Tipo:** implementação
+
+> Complete `sieve` escrevendo (a) `sum : int list -> int`, (b) `range : int -> int list`
+> com `range 4 = [4, 3, 2]` e (c) `inv : 'a list -> 'a list -> 'a list`, que inverte `l1`
+> usando `l2` como acumulador.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun sum nil = 0
+  | sum (h :: t) = h + sum t;
+
+fun range 1 = nil
+  | range n = n :: range (n - 1);
+
+fun inv nil acc = acc
+  | inv (h :: t) acc = inv t (h :: acc);
+```
+
+`inv [4, 3, 2] nil`: `inv [3, 2] [4]` → `inv [2] [3, 4]` → `inv nil [2, 3, 4]` →
+`[2, 3, 4]`.
+
+**Por quê:** o acumulador de `inv` guarda a parte já invertida. A versão ingênua
+(`inv (h :: t) = inv t @ [h]`) é **O(n²)**, porque o `@` percorre a lista inteira a cada
+passo. Com o acumulador, cada elemento é tocado uma vez: **O(n)**, e com recursão de cauda.
+
+(O código dado usa `filter`; no SML/NJ ele se chama `List.filter`.)
+
+</details>
+
+## Questão 5 — Pense como o compilador: inferência de tipos
+
+**Assunto:** inferência de tipos e polimorfismo (Aulas 05–08) · **Tipo:** dar o tipo
+
+> Dê o tipo de cada função.
+
+<details>
+<summary>Resposta</summary>
+
+| Função | Em SML | Tipo |
+|---|---|---|
+| (a) `f(x) = 1` | `fun f x = 1` | `'a -> int` |
+| (b) `f(x, y) = 1` | `fun f (x, y) = 1` | `'a * 'b -> int` |
+| (c) `f(x) = x` | `fun f x = x` | `'a -> 'a` |
+| (d) `f(x, y) = x` | `fun f (x, y) = x` | `'a * 'b -> 'a` |
+| (e) `f(g) = g(1)` | `fun f g = g 1` | `(int -> 'a) -> 'a` |
+| (f) `f(g, x) = g(x)` | `fun f (g, x) = g x` | `('a -> 'b) * 'a -> 'b` |
+| (g) `f(g, x, y) = g(x, y)` | `fun f (g, x, y) = g (x, y)` | `('a * 'b -> 'c) * 'a * 'b -> 'c` |
+| (h) `f(g, h, x) = g(h(x))` | `fun f (g, h, x) = g (h x)` | `('a -> 'b) * ('c -> 'a) * 'c -> 'b` |
+| (i) `f(g, x) = g(g(x))` | `fun f (g, x) = g (g x)` | `('a -> 'a) * 'a -> 'a` |
+
+**Por quê:** o método é o mesmo em todas:
+1. Cada parâmetro começa com um tipo desconhecido.
+2. Cada **uso** impõe uma restrição: `g(1)` obriga `g` a ser função que recebe `int`;
+   `g(h(x))` obriga o resultado de `h` a ser o argumento de `g`.
+3. O que nenhuma operação restringe fica **polimórfico** (`'a`, `'b`...). Não existe
+   operação em `x` em (a)–(d), então nada ali é `int` além da constante `1`.
+
+O item (i) é o mais sutil: a saída de `g` volta a entrar em `g`, então a entrada e a saída
+de `g` têm o **mesmo** tipo, `'a -> 'a`.
+
+> ⚠️ Este é o formato "dar o tipo", marcado como **frágil** no learning-record `0002`
+> (colocar `int` onde não há operação, e `tuple` no lugar de `'a * 'b`).
+
+</details>
+
+## Questão 6 — O tipo de `fact` em Python e em C
+
+**Assunto:** tipagem dinâmica e representação de inteiros (Aula 07) · **Tipo:** conceitual
+
+> Em Python 2, `type(fact(10))` é `int` e `type(fact(100))` é `long`. (a) Quando o tipo de
+> `fact(10)` é conhecido? (b) Por que os tipos diferem? (c) Em C, qual o tipo de `x` e `y`?
+> (d) Qual tipagem deixa o programador mais produtivo?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** **(ii)**, durante a execução, quando `fact(10)` é chamada. A declaração de `fact` não
+tem tipo nenhum; o tipo é do **valor** calculado.
+
+**(b)** No Python 2, `int` era um inteiro de tamanho fixo da máquina. `100!` tem 158 dígitos
+e não cabe, então a multiplicação passa a produzir um `long`, de **precisão arbitrária**. A
+troca acontece durante a execução, conforme o valor. (No Python 3 os dois tipos foram
+unificados em `int`.)
+
+**(c)** Os dois são `int`, fixado na compilação. `fact(100)` **transborda** (*overflow*):
+em C o transbordamento de inteiro com sinal é comportamento indefinido, e na prática o valor
+impresso é lixo. Em máquinas de 32 bits sai `0`, porque `100!` tem 97 fatores 2 e os 32 bits
+de baixo são todos zero.
+
+**(d)** A dinâmica, para escrever o programa: o programador não pensa em tipos nem em
+transbordamento. O preço é que os erros de tipo só aparecem na execução, o que pesa em
+programas grandes.
+
+**Por quê:** a mesma função tem comportamento **decidido pelo valor** em Python e **pelo
+tipo declarado** em C. C escolhe eficiência (um `int` cabe num registrador); Python escolhe
+nunca errar a conta.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Verificações invisíveis, comportamento indefinido em C | [Prova 22, Q2](/docs/aula-revisao-01-12/prova-22), [Prova 24, Q1](/docs/aula-revisao-01-12/prova-24), [Prova 28, Q1](/docs/aula-revisao-01-12/prova-28) | exemplo de acesso inválido; vantagem e desvantagem de C |
+| Dar o tipo de uma função SML | [Prova 24, Q2c](/docs/aula-revisao-01-12/prova-24), [Prova 28, Q2a](/docs/aula-revisao-01-12/prova-28), [Prova 29, Q1b](/docs/aula-revisao-01-12/prova-29) | a Questão 5 é o treino direto |
+| Estática × dinâmica, forte × fraca | [Prova 27, Q3](/docs/aula-revisao-01-12/prova-27), [Prova 28, Q3](/docs/aula-revisao-01-12/prova-28) | citar linguagens; diagnosticar pela mensagem de erro |
+
+## Para treinar
+
+1. Dê o tipo de `fun f (g, x) = g x + 1` e de `fun f (g, h) = fn x => g (h x)`.
+2. Reescreva `sum` com um acumulador, como `inv`.
+3. Em Java, o que acontece em `int[] b = new int[1]; b[4] += 3;`? Em que momento?

@@ -216,6 +216,45 @@ precisa inserir no código, mais dinâmica é a linguagem.
 - **Zona cinzenta:** Julia é dinamicamente tipada, mas compilada JIT — os tipos são
   resolvidos quando o código executa.
 
+### Instruções invisíveis
+
+Uma **instrução invisível** é um teste que o compilador insere sem o programador
+escrever, para impedir que uma operação impossível siga em frente. Toda operação que
+pode ficar impossível **dependendo do valor** é candidata. O teste para reconhecer uma:
+*existe alguma entrada válida no tipo que torne a operação impossível?*
+
+- `hd []`: sim, a lista vazia não tem cabeça. SML testa e lança `Empty`.
+- `explode ""`: não, dá `[]`. Não há o que testar.
+
+| Operação | C | Java | Python | SML |
+|---|---|---|---|---|
+| divisão por zero | comportamento indefinido | `ArithmeticException` | `ZeroDivisionError` | `Div` |
+| `v[i]` fora do vetor | comportamento indefinido | `ArrayIndexOutOfBoundsException` | `IndexError` | `Subscript` |
+| cabeça de lista vazia | — | — | `IndexError` (`l[0]`) | `Empty` (`hd []`) |
+| padrão não casa | — | — | — | `Match` |
+| método em referência nula | comportamento indefinido | `NullPointerException` | `AttributeError` | não existe `null` |
+
+C não insere nenhum desses testes:
+- **Vantagem (em uma palavra): eficiência.** Nenhum `if` é executado a cada acesso,
+  divisão ou ponteiro.
+- **Desvantagem: falta de segurança.** O acesso inválido não é detectado.
+
+```c
+int lista[5];
+lista[10] = 42;
+```
+
+C grava 42 num endereço fora do vetor, que pode ser de outra variável. O programa pode
+seguir com dados corrompidos sem avisar ou morrer com *segmentation fault*: é
+**comportamento indefinido** (*undefined behavior*). Por isso C é **menos**
+determinístico, e não mais. Em Java, a mesma linha lança a exceção **em tempo de
+execução**, e o `javac` compila sem reclamar, porque o índice poderia ser uma variável.
+
+<Callout title="Prova 28, Q1" type="warn">
+  Na resposta, diga sempre **qual** erro acontece e **quando** (compilação ou execução).
+  "Dá erro" não pontua.
+</Callout>
+
 As linguagens mais famosas são dinamicamente tipadas.
 
 Como o compilador descobre os tipos numa linguagem estática: **anotações de tipo**,
@@ -249,3 +288,7 @@ C++ ou Java em sistemas grandes.
 - **Fracamente tipada:** permite usar um valor como se tivesse um tipo diferente do
   declarado. Exemplos de uso inseguro em C: ler a `union` pelo campo errado; acessar
   `a[3]` num arranjo `int a[3]` (índices 0–2).
+
+---
+
+**Resolução da lista:** [Lista 07 - Resolução](/docs/aula-07/lista-07)

@@ -13,7 +13,7 @@ Repositório de estudo, não de software. O "produto" aqui sou eu sabendo a mat�
 
 | Data | Peso | Conteúdo | Modo |
 |---|---|---|---|
-| 28/09 | 30 pts | Até a aula de revisão de 23/09 (Listas 1–13) | Sem consulta, 90 min |
+| 28/09 | 30 pts | Até a aula de revisão de 23/09 (Listas 1–12) | Sem consulta, 90 min |
 | 25/11 | 40 pts | Todo o curso, ênfase na 2ª metade | Sem consulta, 90 min |
 
 Listas de exercícios são **entregues manuscritas** e valem nota.
@@ -43,11 +43,11 @@ reference/     folhas comprimidas por tópico (revisitadas até a véspera)
 learning-records/ um arquivo por conceito: demonstrado / frágil / não demonstrado
 material/provas-antigas/ 1a-prova/ e 2a-prova/ dos semestres anteriores + compilado-de-questoes.md
 rascunho/      opcional, para experimentar código quando eu quiser rodar algo
-docs/          site Fumadocs com minhas anotações de aula (content/docs/aula-NN.mdx)
+docs/          site Fumadocs: content/docs/aula-NN/index.mdx (anotação) + lista-NN.mdx (resolução)
 ```
 
 `docs/` é um app Next.js à parte (`npm install` + `npm run dev` dentro da pasta). Cada
-aula é uma página `content/docs/aula-NN.mdx`, título `Aula NN - <tópico>` seguindo
+aula é uma pasta `content/docs/aula-NN/` com `index.mdx` (a anotação) e `lista-NN.mdx` (a resolução), título `Aula NN - <tópico>` seguindo
 `material/ementa.md`.
 
 `learning-records/` é a memória do que eu de fato sei. Consulte antes de ensinar ou de
@@ -55,10 +55,12 @@ resolver: não reensine o que está *demonstrado*, e aprofunde o que está *frá
 
 ## Como me ajudar
 
-Cinco habilidades cobrem o trabalho:
+Seis habilidades cobrem o trabalho:
 
 - `/estudar-topico` para gerar material de estudo;
-- `/resolver-lista` para as listas de exercícios;
+- `/resolver-lista` para as listas de exercícios, de forma guiada;
+- `/completar-lista` para a resolução completa de uma lista (ou prova antiga), publicada no
+  Fumadocs como subtópico da aula (`docs/content/docs/aula-NN/lista-NN.mdx`);
 - `/ajustar-anotacoes` para deixar minhas anotações de aula consistentes com o material;
 - `/transcrever-pdf` para transcrever um PDF da disciplina em Markdown;
 - `/compilar-prova` para agrupar as questões das provas antigas por tópico, do que mais cai

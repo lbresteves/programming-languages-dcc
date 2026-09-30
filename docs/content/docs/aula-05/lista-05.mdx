@@ -1,0 +1,337 @@
+---
+title: Lista 05 - Resolução
+description: Primeiras funções em SML — tipos, tuplas, listas, recursão e casamento de padrões
+---
+
+Resolução completa da Lista 5. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Conceito frágil: elemento × cauda, e tipos" type="warn">
+  As Questões 3, 6 e 7 estão no learning-record `0002` como **frágeis**: `[ ]` × `( )` em
+  padrões, `hd` × `tl`, `::` × `@`. A explicação longa está na
+  [Aula 06, "Listas e cons"](/docs/aula-06#listas-e-cons).
+</Callout>
+
+## Questão 1 — `cube : int -> int`
+
+**Assunto:** inferência de tipos e operadores sobrecarregados (Aula 05) · **Tipo:** implementação
+
+> Retorne o cubo do parâmetro.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun cube x = x * x * x;
+```
+
+**Por quê:** o `*` é **sobrecarregado** (vale para `int` e `real`). Sem nenhuma pista, o SML
+escolhe o padrão, que é `int`.
+
+</details>
+
+## Questão 2 — `cuber : real -> real`
+
+**Assunto:** anotação de tipo (Aula 05) · **Tipo:** implementação
+
+> Retorne o cubo de um real.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun cuber (x : real) = x * x * x;
+```
+
+**Por quê:** basta anotar o tipo **em um lugar**; a inferência propaga para o resto. SML não
+converte `int` em `real` sozinho (não há coerção), ao contrário de C e Java: `cuber 2` é
+erro de tipo, e é preciso escrever `cuber 2.0`.
+
+</details>
+
+## Questão 3 — `fourth : 'a list -> 'a`
+
+**Assunto:** casamento de padrões com `::` (Aulas 05–06) · **Tipo:** implementação
+
+> Retorne o quarto elemento da lista.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun fourth (_ :: _ :: _ :: t :: _) = t;
+```
+
+**Por quê:** `t` está em **posição de elemento** (tem `:: _` depois dele), então `t : 'a`.
+Parênteses só agrupam.
+
+> ⚠️ **Meu erro** (sessão guiada): tentei com colchetes.
+> - `[_ :: _ :: _ :: t :: _]` dá `'a list list -> 'a`: `[p]` é uma lista de **um** elemento,
+>   e esse elemento é uma lista.
+> - `[_ :: _ :: _ :: t]` dá `'a list list -> 'a list`: além disso, `t` fica em posição de
+>   cauda.
+> - `[_, _, _, t]` tem o tipo certo, mas só aceita listas de **exatamente** 4 elementos.
+
+</details>
+
+## Questão 4 — `min3 : int * int * int -> int`
+
+**Assunto:** tuplas e `if`/`andalso` (Aula 05) · **Tipo:** implementação
+
+> Retorne o menor elemento de uma tupla de três inteiros.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun min3 (a, b, c) =
+  if a <= b andalso a <= c then a
+  else if b <= c then b
+  else c;
+```
+
+**Por quê:** o parâmetro é **uma** tupla, desmontada por casamento de padrões `(a, b, c)`. O
+"e" lógico de SML é `andalso` (e o "ou" é `orelse`). `and` é outra coisa em SML (declarações
+simultâneas), e `&&` não existe.
+
+</details>
+
+## Questão 5 — `red3 : 'a * 'b * 'c -> 'a * 'c`
+
+**Assunto:** padrões de tupla e polimorfismo (Aula 05) · **Tipo:** implementação
+
+> Elimine o segundo elemento de uma tupla de três.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun red3 (a, _, c) = (a, c);
+```
+
+**Por quê:** nenhuma operação é aplicada aos campos, então nada restringe os tipos, e a
+inferência dá o tipo mais geral, com três variáveis de tipo diferentes.
+
+</details>
+
+## Questão 6 — `thirds : string -> char`
+
+**Assunto:** `explode`, `hd` e `tl` (Aula 05) · **Tipo:** implementação
+
+> Retorne o terceiro caractere de uma *string*.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun thirds s = hd (tl (tl (explode s)));
+```
+
+**Por quê:** `string` não é lista em SML; `explode` a converte em `char list`. Os dois `tl`
+descartam dois caracteres (o resultado **ainda é lista**) e o `hd` extrai o elemento.
+
+> ⚠️ **Meu erro** (sessão guiada): escrevi `tl (tl (explode s))`, que tem tipo
+> `string -> char list`. Faltou o `hd`: `tl` anda pela lista, `hd` pega o elemento.
+
+</details>
+
+## Questão 7 — `cycle1 : 'a list -> 'a list`
+
+**Assunto:** `::` × `@` (Aula 05) · **Tipo:** implementação
+
+> Mova o primeiro elemento para o fim: `cycle1 [1, 2, 3, 4] = [2, 3, 4, 1]`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun cycle1 (h :: t) = t @ [h];
+```
+
+**Por quê:** `::` põe um **elemento** na frente de uma lista; `@` junta **duas listas**. Para
+pôr `h` no fim, é preciso embrulhá-lo numa lista: `[h]`.
+
+> ⚠️ **Meu erro** (sessão guiada): escrevi `fun cycle1 [h::t] = t @ h`.
+> - Os colchetes criam uma lista de listas.
+> - `t @ h` exige que `h` seja lista, mas `h` é elemento. O tipo teria que satisfazer
+>   `'a = 'a list`, e o SML recusa com erro de **circularidade**.
+
+</details>
+
+## Questão 8 — `sort3 : real * real * real -> real list`
+
+**Assunto:** tuplas, listas e comparação de reais (Aula 05) · **Tipo:** implementação
+
+> Retorne a lista ordenada dos três números.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun sort3 (a : real, b, c) =
+  if a <= b andalso b <= c then [a, b, c]
+  else if a <= c andalso c <= b then [a, c, b]
+  else if b <= a andalso a <= c then [b, a, c]
+  else if b <= c andalso c <= a then [b, c, a]
+  else if c <= a andalso a <= b then [c, a, b]
+  else [c, b, a];
+```
+
+**Por quê:** três números têm 6 ordens possíveis, e cada `if` testa uma. A anotação
+`(a : real)` é necessária: sem ela, o `<=` escolheria `int`. Repare que `<=` funciona com
+`real`, mas `=` **não**: `real` não é tipo de igualdade em SML.
+
+</details>
+
+## Questão 9 — `del3 : 'a list -> 'a list`
+
+**Assunto:** casamento de padrões com `::` (Aulas 05–06) · **Tipo:** implementação
+
+> Remova o terceiro elemento da lista.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun del3 (a :: b :: _ :: t) = a :: b :: t;
+```
+
+**Por quê:** o padrão separa os dois primeiros, o terceiro (descartado com `_`) e a cauda
+`t`. No resultado, `::` reconstrói a lista sem o terceiro.
+
+</details>
+
+## Questão 10 — `sqsum : int -> int`
+
+**Assunto:** recursão sobre inteiros (Aula 05) · **Tipo:** implementação
+
+> Soma dos quadrados de 0 até n.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun sqsum 0 = 0
+  | sqsum n = n * n + sqsum (n - 1);
+```
+
+**Por quê:** caso base `0` e caso recursivo "o quadrado de n mais a soma até n − 1". Na
+segunda cláusula, repare no `|` e na **repetição do nome** da função.
+
+</details>
+
+## Questão 11 — `cycle : 'a list * int -> 'a list`
+
+**Assunto:** recursão e reuso de `cycle1` (Aula 05) · **Tipo:** implementação
+
+> Mova os n primeiros elementos para o fim: `cycle ([1, 2, 3, 4, 5, 6], 2) = [3, 4, 5, 6, 1, 2]`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun cycle (L, 0) = L
+  | cycle (h :: t, n) = cycle (t @ [h], n - 1);
+```
+
+**Por quê:** é aplicar `cycle1` n vezes. Cada volta move a cabeça para o fim e diminui o
+contador.
+
+</details>
+
+## Questão 12 — `pow : real * int -> real`
+
+**Assunto:** recursão com tuplas (Aula 05) · **Tipo:** implementação
+
+> Eleve um real a uma potência inteira não negativa.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun pow (_, 0) = 1.0
+  | pow (x, n) = x * pow (x, n - 1);
+```
+
+**Por quê:** a constante `1.0` já fixa o resultado como `real`, e então `x * pow (...)` força
+`x : real`. O `0` do padrão fixa o expoente como `int`.
+
+</details>
+
+## Questão 13 — `max : int list -> int`
+
+**Assunto:** função auxiliar com acumulador (Aula 05) · **Tipo:** implementação
+
+> Use `fun max x = maxhelper (tl x, hd x)`, em que `maxhelper` recebe o maior visto até
+> agora.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun maxhelper (nil, m) = m
+  | maxhelper (h :: t, m) = if h > m then maxhelper (t, h) else maxhelper (t, m);
+
+fun max x = maxhelper (tl x, hd x);
+```
+
+**Por quê:** o segundo parâmetro **acumula** o maior valor até agora. Cada elemento é
+visitado uma vez (linear), e a chamada recursiva é a última coisa feita (**recursão de
+cauda**). O `>` força `int`.
+
+</details>
+
+## Questão 14 — `isPrime : int -> bool`
+
+**Assunto:** recursão e `andalso`/`orelse` (Aula 05) · **Tipo:** implementação
+
+> Retorne verdadeiro se o parâmetro for primo.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun hasDivisor (n, d) =
+  d * d <= n andalso (n mod d = 0 orelse hasDivisor (n, d + 1));
+
+fun isPrime n = n > 1 andalso not (hasDivisor (n, 2));
+```
+
+**Por quê:** n é primo se é maior que 1 e **nenhum** d entre 2 e √n o divide. Basta testar
+até √n (`d * d <= n`): se n = a × b, um dos dois é no máximo √n. `andalso` e `orelse` são
+avaliados em **curto-circuito**: se `d * d <= n` é falso, a recursão nem acontece.
+
+</details>
+
+## Questão 15 — `select : 'a list * ('a -> bool) -> 'a list`
+
+**Assunto:** função de alta ordem (Aulas 05 e 10) · **Tipo:** implementação
+
+> Devolva os elementos para os quais `f` é verdade.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun select (nil, _) = nil
+  | select (h :: t, f) = if f h then h :: select (t, f) else select (t, f);
+```
+
+**Por quê:** `select` recebe **uma função** como parâmetro: é uma função de alta ordem. É o
+`filter` da biblioteca, com os argumentos em tupla.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| `max` exponencial → linear | [Provas 23 e 25, Q1](/docs/aula-revisao-01-12/prova-23), [Prova 28, Q2](/docs/aula-revisao-01-12/prova-28) | a Questão 13 **é** a versão linear |
+| Dar o tipo de uma função SML | [Prova 24, Q2c](/docs/aula-revisao-01-12/prova-24), [Prova 28, Q2a](/docs/aula-revisao-01-12/prova-28), [Prova 29, Q3e](/docs/aula-revisao-01-12/prova-29) | Questões 1, 2 e 5 |
+| Trocar campos de uma tupla (`xch`) | [Prova 24, Q2b](/docs/aula-revisao-01-12/prova-24) | variação direta da Questão 5 |
+| Funções curtas sobre listas (`inv`, `len`) | [Prova 24, Q2a](/docs/aula-revisao-01-12/prova-24), [Prova 29, Q3](/docs/aula-revisao-01-12/prova-29) | Questões 3, 7, 9 e 11 |
+
+## Para treinar
+
+1. Escreva `xch : 'a * 'b * 'c -> 'c * 'b * 'a` e dê o tipo de `fun f (x, y) = x + y`.
+2. Escreva `swapEnds : 'a list -> 'a list`, que move o **último** elemento para o início.
+3. Reescreva `sqsum` com um acumulador, para que a recursão seja de cauda.

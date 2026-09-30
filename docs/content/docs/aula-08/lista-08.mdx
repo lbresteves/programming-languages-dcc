@@ -1,0 +1,244 @@
+---
+title: Lista 08 - Resolução
+description: Sobrecarga e coerção, subtipos, tipagem fraca em C, casts em Java e C++, equivalência de tipos e o problema 18 do Euler
+---
+
+Resolução completa da Lista 8. Tente cada questão no papel antes de abrir a resposta.
+
+## Questão 1 — Uma linguagem misteriosa
+
+**Assunto:** precedência, associatividade, sobrecarga e coerção (Aulas 03 e 08) · **Tipo:** conceitual
+
+> Com `1 + 2 * 3 = 7`, `"1" + "2" + "3" = "123"`, `"1" + 2 + 3 = "123"` e `1 + "2*3"` sendo
+> erro de tipo, descreva o sistema. Quanto vale `"1" + 2*3`?
+
+<details>
+<summary>Resposta</summary>
+
+| Fato | O que ele mostra |
+|---|---|
+| `1 + 2 * 3 = 7` | `*` tem **precedência maior** que `+` |
+| `"1" + "2" + "3" = "123"` | `+` é **sobrecarregado**: com duas *strings*, concatena |
+| `"1" + 2 + 3 = "123"` | `+` associa **à esquerda**: `("1" + 2) + 3`. E há **coerção** de `int` para *string* quando o operando da esquerda é *string*: `"1" + 2 = "12"`, depois `"12" + 3 = "123"`. (Se associasse à direita, daria `"1" + 5 = "15"`.) |
+| `1 + "2*3"` é erro | a coerção **não** vale quando o `int` está à esquerda: não existe `+ : int * string` |
+
+O sistema:
+- `*` acima de `+`, os dois associativos à esquerda;
+- `+ : int * int -> int` (soma) e `+ : string * string -> string` (concatenação);
+- coerção implícita: em `string + int`, o `int` da direita vira *string*.
+
+`"1" + 2*3` = `"1" + 6` = **`"16"`**.
+
+**Por quê:** a sobrecarga e a coerção são polimorfismo **ad hoc**: cada combinação de tipos
+aceita precisa estar prevista, uma a uma. Por isso `int + string` pode simplesmente não
+existir. É o comportamento do `+` de Java com *strings*, só que lá a coerção vale dos dois
+lados.
+
+</details>
+
+## Questão 2 — Subtipos: o compilador consegue garantir?
+
+**Assunto:** tipos como conjuntos e subtipos (Aulas 07–08) · **Tipo:** conceitual
+
+> X = múltiplos de 3, Y = múltiplos de 12, Z = inteiros; `x : X`, `y : Y`, `z : Z`. O
+> compilador pode saber se cada atribuição é segura?
+
+<details>
+<summary>Resposta</summary>
+
+Como conjuntos, **Y ⊂ X ⊂ Z** (todo múltiplo de 12 é múltiplo de 3, que é inteiro).
+
+| Atribuição | Segura? | Por quê |
+|---|---|---|
+| (a) `x ← y` | sim, e o compilador sabe | Y ⊂ X |
+| (b) `x ← x` | sim, e o compilador sabe | mesmo tipo |
+| (c) `y ← y + 1` | **nunca** é segura, e o compilador sabe | múltiplo de 12 mais 1 nunca é múltiplo de 12 |
+| (d) `z ← x` | sim, e o compilador sabe | X ⊂ Z |
+| (e) `x ← z` | **não dá para saber** na compilação | depende do valor de `z`; só um teste em execução decide |
+| (f) `x ← x + 3` | sim, e o compilador sabe | múltiplo de 3 mais 3 é múltiplo de 3 |
+| (g) `x ← x + z` | **não dá para saber** na compilação | depende do valor de `z` |
+
+**Por quê:** atribuir um **subtipo** a um supertipo é sempre seguro (é o princípio de
+substituição). O contrário, de um supertipo para um subtipo, só pode ser verificado
+**durante a execução**, que é exatamente o que um *cast* de Java faz (Questão 4).
+
+</details>
+
+## Questão 3 — Reinterpretando memória em C
+
+**Assunto:** tipagem fraca e coerções inseguras (Aula 08) · **Tipo:** rastreio + conceitual
+
+> Um `ThreeDPoint` `{7, 7, 1822}` e um vetor de bytes são lidos como `Date` via cast de
+> ponteiro.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Numa máquina *little endian* (x86, ARM), com `int` de 4 bytes:
+
+```
+7, 7, 1822
+7, 7, 1822
+```
+
+- Primeira linha: `ThreeDPoint` e `Date` têm o mesmo **leiaute** (três `int` seguidos),
+  então `day`, `month` e `year` leem `x`, `y` e `z`.
+- Segunda linha: os 12 bytes formam três `int`: `7 0 0 0` = 7, `7 0 0 0` = 7 e
+  `30 7 0 0` = 30 + 7 × 256 = 1822.
+
+(O compilador dá um aviso de tipos de ponteiro incompatíveis, porque o *cast* é para
+`struct ThreeDPoint*`, um nome que nem existe no programa, e é atribuído a `Date*`. Mas
+compila.)
+
+**(b)** Porque C deixa tratar uma região de memória de um tipo **como se fosse de outro**,
+sem nenhuma verificação: um vetor de `char` virou uma data. Tipagem forte impediria que uma
+operação fosse aplicada a um valor do tipo errado.
+
+**(c)** Sim. O resultado depende da **ordem dos bytes** (numa máquina *big endian* a
+segunda linha daria outros números), do **tamanho do `int`** e do **alinhamento** das
+estruturas, e tudo isso é decidido pela implementação, não pela linguagem.
+
+**(d)** Ler dados binários brutos: o cabeçalho de um pacote de rede ou de um arquivo (uma
+imagem BMP, por exemplo) é lido para um vetor de bytes e depois acessado por uma `struct`
+com o leiaute do formato. Também em alocadores de memória e em estruturas genéricas com
+`void*`.
+
+**Por quê:** C trata a memória como **bytes sem estrutura**, e o tipo é só uma forma de
+olhar para eles. É o que dá eficiência e controle, e o que tira a segurança.
+
+</details>
+
+## Questão 4 — O mesmo *cast* em Java e em C++
+
+**Assunto:** tipagem forte e seu custo (Aula 08) · **Tipo:** rastreio + conceitual
+
+> Java: `Object o = p; DateType d = (DateType) o;`. C++: `DateType *d = (DateType*) p;`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** O programa **compila** (converter `Object` para `DateType` pode dar certo), mas a
+execução para com uma exceção:
+
+```
+Exception in thread "main" java.lang.ClassCastException:
+  ThreeDPoint cannot be cast to DateType
+```
+
+**(b)** Cada objeto precisa carregar a **informação do seu tipo** (um ponteiro para a
+classe, no cabeçalho do objeto), o que gasta memória, e **cada *cast* executa um teste** na
+execução, o que gasta tempo. É uma instrução invisível.
+
+**(c)** Compila e imprime `7, 7, 1822`, como o C. Então, nesse aspecto, **C++ é fracamente
+tipada**: o *cast* no estilo C não verifica nada. (C++ também tem o `dynamic_cast`, que
+verifica em execução como Java, mas só quando o programador pede. O código do enunciado
+também precisa de `#include <iostream>` e de `int main()` para compilar num `g++` atual.)
+
+**Por quê:** a mesma linha de código tem três destinos, e isso é o eixo do curso:
+
+| | `(DateType) p` |
+|---|---|
+| C | reinterpreta os bytes em silêncio |
+| C++ | igual a C com o *cast* de estilo C; verificado com `dynamic_cast` |
+| Java | teste na execução → `ClassCastException` |
+| Python | não há *cast*: o objeto é o que é, e o erro aparece ao acessar `d.day` (`AttributeError`) |
+| SML | não compila: não há conversão entre tipos diferentes |
+
+</details>
+
+## Questão 5 — Equivalência de tipos: nominal ou estrutural?
+
+**Assunto:** equivalência nominal × estrutural (Aulas 07–08) · **Tipo:** rastreio + conceitual
+
+> Em SML, `type ThreeDPoint = int * int * int`, `type Date = int * int * int`,
+> `fun days (d : Date) = #1 d`, e `days point` com `point : ThreeDPoint`. Depois o mesmo em
+> C com `struct`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+val it = 7 : int
+```
+
+**(b)** **Estrutural.** `type` só cria um **apelido** para `int * int * int`, então `Date` e
+`ThreeDPoint` têm a mesma estrutura e são o mesmo tipo. (Com `datatype`, que cria um tipo
+novo, seria nominal.)
+
+**(c)** **Não compila.** O `gcc` acusa algo como
+`incompatible type for argument 1 of 'days'`: esperava `Date` e recebeu `ThreeDPoint`.
+
+**(d)** **Nominal**, para `struct`: duas estruturas com os mesmos campos, mas nomes
+diferentes, são tipos diferentes.
+
+**Por quê:** repare no contraste com a Questão 3. C é **fraca** (deixa reinterpretar a
+memória com um *cast*) e ao mesmo tempo **nominal** (sem o *cast*, recusa passar um
+`ThreeDPoint` como `Date`). Força da tipagem e equivalência de tipos são perguntas
+independentes.
+
+</details>
+
+## Questão 6 — Projeto Euler 18: o caminho de maior soma
+
+**Assunto:** programação dinâmica em SML (Aulas 06–08) · **Tipo:** implementação
+
+> Encontre a maior soma de um caminho descendente no triângulo de 15 linhas.
+
+<details>
+<summary>Resposta</summary>
+
+A ideia: resolver **de baixo para cima**. O melhor caminho a partir de um número é ele
+mesmo mais o **maior** dos dois melhores caminhos logo abaixo. Então cada linha "absorve" a
+de baixo, até sobrar um número só.
+
+```sml
+fun max2 (a, b) = if a > b then a else b;
+
+(* soma cada elemento da linha com o maior dos dois vizinhos de baixo *)
+fun combine (x :: xs, a :: b :: bs) = x + max2 (a, b) :: combine (xs, b :: bs)
+  | combine (_, _) = nil;
+
+(* as linhas vêm de cima para baixo *)
+fun collapse [row] = row
+  | collapse (row :: rest) = combine (row, collapse rest);
+
+fun solve rows = hd (collapse rows);
+```
+
+Com o triângulo pequeno do enunciado:
+
+```sml
+- solve [[3], [7, 4], [2, 4, 6], [8, 5, 9, 3]];
+val it = 23 : int
+```
+
+`collapse` transforma a última linha `[8, 5, 9, 3]` e a penúltima `[2, 4, 6]` em
+`[10, 13, 15]`; depois `[20, 19]`; depois `[23]`.
+
+Para o triângulo da questão, basta escrever as 15 linhas como uma lista de listas
+(`[[75], [95, 64], [17, 47, 82], ...]`) e chamar `solve`. A resposta é **1074**.
+
+**Por quê:** a força bruta testa 2¹⁴ = 16.384 caminhos, e o número dobra a cada linha.
+A programação dinâmica guarda o melhor resultado de cada posição e faz **uma soma por
+número**: O(n) no número de elementos do triângulo. É a mesma ideia que torna o `max` e o
+Fibonacci lineares: **não recalcular** o que já foi calculado.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Estático/dinâmico e coerção, sobrecarga, paramétrico, subtipagem a partir de mensagens de erro | [Prova 28, Q3](/docs/aula-revisao-01-12/prova-28) | a Questão 1 ao contrário: deduzir o sistema pelo comportamento |
+| Tipagem forte/fraca, equivalência estrutural/nominal, união de tipos | [Prova 27, Q3](/docs/aula-revisao-01-12/prova-27) | citar uma linguagem para cada característica |
+| Tipo de polimorfismo do `foldr` | [Prova 27, Q2b](/docs/aula-revisao-01-12/prova-27) | paramétrico |
+| `struct` × `union` em C, cardinalidade | [Prova 26, Q1](/docs/aula-revisao-01-12/prova-26) | contar os valores de cada tipo |
+| Programas C que passam na verificação de tipos, mas têm comportamento indefinido | [Prova 24, Q1](/docs/aula-revisao-01-12/prova-24) | a Questão 3 é um exemplo pronto |
+
+## Para treinar
+
+1. Na linguagem da Questão 1, quanto vale `"2" + 3 * 4 + 5`?
+2. Com os tipos da Questão 2, `y ← x * 4` é segura? E `x ← y / 4`?
+3. Reescreva a Questão 5 com `datatype` em SML. O que acontece com `days point`?

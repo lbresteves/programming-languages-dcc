@@ -1,0 +1,127 @@
+---
+title: Prova 27 - Resolução
+description: Escopo estático em SML × dinâmico em Bash, foldr e foldl, e características de linguagens
+---
+
+Resolução da 1ª prova 27 (`material/provas-antigas/1a-prova/midterm27.md`). Tente cada
+questão no papel antes de abrir a resposta.
+
+## Questão 1 — O mesmo programa em Bash e em SML
+
+**Assunto:** escopo estático × dinâmico (Aula 11) · **Tipo:** rastreio + conceitual
+
+```bash
+x=99
+foo() {
+  echo "x = $x"
+}
+bar() {
+  local x=42
+  foo
+}
+bar
+```
+
+```sml
+val x = 99
+fun foo() =
+  print ("x = " ^ Int.toString x ^ "\n")
+fun bar() =
+  let val x = 42
+  in
+    foo()
+  end
+bar()
+```
+
+> (a) O que imprime o Bash? (b) E o SML? (c) Qual tem escopo estático? (d) Qual tem escopo
+> dinâmico? (e) Qual a diferença?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `x = 42`.
+
+**(b)** `x = 99`.
+
+**(c)** **SML**.
+
+**(d)** **Bash**.
+
+**(e)** No escopo **estático** (léxico), um nome se refere à definição que o envolve **no
+texto do programa**, e isso é decidido antes da execução: `foo` foi escrita fora de `bar`, e
+o `x` em volta dela é o `x = 99`. No escopo **dinâmico**, um nome se refere à definição mais
+recente **na pilha de chamadas**: quando `foo` roda, quem a chamou foi `bar`, e o `x` mais
+recente é o `local x=42`.
+
+</details>
+
+## Questão 2 — `foldr` e `foldl`
+
+**Assunto:** funções de alta ordem e polimorfismo (Aulas 08 e 10) · **Tipo:** implementação + conceitual
+
+> `foldr : ('a * 'b -> 'b) -> 'b -> 'a list -> 'b`. (a) Complete `f`, `c` e `L` para que
+> `'a ≠ 'b`, e dê o resultado de `foldr f c L`. (b) Que tipo de polimorfismo o tipo de
+> `foldr` ilustra? (c) Uma aplicação de `foldl` que daria resultado diferente com `foldr`,
+> em uma linha.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+- val f = fn (x, y) => size x + y
+- val c = 0
+- val L = ["ab", "cde"]
+- foldr f c L ;
+```
+
+Resultado: **`5`** (o total de caracteres). Aqui `'a = string` (os elementos) e `'b = int` (o
+acumulado).
+
+**(b)** Polimorfismo **paramétrico**: o tipo tem **variáveis de tipo** (`'a`, `'b`) e a
+mesma implementação funciona para qualquer tipo que as substitua.
+
+**(c)**
+
+```sml
+foldl (op ::) nil [1, 2, 3];
+```
+
+Dá `[3, 2, 1]`; com `foldr`, daria `[1, 2, 3]`.
+
+**Por quê:** o `foldl` combina da esquerda para a direita e o `foldr` da direita para a
+esquerda. Com uma operação que constrói uma lista (`::`), a ordem fica exposta no resultado.
+
+</details>
+
+## Questão 3 — Uma linguagem para cada característica
+
+**Assunto:** tipagem, equivalência de tipos, closures e espaços de nomes (Aulas 07, 08, 11 e 13) · **Tipo:** conceitual
+
+<details>
+<summary>Resposta</summary>
+
+| Item | Característica | Linguagem | Por quê |
+|---|---|---|---|
+| (a) | tipagem dinâmica | Python | o tipo é do valor, conhecido na execução |
+| (b) | tipagem estática | SML | tipos inferidos na compilação |
+| (c) | tipagem forte | Java | todo acesso e todo *cast* são verificados |
+| (d) | tipagem fraca | C | *casts* de ponteiros reinterpretam a memória |
+| (e) | equivalência estrutural | SML | `type` só dá um apelido; dois apelidos da mesma tupla são o mesmo tipo |
+| (f) | equivalência nominal | C (`struct`) ou Java (classes) | duas `struct` com os mesmos campos e nomes diferentes são tipos diferentes |
+| (g) | tipos formados pela união de outros | SML (`datatype`) ou C (`union`) | `datatype number = INT of int \| REAL of real` |
+| (h) | *closures* | SML (também Python e JavaScript) | funções devolvidas carregam as variáveis livres |
+| (i) | espaços de nomes **instanciáveis** | Java, `class` | cada objeto é uma instância do espaço de nomes |
+| (j) | espaços de nomes **não instanciáveis** | C++, `namespace` (SML: `structure`; Java: `package`) | agrupam nomes, mas não se cria "um objeto" deles |
+
+</details>
+
+## Onde treinar
+
+| Questão | Lista |
+|---|---|
+| 1 | [Lista 11, Q1 e Q5](/docs/aula-11/lista-11) |
+| 2 | [Lista 10](/docs/aula-10/lista-10) e [Lista 11, Q3](/docs/aula-11/lista-11) |
+| 3 | [Lista 7](/docs/aula-07/lista-07), [Lista 8](/docs/aula-08/lista-08) e [Lista 13](/docs/aula-13/lista-13) |

@@ -137,6 +137,96 @@ val it = [2, 3, 4] : int list
 conjunto de números, de outras listas, etc. Esses dois casos são todo o universo, e é por
 isso que toda função recursiva sobre listas tem exatamente esses dois padrões.
 
+#### Cabeça × cauda: quem é lista?
+
+A **cauda é sempre uma lista**; a **cabeça é um elemento**. O tipo diz tudo:
+
+```sml
+- hd;
+val it = fn : 'a list -> 'a
+- tl;
+val it = fn : 'a list -> 'a list
+```
+
+A cabeça só é uma lista se os **elementos** forem listas, ou seja, se `'a` for
+instanciado como `int list`, `string list` etc. Isso depende do dado passado, não é uma
+regra do `hd`:
+
+```sml
+- hd [1, 2, 3];
+val it = 1 : int
+- hd [[1, 2], [3]];
+val it = [1,2] : int list
+```
+
+Em `x :: y`, então, `y` é **sempre** `'a list`, e `x` é `'a`. O `x` só vira uma lista se
+outro padrão obrigar.
+
+#### `[ ]`, `( )` e `::` em padrões
+
+Os três se parecem, mas fazem coisas diferentes:
+
+| Sintaxe | O que é | Casa com |
+|---|---|---|
+| `[p1, ..., pn]` | lista de padrões | lista de **exatamente n** elementos, cada um casando com seu `pi` |
+| `p1 :: p2` | cons de padrões | lista **não vazia**: `p1` casa com a cabeça (elemento), `p2` com a cauda (lista) |
+| `( p )` | só agrupamento | o mesmo que `p` — parênteses não criam estrutura |
+
+Dois detalhes que derrubam:
+
+- **Colchetes não agrupam.** `[p]` é uma lista de **um** elemento que casa com `p`. Se
+  `p` for um padrão de lista, o argumento vira uma lista de listas (acrescenta um nível de
+  `list` ao tipo).
+- **`::` associa à direita.** `a :: b :: c :: t` é lido como `a :: (b :: (c :: t))`,
+  então o último nome fica na **posição de cauda** e é uma lista.
+
+O que cada padrão aceita e rejeita:
+
+| Padrão | Aceita | Rejeita (`Match`) | Tipo da última variável |
+|---|---|---|---|
+| `[a, b, c, t]` | `[1,2,3,4]` | `[1,2,3]`, `[1,2,3,4,5]` | `t : 'a` (elemento) |
+| `a :: b :: c :: t` | `[1,2,3]` (`t = []`), `[1,2,3,4,5]` (`t = [4,5]`) | `[1,2]` | `t : 'a list` (cauda) |
+| `a :: b :: c :: t :: _` | `[1,2,3,4]`, `[1,2,3,4,5]` | `[1,2,3]` | `t : 'a` (elemento) |
+| `[x]` | `[7]` | `[]`, `[7,8]` | `x : 'a` |
+| `x :: nil` | `[7]` | `[]`, `[7,8]` | `x : 'a` (igual a `[x]`) |
+
+#### Exemplo: três tentativas de `fourth` (Lista 5, questão 3)
+
+A questão pede `fourth : 'a list -> 'a`, que devolve o 4º elemento.
+
+```sml
+- fun fourth [_ :: _ :: _ :: t :: _] = t;
+Warning: match nonexhaustive
+val fourth = fn : 'a list list -> 'a
+```
+
+O `[ ]` de fora é uma lista com **um** elemento. Esse elemento precisa casar com
+`_ :: _ :: _ :: t :: _`, então é uma lista com 4 ou mais elementos. Resultado: o
+argumento é uma lista de listas, e `t` é o 4º elemento da lista interna.
+`fourth [[1,2,3,4,5]]` devolve `4`.
+
+```sml
+- fun fourth [_ :: _ :: _ :: t] = t;
+Warning: match nonexhaustive
+val fourth = fn : 'a list list -> 'a list
+```
+
+Continua sendo uma lista de um único elemento que é uma lista. Agora, porém, `t` está na
+posição de cauda, então é o **resto** depois dos três primeiros: `'a list`.
+`fourth [[1,2,3,4,5]]` devolve `[4,5]`.
+
+```sml
+- fun fourth [_, _, _, t] = t;
+Warning: match nonexhaustive
+val fourth = fn : 'a list -> 'a
+```
+
+Esta tem o tipo certo, mas a lista de padrões casa só com listas de **exatamente** 4
+elementos. `fourth [1,2,3,4,5]` falha com `Match`.
+
+Para aceitar qualquer lista com 4 ou mais elementos, use o padrão da terceira linha da
+tabela acima, com **parênteses** no lugar dos colchetes.
+
 Padrões também valem em declarações `val` — só que aí a não-exaustividade também gera
 aviso:
 
@@ -406,8 +496,57 @@ fun fastFib 0 = (0, 0)
 fun newFib n = #1 (fastFib n)
 ```
 
+### O mesmo problema em `max` (prova 28, Q2)
+
+```sml
+fun max [e] = e
+  | max (h::t) = if max t > h then max t else h
+```
+
+`max t` aparece **duas vezes**. Quando a condição é verdadeira, ele é calculado de novo.
+Com a lista em **ordem crescente** (`[1, 2, ..., n]`), a condição é verdadeira em todo
+nível: cada chamada gera duas, e o total é O(2ⁿ). Em ordem decrescente, a condição é
+sempre falsa, e a função é linear.
+
+A correção é a mesma do `fastFib`: calcular **uma vez**, guardar com `let` e reutilizar.
+Só o corpo da **segunda** cláusula muda:
+
+```sml
+fun max [e] = e
+  | max (h::t) =
+      let
+        val m = max t
+      in
+        if m > h then m else h
+      end;
+```
+
+**Linear** significa que o tempo cresce proporcionalmente a n: uma chamada recursiva por
+nível.
+
+<Callout title="O tipo é int list -> int, não 'a list -> 'a" type="warn">
+  O `>` é **sobrecarregado** (vale para `int`, `real`, `string`, `char`), mas não para
+  qualquer `'a`. Sem outra pista, SML escolhe `int`.
+
+  | Situação | Tipo |
+  |---|---|
+  | nenhuma operação sobre o valor (`fun c [x, y] = y`) | `'a` |
+  | operador sobrecarregado sem pista (`+`, `*`, `>`, `<`) | `int` |
+  | operador sobrecarregado com pista (`2.0`, `(x : real)`) | o tipo da pista |
+</Callout>
+
+Com `max` pronto, a versão para lista de listas é uma linha com `map`:
+
+```sml
+fun maxL L = map max L;   (* int list list -> int list *)
+```
+
 ## Comentários em ML
 
 ```sml
 (* comentário em SML — pode ser aninhado (* assim *) *)
 ```
+
+---
+
+**Resolução da lista:** [Lista 06 - Resolução](/docs/aula-06/lista-06)

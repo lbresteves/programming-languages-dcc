@@ -1,0 +1,287 @@
+---
+title: Lista 13 - Resolução
+description: Registros de ativação, link de aninhamento, closures e funções de alta ordem em C
+---
+
+Resolução completa da Lista 13. Tente cada questão no papel antes de abrir a resposta.
+
+Os campos de um registro de ativação que aparecem nas respostas: **endereço de retorno**,
+**parâmetros**, **variáveis locais**, **valor de retorno**, **ponteiro para o registro
+anterior** (*prev*, quem chamou) e **link de aninhamento** (*nesting link*, a ativação mais
+recente da função que envolve a atual no texto).
+
+## Questão 1 — Achando uma variável de um nível externo
+
+**Assunto:** link de aninhamento (Aula 13) · **Tipo:** conceitual
+
+> Uma função aninhada em profundidade n usa uma variável de uma função em profundidade m.
+> Como achar a variável em execução? Por que não tratar m > n?
+
+<details>
+<summary>Resposta</summary>
+
+A partir do registro de ativação atual, **seguir o link de aninhamento n − m vezes**. Cada
+salto sobe um nível de aninhamento no texto do programa. O registro alcançado é o da
+função de profundidade m, e dentro dele a variável está num **deslocamento fixo**, conhecido
+na compilação. Se m = n, a variável é local: zero saltos.
+
+Não é preciso tratar m > n porque essa referência **não pode ser legítima**. Uma variável de
+profundidade maior pertence a uma função que está **dentro** da função atual (ou num ramo
+ao lado), e o escopo estático só deixa enxergar as funções que **envolvem** o uso.
+
+**Por quê:** tanto n − m quanto o deslocamento são conhecidos na compilação. Só os
+endereços dos registros são dinâmicos, e os links os fornecem.
+
+</details>
+
+## Questão 2 — Um programa que quebra com alocação estática
+
+**Assunto:** alocação estática × pilha (Aula 13) · **Tipo:** implementação + conceitual
+
+> O mais curto exemplo em SML que não funcionaria com registros de ativação estáticos.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun f 0 = 0
+  | f n = n + f (n - 1);
+```
+
+Com alocação estática, `f` tem **um único** registro, numa posição fixa. Em `f 2`, a
+chamada `f 1` sobrescreve o `n = 2` com `n = 1` (e depois com `0`). Quando `f 1` retorna,
+a soma `n + ...` usa o `n` sobrescrito, e não o 2, e o resultado sai errado. O endereço de
+retorno também é sobrescrito, e o programa não saberia mais voltar para quem chamou
+primeiro.
+
+**Por quê:** recursão exige **várias ativações vivas ao mesmo tempo**, cada uma com os seus
+dados. Por isso FORTRAN e COBOL não tinham recursão, e Algol introduziu a **pilha**.
+
+</details>
+
+## Questão 3 — Um programa que quebra sem link de aninhamento
+
+**Assunto:** link de aninhamento × registro anterior (Aula 13) · **Tipo:** implementação + conceitual
+
+> O mais curto exemplo em SML que não funcionaria sem links de aninhamento (com pilha).
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun f x =
+  let
+    fun g () = x
+    fun h x = g ()
+  in
+    h 2
+  end;
+```
+
+`f 1` deve valer **1**: o `x` de `g` é o parâmetro de `f`, que envolve `g` no texto.
+
+Sem link de aninhamento, `g` só teria o ponteiro para o **registro anterior**, que é o de
+**`h`**, quem chamou. Procurando `x` por ali, `g` encontraria o `x = 2` de `h`, e `f 1`
+valeria **2**. Isso é **escopo dinâmico**, e não é a semântica de SML.
+
+**Por quê:** o registro anterior segue a **ordem das chamadas** (dinâmica); o link de
+aninhamento segue a **estrutura do texto** (estática). Eles só coincidem quando quem chama
+uma função é a própria função que a envolve.
+
+</details>
+
+## Questão 4 — O registro pode ser desalocado no retorno?
+
+**Assunto:** closures e tempo de vida (Aula 13) · **Tipo:** conceitual
+
+<details>
+<summary>Resposta</summary>
+
+| Função | Pode desalocar? | Por quê |
+|---|---|---|
+| (a) `fun f x = x + 1` | **sim** | o resultado é um número; nada aponta para o registro |
+| (b) `fun f x = fn y => x + y` | **não** | devolve uma função que usa `x` (variável livre dela). O `x` precisa viver depois do retorno, fora da pilha |
+| (c) `fun f x = fn y => y + 1` | **sim** | a função devolvida não usa nada de `f` |
+| (d) `fun f x = map x` | **não** | `map x` é uma aplicação parcial: devolve uma função que guardou `x` para usar quando receber a lista |
+
+**Por quê:** o registro pode morrer no retorno se nada do que **sobrevive** à chamada
+precisar dele. Quando a função devolve outra função com **variáveis livres** que vêm dela, é
+preciso um **closure**: o código mais os valores dessas variáveis, guardados no *heap*.
+
+</details>
+
+## Questão 5 — `concat` de duas formas
+
+**Assunto:** recursão indutiva e `foldr` (Aulas 10 e 13) · **Tipo:** implementação
+
+> `concat ["ab", "cd", "ef"] = "abcdef"`: (a) com recursão explícita, (b) com `foldr` em uma
+> linha.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+fun concat nil = ""
+  | concat (h :: t) = h ^ concat t;
+```
+
+Caso base: a lista vazia concatena para `""`. Passo: sabendo concatenar os n elementos da
+cauda, concatenar n + 1 é pôr a cabeça na frente (`h ^ ...`).
+
+**(b)**
+
+```sml
+fun concat L = foldr (op ^) "" L;
+```
+
+**Por quê:** a versão indutiva **é** o padrão do `foldr`: "combine a cabeça com o resultado
+da cauda, a partir de um valor para o vazio". `(op ^)` transforma o operador `^` numa função
+que recebe um par.
+
+</details>
+
+## Questão 6 — A função passada usa o link de aninhamento?
+
+**Assunto:** link de aninhamento em funções de alta ordem (Aula 13) · **Tipo:** conceitual
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `f x = x + 1` dentro de `addone`: **não usa**. `f` não tem variáveis livres; só usa
+o próprio parâmetro.
+
+**(b)** `f x = x + n` dentro de `addall`: **usa**. `n` é o parâmetro de `addall`, e `f` é
+chamada por `map`, e não por `addall`. Só o link de aninhamento leva de volta ao registro de
+`addall`.
+
+**(c)** `do123 f = map f [1, 2, 3]`: **não dá para saber pelo código de `do123`**. O `f` é
+um parâmetro e pode ser qualquer função: se for uma função de nível superior, não usa link;
+se for como a do item (b), usa. É por isso que um valor-função carrega **junto** o código e
+o link: quem recebe a função não sabe de onde ela veio.
+
+</details>
+
+## Questão 7 — Python tem escopo dinâmico?
+
+**Assunto:** escopo estático × mudança de valor (Aula 11) · **Tipo:** conceitual
+
+> `inc(y)` devolve `x + y`; com `x = 1`, `inc(2)` é 3; depois de `x = 2`, é 4.
+
+<details>
+<summary>Resposta</summary>
+
+**Não.** O `x` de `inc` é a variável global `x`, a **mesma** variável nas duas chamadas; o
+que mudou foi o **valor** dela. Isso acontece com escopo estático também.
+
+Para testar escopo dinâmico, é preciso chamar `inc` de dentro de uma função que tenha outro
+`x`:
+
+```python
+def caller():
+    x = 100
+    return inc(2)
+
+print(caller())    # 4: usa o x global (= 2), e não o x de caller
+```
+
+Com escopo dinâmico daria 102. Python tem escopo **estático**.
+
+**Por quê:** escopo decide **qual variável** um nome designa; o valor dela pode mudar com o
+tempo em qualquer caso. Confundir as duas coisas é a pegadinha da questão.
+
+</details>
+
+## Questão 8 — `(grt h)` como expressão λ
+
+**Assunto:** closures e cálculo λ (Aulas 09 e 13) · **Tipo:** conceitual
+
+> *grt* = λa.λb.a > b. Com `h = 21`, o que é *grt* 21?
+
+<details>
+<summary>Resposta</summary>
+
+```
+grt 21 = (λa.λb. a > b) 21 ⟹ λb. 21 > b
+```
+
+É uma **função** que ainda espera `b` e devolve verdadeiro quando `b < 21`. O `21` ficou
+"preso" dentro dela.
+
+**Por quê:** em SML, `grt h` é um closure: o código de `λb. a > b` mais o valor da variável
+livre `a = 21`. A redução β faz o mesmo no papel: substitui `a` no corpo.
+
+</details>
+
+## Questão 9 — `map` em C com ponteiros para função
+
+**Assunto:** funções de alta ordem em C (Aula 13) · **Tipo:** rastreio + conceitual
+
+> `a = {2, 3, 5, 7, 11, 13, 17, 19, 20}`; `b = map(a, 9, inc)`, `c = map(a, 9, sqr)`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `b = {3, 4, 6, 8, 12, 14, 18, 20, 21}`.
+
+**(b)** `c = {4, 9, 25, 49, 121, 169, 289, 361, 400}`.
+
+**(c)** Existe sintaxe para **devolver um ponteiro para função**:
+
+```c
+int (*escolhe(int op))(int) {
+  return op ? inc : sqr;
+}
+```
+
+Mas só se pode devolver funções **que já existem** no programa: não dá para criar uma função
+nova durante a execução, nem uma que guarde valores do lugar onde foi criada.
+
+**Por quê:** um ponteiro para função em C é **só o código**. Um valor-função em SML é código
+**mais ambiente** (closure). Funções de C não têm variáveis livres (só globais), e por isso o
+ponteiro basta.
+
+</details>
+
+## Questão 10 — Funções aninhadas no `gcc`
+
+**Assunto:** funções aninhadas e closures em C (Aula 13) · **Tipo:** rastreio + conceitual
+
+> `testMap(argc)` com `nestedInc(x) = x + y` e `./a.out a b c`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `argc` vale **4** (o nome do programa mais três argumentos), então `y = 4` e o
+programa imprime:
+
+```
+6 7 9 11 15 17 21 23 24
+```
+
+**(b)** **Não.** O `gcc` implementa funções aninhadas com um pedaço de código na **pilha**
+(um *trampolim*) que dá acesso ao registro de `testMap`. Isso funciona enquanto `testMap`
+está ativa. Se `nestedInc` fosse **devolvida** e chamada depois do retorno de `testMap`, o
+registro dela já teria sido desempilhado: comportamento indefinido. Um closure de verdade
+mantém as variáveis livres vivas depois do retorno, como em SML.
+
+**Por quê:** a pergunta de fundo é **onde vivem as variáveis livres**. Na pilha, morrem com
+a função (C e `gcc`); no *heap*, sobrevivem a ela (SML, Python, JavaScript).
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Os três ponteiros de um registro de ativação; dados que não podem ficar na pilha | [Prova 22, Q4](/docs/aula-revisao-01-12/prova-22) | as Questões 1, 3 e 4 |
+| Quais campos o registro tem em Fortran 66, ANSI C, C com `gcc` e SML | [Prova 26, Q2](/docs/aula-revisao-01-12/prova-26) | tabela S/N: a Questão 10 explica o caso do `gcc` |
+| Linguagem com suporte a closures | [Prova 27, Q3h](/docs/aula-revisao-01-12/prova-27) | SML, Python, JavaScript |
+
+## Para treinar
+
+1. Desenhe a pilha de `f 1` na Questão 3, com os campos *prev* e link de aninhamento de cada
+   registro.
+2. `fun f x = let val y = x * 2 in fn z => z + 1 end`: o registro pode ser desalocado?
+3. Escreva em Python uma função que devolva um closure, e explique onde fica a variável livre.

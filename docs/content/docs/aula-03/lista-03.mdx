@@ -1,0 +1,264 @@
+---
+title: Lista 03 - Resolução
+description: Precedência, associatividade, ambiguidade, gramáticas em Prolog com atributos e hierarquia de Chomsky
+---
+
+Resolução completa da Lista 3. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Esta lista é a mais cobrada da 1ª prova" type="warn">
+  As Questões 2 a 5 são praticamente as questões de gramática das provas 23, 25 e 29
+  (ambiguidade, precedência, associatividade, gramática em Prolog com atributos). Na revisão,
+  o professor disse que gramática em Prolog **"com certeza vai cair"**.
+</Callout>
+
+## Questão 1 — Parênteses de precedência em C
+
+**Assunto:** precedência de operadores e árvore de sintaxe (Aula 03) · **Tipo:** rastreio
+
+> Insira parênteses em `a = b < c ? * p + b * c : 1 << d` de acordo com a precedência.
+
+<details>
+<summary>Resposta</summary>
+
+```c
+a = ((b < c) ? ((*p) + (b * c)) : (1 << d))
+```
+
+Do mais forte para o mais fraco, os operadores que aparecem são:
+
+| Operador | Significado | Precedência |
+|---|---|---|
+| `*p` | desreferência (unário) | a mais alta |
+| `b * c` | multiplicação | |
+| `+` | soma | |
+| `<<` | deslocamento de bits | |
+| `<` | comparação | |
+| `?:` | condicional (ternário) | |
+| `=` | atribuição | a mais baixa |
+
+**Por quê:** quanto **mais perto da folha** na árvore, **maior a precedência**, porque a
+subárvore mais funda é avaliada primeiro. O `*` aparece com dois significados: antes de `p`
+não há operando à esquerda, então é o unário (desreferência); entre `b` e `c` é binário
+(multiplicação). Quem decide é a **posição na árvore**.
+
+</details>
+
+## Questão 2 — Uma gramática de somas ambígua
+
+**Assunto:** ambiguidade e seu efeito na semântica (Aulas 02–03) · **Tipo:** conceitual
+
+> `<E> ::= <E> + <E> | <Number>`. (a) Prove que é ambígua. (b) Como isso compromete a
+> semântica? (c) Dê uma gramática não ambígua para a mesma linguagem.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** A sentença `1 + 2 + 3` tem duas árvores:
+
+```
+        E                     E
+      / | \                 / | \
+     E  +  E               E  +  E
+   / | \   |               |   / | \
+  E  +  E  3               1  E  +  E
+  |     |                     |     |
+  1     2                     2     3
+   (1 + 2) + 3             1 + (2 + 3)
+```
+
+**(b)** Cada árvore é uma **ordem de avaliação**, e o compilador não sabe qual escolher.
+Para `+` de inteiros o valor coincide, porque a soma é associativa. Mas:
+- em ponto flutuante `(a + b) + c` pode ser diferente de `a + (b + c)` por causa do
+  arredondamento;
+- se as parcelas têm efeitos colaterais (chamadas de função), a ordem em que eles acontecem
+  muda;
+- a mesma gramática com `-` no lugar de `+` daria valores diferentes: `(1 - 2) - 3 = -4` e
+  `1 - (2 - 3) = 2`.
+
+**(c)** Recursão de um lado só (aqui à esquerda, que dá associatividade à esquerda):
+
+```
+<E> ::= <E> + <Number>
+      | <Number>
+```
+
+**Por quê:** a ambiguidade vem de `<E> + <E>` permitir recursão **dos dois lados**. Fixando
+um lado, cada sentença passa a ter uma única árvore, e o lado escolhido define a
+associatividade.
+
+</details>
+
+## Questão 3 — Associatividade
+
+**Assunto:** associatividade de operadores (Aula 03) · **Tipo:** conceitual + implementação
+
+> (a) O que é associativo à esquerda/direita? (b) O `+` de C é associativo a que lado?
+> (c) Um operador de C associativo à direita. (d) Torne associativos à esquerda os
+> operadores da gramática dada.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Diz como agrupar **vários usos seguidos do mesmo operador** (mesma precedência).
+- À esquerda: `a - b - c` = `(a - b) - c`.
+- À direita: `a = b = c` = `a = (b = c)`.
+
+**(b)** À esquerda: `a + b + c` = `(a + b) + c`.
+
+**(c)** A atribuição `=`: em `a = b = c = 0`, primeiro `c = 0`, que devolve `0`, depois
+`b = 0`, depois `a = 0`. Também associam à direita os `+=`, `-=` etc. e o ternário `?:`.
+
+**(d)** Basta trocar o lado da recursão em `<exp>` e em `<mulexp>`:
+
+```
+<exp>     ::= <exp> + <mulexp>
+            | <mulexp>
+<mulexp>  ::= <mulexp> * <rootexp>
+            | <rootexp>
+<rootexp> ::= ( <exp> )
+            | <number>
+```
+
+**Por quê:** a associatividade está **no lado da recursão**. Recursão à esquerda
+(`<exp> ::= <exp> + ...`) faz a árvore crescer para a esquerda, então o `+` mais à esquerda
+fica mais fundo e é avaliado primeiro. Por isso `=` associa à direita em C: ele devolve o
+valor atribuído, e esse valor precisa existir antes da atribuição de fora.
+
+</details>
+
+## Questão 4 — A gramática em Prolog, e depois um interpretador
+
+**Assunto:** gramáticas lógicas em Prolog com atributos (Aulas 02–03) · **Tipo:** implementação
+
+> (a) Escreva a gramática (a original, recursiva à direita) em Prolog. (b) Faça-a calcular
+> o valor: `expr(N, [2,*,'(',3,+,4,')'], [])` deve dar `N = 14`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```prolog
+expr    --> mulexp, [+], expr.
+expr    --> mulexp.
+mulexp  --> rootexp, [*], mulexp.
+mulexp  --> rootexp.
+rootexp --> ['('], expr, [')'].
+rootexp --> [N], {number(N)}.
+```
+
+**(b)** Um **atributo** em cada não-terminal carrega o valor da subárvore, e o bloco `{...}`
+faz a conta:
+
+```prolog
+expr(N)    --> mulexp(N1), [+], expr(N2), {N is N1 + N2}.
+expr(N)    --> mulexp(N).
+mulexp(N)  --> rootexp(N1), [*], mulexp(N2), {N is N1 * N2}.
+mulexp(N)  --> rootexp(N).
+rootexp(N) --> ['('], expr(N), [')'].
+rootexp(N) --> [N], {number(N)}.
+```
+
+```prolog
+?- expr(N, [2,*,'(',3,+,4,')'], []).
+N = 14.
+```
+
+Detalhes que a prova cobra:
+- Os parênteses vão **entre aspas simples** (`'('`), porque sozinhos não são átomos
+  válidos em Prolog.
+- Na lista da questão os números já são números Prolog (`2`, `3`, `4`), então
+  `[N], {number(N)}` basta. A anotação da aula tem uma versão que monta números a partir de
+  dígitos, para quando cada dígito vem separado.
+- A consulta tem **dois argumentos a mais** (`[...]` e `[]`): a DCG transforma `expr(N)` em
+  `expr(N, Entrada, Resto)`.
+- A recursão tem que ficar **à direita**: `expr --> expr, [+], mulexp` entraria em laço
+  infinito, porque o Prolog chamaria `expr` de novo sem consumir nada da entrada.
+
+**Por quê:** é a ideia de **atributos nos nós**: cada regra da gramática diz, ao mesmo
+tempo, como a sentença é formada e **quanto ela vale**. A gramática vira um interpretador.
+
+</details>
+
+## Questão 5 — Hierarquia de Chomsky
+
+**Assunto:** gramáticas regulares, livres de contexto e além; atributos em Prolog (Aula 03) · **Tipo:** implementação
+
+> (a) Converta a gramática de números para a forma regular. (b) Gramática para `aⁿbⁿ` em
+> Prolog. (c) Gramática para `aⁿbⁿcⁿ` em Prolog, via atributos.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Na forma regular, cada regra é "um terminal seguido de um não-terminal", "um
+terminal" ou "vazio". Então o `digit` precisa desaparecer, substituído pelos próprios
+terminais:
+
+```prolog
+number --> [0], number ; [1], number ; [2], number ; [3], number ; [4], number
+         ; [5], number ; [6], number ; [7], number ; [8], number ; [9], number.
+number --> [0] ; [1] ; [2] ; [3] ; [4] ; [5] ; [6] ; [7] ; [8] ; [9].
+```
+
+(Na DCG, `,` liga mais forte que `;`, então `[0], number ; [1], number` é
+`([0], number) ; ([1], number)`.)
+
+**(b)** Cada `a` à esquerda "casa" com um `b` à direita:
+
+```prolog
+ab --> [a], ab, [b].
+ab --> [].
+```
+
+**(c)** Atributos contam as letras de cada bloco, e o **mesmo** `N` obriga as três
+contagens a serem iguais:
+
+```prolog
+abc --> as(N), bs(N), cs(N).
+
+as(0) --> [].
+as(M) --> [a], as(N), {M is N + 1}.
+
+bs(0) --> [].
+bs(M) --> [b], bs(N), {M is N + 1}.
+
+cs(0) --> [].
+cs(M) --> [c], cs(N), {M is N + 1}.
+```
+
+```prolog
+?- abc([a,a,b,b,c,c], []).
+true.
+?- abc([a,a,b,c,c], []).
+false.
+```
+
+**Por quê:** cada nível da hierarquia tem uma memória diferente.
+- **Regular:** só o estado atual, e não conta. Serve para o analisador léxico (separar
+  números, identificadores, palavras-chave).
+- **Livre de contexto:** uma pilha, então casa **pares** (`aⁿbⁿ`, parênteses), mas não três
+  contagens ao mesmo tempo.
+- **Prolog com atributos:** os atributos são computação arbitrária (Turing completa), então
+  reconhecem linguagens fora da hierarquia livre de contexto, como `aⁿbⁿcⁿ`. É o mesmo
+  motivo pelo qual a verificação de tipos não é feita pela gramática: ela precisa de mais
+  que uma pilha.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Gramática `and`/`or` ambígua: demonstrar, precedência relativa, modificar | [Provas 23 e 25, Q2](/docs/aula-revisao-01-12/prova-23) | Questões 2 e 3 desta lista, com `and`/`or` |
+| Associatividade, precedência, gramática em Prolog e atributos | [Prova 29, Q2](/docs/aula-revisao-01-12/prova-29) | Questões 3, 4 e 5 juntas |
+
+A Prova 29 Q2e é exatamente a Questão 4b com booleanos: um atributo com o valor lógico e um
+bloco `{...}` para fazer o `and`/`or`.
+
+## Para treinar
+
+1. Acrescente o operador `-` (binário, associativo à esquerda, mesma precedência do `+`) à
+   gramática da Questão 3d.
+2. Modifique a gramática da Questão 4b para aceitar `-` unário com a maior precedência
+   (`[-, 3, +, 4]` vale `1`).
+3. Escreva em Prolog uma gramática para `aⁿb²ⁿ` (cada `a` com dois `b`).

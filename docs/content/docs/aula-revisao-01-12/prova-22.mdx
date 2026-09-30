@@ -1,0 +1,158 @@
+---
+title: Prova 22 - Resolução
+description: Paradigmas e modelos computacionais, verificações em tempo de execução, busca em lista com funções de alta ordem e registros de ativação
+---
+
+Resolução da 1ª prova 22 (`material/provas-antigas/1a-prova/midterm22.md`). Tente cada
+questão no papel antes de abrir a resposta.
+
+## Questão 1 — Paradigmas
+
+**Assunto:** paradigmas e modelos computacionais (Aulas 01 e 09) · **Tipo:** conceitual
+
+> (a) Modelo computacional do paradigma imperativo. (b) Do funcional. (c) Por que
+> "imperativo"? (d) Uma característica do funcional que o distingue. (e) O paradigma é da
+> linguagem ou do programa? Defenda.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** A **máquina de Turing** (na prática, a arquitetura de von Neumann: memória + uma
+sequência de instruções que a modificam).
+
+**(b)** O **cálculo λ**, de Alonzo Church.
+
+**(c)** Porque o programa é uma sequência de **comandos** (ordens, o modo imperativo do
+verbo: "faça", "atribua", "repita") que alteram o **estado** da máquina.
+
+**(d)** A ausência de **estado mutável**: um nome, uma vez ligado a um valor, não muda, e
+uma função sempre devolve o mesmo resultado para os mesmos argumentos. (Também vale:
+funções como valores de primeira classe.)
+
+**(e)** Os dois lados são defensáveis; o importante é justificar. Uma boa defesa: **é dos
+programas**, e a linguagem só favorece um estilo. Dá para escrever C funcional (recursão, sem
+atribuições) e SML imperativo (com `ref` e `:=`). O que a linguagem faz é tornar um estilo
+fácil e o outro trabalhoso: SML não tem laço `for`, e C não tem closures.
+
+**Por quê:** os dois paradigmas são **equivalentes em poder** (Turing e Church mostraram que
+os modelos computam as mesmas funções). A diferença é o jeito de expressar e o custo.
+
+</details>
+
+## Questão 2 — Verificações em tempo de execução
+
+**Assunto:** testes implícitos e comportamento indefinido (Aula 07) · **Tipo:** conceitual
+
+> (a) SML insere `if null L then raise Empty` em `fun first L = hd L`. Escreva um uso de
+> `first` que chegaria a um estado indefinido sem o teste. (b) Que teste o `javac` insere em
+> `e.toString()`? (c) Que três testes insere em `return array[index];`?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+first [];
+```
+
+Sem o teste, `hd` leria a "cabeça" de uma lista que não tem cabeça: um valor qualquer que
+estivesse na memória.
+
+**(b)** Se `e` é **nulo** (`e != null`). Se for, lança `NullPointerException` em vez de
+tentar chamar um método num endereço inválido.
+
+**(c)**
+1. `array` não é nulo (senão, `NullPointerException`);
+2. `index >= 0`;
+3. `index < array.length`.
+
+Se o 2 ou o 3 falham, `ArrayIndexOutOfBoundsException`.
+
+**Por quê:** cada teste impede um **comportamento indefinido** que C permitiria. Tipagem
+forte, no sentido da questão, é exatamente ter menos situações indefinidas, e o preço é
+executar esses testes.
+
+</details>
+
+## Questão 3 — Busca em lista, em quatro partes
+
+**Assunto:** funções sobre listas e funções de alta ordem (Aulas 05, 06 e 10) · **Tipo:** implementação
+
+> (a) `index : int -> 'a list -> (int * 'a) list`. (b) `count : 'a list -> (int * 'a) list`.
+> (c) `find_aux : ('a -> bool) -> (int * 'a) list -> int` (devolve `~1` se não achar).
+> (d) `find : ('a -> bool) -> 'a list -> int`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun index _ nil = nil
+  | index n (h :: t) = (n, h) :: index (n + 1) t;
+
+fun count L = index 0 L;
+
+fun find_aux _ nil = ~1
+  | find_aux f ((i, e) :: t) = if f e then i else find_aux f t;
+
+fun find f L = find_aux f (count L);
+```
+
+**Por quê:**
+- `index` carrega o índice atual como parâmetro e o incrementa a cada elemento.
+- O padrão `((i, e) :: t)` desmonta **a cabeça**, que é um par, e a cauda, de uma vez.
+- `find` só compõe as duas: primeiro numera, depois procura. Em SML o menos unário é `~`.
+
+</details>
+
+## Questão 4 — Registros de ativação
+
+**Assunto:** registros de ativação e closures (Aula 13) · **Tipo:** conceitual
+
+> O *snapshot* é tirado em `f3 3`, com `f1` > `f2` > `f3` aninhadas. (a) Três ponteiros de
+> cada registro e se apontam para código ou dados. (b) i. Que dados não podem ficar na
+> pilha? ii. Um programa que mostre isso.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+| Ponteiro | Aponta para | Para quê |
+|---|---|---|
+| **endereço de retorno** | **código** | a instrução de quem chamou, para onde voltar |
+| **registro anterior** (*prev*) | **dados** (pilha) | o registro de quem chamou, que volta a ser o topo no retorno |
+| **link de aninhamento** (*nesting link*) | **dados** | o registro da função que envolve esta no texto; é por ele que `f3` acha `n1` e `n2` |
+
+**(b) i.** As **variáveis livres** de funções que podem ser usadas **depois** que a função
+que as criou retornou. Isso acontece quando uma função devolve outra função (ou a guarda
+numa estrutura) que usa variáveis locais dela.
+
+**ii.**
+
+```sml
+fun funToAddX x =
+  let
+    fun addX y = y + x
+  in
+    addX
+  end;
+
+val add3 = funToAddX 3;
+add3 10;
+```
+
+Quando `add3 10` roda, a ativação de `funToAddX` já terminou, mas `addX` precisa do `x = 3`.
+Por isso o `x` fica no *heap*, num **closure** (o código de `addX` mais os valores das suas
+variáveis livres).
+
+</details>
+
+## Onde treinar
+
+| Questão | Lista |
+|---|---|
+| 1 | [Lista 1, Q3](/docs/aula-01/lista-01) e [Lista 9, Q5](/docs/aula-09/lista-09) |
+| 2 | [Lista 7, Q1–Q2](/docs/aula-07/lista-07) |
+| 3 | [Lista 5](/docs/aula-05/lista-05), [Lista 10](/docs/aula-10/lista-10) |
+| 4 | [Lista 13](/docs/aula-13/lista-13) |

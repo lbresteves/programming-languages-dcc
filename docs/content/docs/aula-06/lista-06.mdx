@@ -1,0 +1,234 @@
+---
+title: Lista 06 - Resolução
+description: Casamento de padrões em listas, tipos de igualdade, quicksort com comparador e conjuntos
+---
+
+Resolução completa da Lista 6. Tente cada questão no papel antes de abrir a resposta.
+
+## Questão 1 — `member : ''a * ''a list -> bool`
+
+**Assunto:** tipos de igualdade `''a` (Aula 06) · **Tipo:** implementação
+
+> `member(e, L)` é verdade se e somente se `e` está em `L`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun member (_, nil) = false
+  | member (e, h :: t) = e = h orelse member (e, t);
+```
+
+**Por quê:** o `=` entre `e` e `h` exige um **tipo de igualdade**, e por isso o tipo sai com
+dois apóstrofos: `''a`. `member (1.0, [1.0])` é erro de tipo, porque `real` não admite `=`.
+Sem comparar (como em `length`), o tipo seria o `'a` comum.
+
+</details>
+
+## Questão 2 — `less : int * int list -> int list`
+
+**Assunto:** filtragem recursiva (Aula 06) · **Tipo:** implementação
+
+> Os inteiros de `L` menores que `e`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun less (_, nil) = nil
+  | less (e, h :: t) = if h < e then h :: less (e, t) else less (e, t);
+```
+
+**Por quê:** os dois casos do universo de uma lista: vazia, ou cabeça e cauda. O `<` sem
+outra pista força `int`.
+
+</details>
+
+## Questão 3 — `repeats : ''a list -> bool`
+
+**Assunto:** padrões com dois elementos e padrão coringa (Aula 06) · **Tipo:** implementação
+
+> Verdade se a lista tem dois elementos consecutivos iguais.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun repeats (a :: b :: t) = a = b orelse repeats (b :: t)
+  | repeats _ = false;
+```
+
+**Por quê:** o primeiro padrão pega os dois primeiros elementos. A chamada recursiva devolve
+o `b` para a lista (`b :: t`), porque ele ainda precisa ser comparado com o próximo. O
+segundo padrão, `_`, cobre as listas com menos de dois elementos, e a **ordem** importa: ele
+tem que vir por último.
+
+</details>
+
+## Questão 4 — `eval : real list * real -> real`
+
+**Assunto:** recursão sobre listas de reais (Aula 06) · **Tipo:** implementação
+
+> Avalie o polinômio (coeficientes da constante para o grau mais alto) num x.
+> `eval ([1.0, 5.0, 3.0], 2.0) = 23.0`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun eval (nil, _) = 0.0
+  | eval (h :: t, x) = h + x * eval (t, x);
+```
+
+**Por quê:** é a **regra de Horner**: a₀ + a₁x + a₂x² = a₀ + x(a₁ + x(a₂)). A lista já vem
+na ordem certa para isso: a cabeça é a constante, e o resto do polinômio é multiplicado por
+x. Rastreio: `1.0 + 2.0 * (5.0 + 2.0 * (3.0 + 2.0 * 0.0)) = 23.0`. O `0.0` fixa tudo como
+`real`.
+
+</details>
+
+## Questão 5 — `quicksort : int list -> int list`
+
+**Assunto:** `let`, padrões de tupla e recursão (Aula 06) · **Tipo:** implementação
+
+> Pivô = primeiro elemento; particione o resto em menores e maiores-ou-iguais; ordene cada
+> parte e junte.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun partition (_, nil) = (nil, nil)
+  | partition (pivot, first :: others) =
+      let
+        val (smalls, bigs) = partition (pivot, others)
+      in
+        if first < pivot then (first :: smalls, bigs)
+        else (smalls, first :: bigs)
+      end;
+
+fun quicksort nil = nil
+  | quicksort (pivot :: rest) =
+      let
+        val (smalls, bigs) = partition (pivot, rest)
+      in
+        quicksort smalls @ [pivot] @ quicksort bigs
+      end;
+```
+
+**Por quê:** `partition` devolve **um par** de listas, desmontado com o padrão
+`val (smalls, bigs) = ...` dentro do `let`. É a mesma estrutura da anotação da aula.
+Complexidade O(n log n) no caso médio e **O(n²) no pior caso**: com a lista já ordenada, o
+pivô é sempre o menor, e uma das partes fica vazia.
+
+</details>
+
+## Questão 6 — quicksort com comparador
+
+**Assunto:** funções como parâmetro e polimorfismo (Aula 06) · **Tipo:** implementação
+
+> `quicksort : 'a list * ('a * 'a -> bool) -> 'a list`, em que o segundo parâmetro compara.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun partitionBy (_, nil, _) = (nil, nil)
+  | partitionBy (pivot, first :: others, cmp) =
+      let
+        val (smalls, bigs) = partitionBy (pivot, others, cmp)
+      in
+        if cmp (first, pivot) then (first :: smalls, bigs)
+        else (smalls, first :: bigs)
+      end;
+
+fun quicksort (nil, _) = nil
+  | quicksort (pivot :: rest, cmp) =
+      let
+        val (smalls, bigs) = partitionBy (pivot, rest, cmp)
+      in
+        quicksort (smalls, cmp) @ [pivot] @ quicksort (bigs, cmp)
+      end;
+```
+
+**Por quê:** a única mudança é trocar `first < pivot` por `cmp (first, pivot)`. Como o
+código não faz mais nenhuma operação sobre os elementos, o tipo fica **polimórfico**
+(`'a`): a mesma função ordena `int` com `icmp`, `real` com `rcmp` e em ordem decrescente com
+`ircmp`. Esse é o valor de passar funções como parâmetro: reuso sem reescrever.
+
+</details>
+
+## Questão 7 — Conjuntos como listas
+
+**Assunto:** recursão sobre listas, listas de listas (Aula 06) · **Tipo:** implementação
+
+> (a) `isIn`. (b) União sem repetições. (c) `powerset : 'a list -> 'a list list`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```sml
+fun isIn (_, nil) = false
+  | isIn (e, h :: t) = e = h orelse isIn (e, t);
+```
+
+É o `member` da Questão 1, com tipo `''a * ''a list -> bool`.
+
+**(b)**
+
+```sml
+fun union (nil, s2) = s2
+  | union (h :: t, s2) = if isIn (h, s2) then union (t, s2) else h :: union (t, s2);
+```
+
+Cada elemento do primeiro conjunto só entra se ainda não estiver no segundo.
+
+**(c)**
+
+```sml
+fun addToAll (_, nil) = nil
+  | addToAll (e, s :: ss) = (e :: s) :: addToAll (e, ss);
+
+fun powerset nil = [nil]
+  | powerset (h :: t) =
+      let
+        val rest = powerset t
+      in
+        rest @ addToAll (h, rest)
+      end;
+```
+
+```sml
+- powerset [1, 2, 3];
+val it = [[],[3],[2],[2,3],[1],[1,3],[1,2],[1,2,3]] : int list list
+- powerset (nil : int list);
+val it = [[]] : int list list
+```
+
+**Por quê:** cada subconjunto de `h :: t` **tem ou não tem** o `h`. Os que não têm são
+`powerset t`; os que têm são esses mesmos com `h` na frente (`addToAll`). Por isso o
+tamanho dobra a cada elemento: 2ⁿ subconjuntos. O caso base é `[nil]` (o conjunto vazio tem
+**um** subconjunto, ele mesmo), e não `nil`. Com `nil` o resultado seria sempre vazio.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| `''a list -> int` × `'a list -> int` (tipo de igualdade) | [Prova 29, Q3a e Q3e](/docs/aula-revisao-01-12/prova-29) | a diferença entre `''a` e `'a`, como no `member` |
+| Particionar uma lista em menores e maiores que o pivô | [Prova 26, Q3](/docs/aula-revisao-01-12/prova-26) | traduzir `split`/`select` de Python para SML |
+| Funções curtas sobre listas com casamento de padrões | [Prova 22, Q3](/docs/aula-revisao-01-12/prova-22), [Prova 24, Q2a](/docs/aula-revisao-01-12/prova-24) | `index`, `count`, `inv` |
+| `match nonexhaustive` e padrões que cobrem o universo da lista | [Prova 28, Q2d](/docs/aula-revisao-01-12/prova-28) | por que o aviso aparece |
+
+Na revisão, o professor disse que vai pedir para "fazer alguma coisa em SML", citando
+exatamente esta lista (`member`, `less`, `repeats`, `quicksort`, `powerset`).
+
+## Para treinar
+
+1. Escreva `count : ''a * ''a list -> int`, que conta as ocorrências de um elemento. Qual o
+   tipo se trocar `=` por uma função `eq` passada como parâmetro?
+2. Escreva `intersection` de dois conjuntos representados como listas.
+3. Qual o tipo de `fun f (a :: b :: _) = a = b`? E por que não é `'a list -> bool`?

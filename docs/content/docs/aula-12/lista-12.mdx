@@ -1,0 +1,232 @@
+---
+title: Lista 12 - Resolução
+description: Tipos algébricos em SML — enumerações, tipos soma, listas e árvores definidas pelo usuário e um interpretador
+---
+
+Resolução completa da Lista 12. Tente cada questão no papel antes de abrir a resposta.
+
+Em todas as questões, a ferramenta é a mesma: **uma cláusula por construtor** do
+`datatype`. Se faltar um construtor, o compilador avisa `match nonexhaustive`, e é por isso
+que tipos algébricos combinam tão bem com casamento de padrões.
+
+## Questões 1 e 2 — `suit` e `suitname`
+
+**Assunto:** enumerações com `datatype` (Aula 12) · **Tipo:** implementação
+
+> Um tipo com os quatro naipes, e `suitname : suit -> string`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+datatype suit = Hearts | Clubs | Diamonds | Spades;
+
+fun suitname Hearts = "copas"
+  | suitname Clubs = "paus"
+  | suitname Diamonds = "ouros"
+  | suitname Spades = "espadas";
+```
+
+**Por quê:** cada construtor sem argumento é um valor do tipo. Diferente do `enum` de C, em
+que os valores são inteiros disfarçados (`Hearts + 1` compila), em SML `suit` é um tipo
+**novo**, que não se mistura com `int`.
+
+</details>
+
+## Questões 3 e 4 — `number` e `plus`
+
+**Assunto:** tipo soma com dados (Aula 12) · **Tipo:** implementação
+
+> Um tipo com inteiros ou reais, e `plus : number -> number -> number`, convertendo para real
+> quando um dos dois é real.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+datatype number = INT of int | REAL of real;
+
+fun plus (INT a) (INT b) = INT (a + b)
+  | plus (INT a) (REAL b) = REAL (real a + b)
+  | plus (REAL a) (INT b) = REAL (a + real b)
+  | plus (REAL a) (REAL b) = REAL (a + b);
+```
+
+**Por quê:** a conversão (`real a`) é **explícita**: SML não tem coerção, então é o
+programador que decide quando `int` vira `real`, caso por caso. As quatro cláusulas cobrem
+todas as combinações; faltando uma, o compilador avisaria.
+
+</details>
+
+## Questão 5 — `addUp : intnest -> int`
+
+**Assunto:** tipo recursivo (Aula 12) · **Tipo:** implementação
+
+> `datatype intnest = INT of int | LIST of intnest list`. Some todos os inteiros.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun addUp (INT n) = n
+  | addUp (LIST l) = foldr (op +) 0 (map addUp l);
+```
+
+Sem `map`/`foldr`, com recursão explícita:
+
+```sml
+fun addUp (INT n) = n
+  | addUp (LIST nil) = 0
+  | addUp (LIST (h :: t)) = addUp h + addUp (LIST t);
+```
+
+**Por quê:** um `intnest` é ou um inteiro, ou uma lista de `intnest`, que por sua vez podem
+conter listas. A função segue a **mesma forma** do tipo: um caso para `INT`, e um caso para
+`LIST`, que chama `addUp` em cada elemento. (Este `INT` é outro tipo, diferente do das
+Questões 3 e 4; num mesmo arquivo, o último `datatype` esconderia o primeiro.)
+
+</details>
+
+## Questões 6, 7 e 8 — `mylist`
+
+**Assunto:** listas definidas pelo usuário (Aula 12) · **Tipo:** implementação
+
+> `datatype 'element mylist = NIL | CONS of 'element * 'element mylist`. Escreva `prod`,
+> `reverse` e `append`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun prod NIL = 1
+  | prod (CONS (h, t)) = h * prod t;
+
+fun revAcc (NIL, acc) = acc
+  | revAcc (CONS (h, t), acc) = revAcc (t, CONS (h, acc));
+
+fun reverse x = revAcc (x, NIL);
+
+fun append NIL b = b
+  | append (CONS (h, t)) b = CONS (h, append t b);
+```
+
+Tipos: `prod : int mylist -> int`, `reverse : 'a mylist -> 'a mylist`,
+`append : 'a mylist -> 'a mylist -> 'a mylist`.
+
+**Por quê:** `mylist` é **exatamente** a lista de SML com outros nomes: `NIL` é `nil` e
+`CONS (h, t)` é `h :: t`. Então cada função é a mesma de listas normais, trocando os padrões.
+O `reverse` usa um acumulador, como o `inv` da Lista 7, para ser O(n).
+
+</details>
+
+## Questões 9, 10 e 11 — Árvores binárias
+
+**Assunto:** árvores com `datatype` (Aula 12) · **Tipo:** implementação
+
+> `datatype 'data tree = Empty | Node of 'data tree * 'data * 'data tree`. Escreva
+> `revTree`, `appendall` (percurso em ordem) e `isComplete`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun revTree Empty = Empty
+  | revTree (Node (l, x, r)) = Node (revTree r, x, revTree l);
+
+fun appendall Empty = nil
+  | appendall (Node (l, x, r)) = appendall l @ x @ appendall r;
+
+fun isComplete Empty = true
+  | isComplete (Node (Empty, _, Empty)) = true
+  | isComplete (Node (Empty, _, _)) = false
+  | isComplete (Node (_, _, Empty)) = false
+  | isComplete (Node (l, _, r)) = isComplete l andalso isComplete r;
+```
+
+- `revTree` troca as subárvores esquerda e direita **em todos os níveis**.
+- `appendall : 'a list tree -> 'a list`: o dado de cada nó já é uma lista, então usa-se `@`
+  (e não `::`) entre as três partes.
+- `isComplete`: as cláusulas são testadas **em ordem**. Uma folha (dois `Empty`) é completa;
+  um filho só é incompleto; com dois filhos, os dois precisam ser completos.
+
+**Por quê:** a árvore tem dois casos, então toda função tem (pelo menos) dois casos. A ordem
+das cláusulas importa: o caso mais específico vem antes do mais geral.
+
+</details>
+
+## Questões 12 e 13 — Árvore de busca binária
+
+**Assunto:** árvores com função de comparação (Aula 12) · **Tipo:** implementação
+
+> `makeBST : 'a list -> ('a * 'a -> bool) -> 'a tree` e
+> `searchBST : ''a tree -> (''a * ''a -> bool) -> ''a -> bool`, sem visitar todos os nós.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun insert Empty x _ = Node (Empty, x, Empty)
+  | insert (Node (l, y, r)) x lt =
+      if lt (x, y) then Node (insert l x lt, y, r)
+      else Node (l, y, insert r x lt);
+
+fun makeBST L lt = foldl (fn (x, t) => insert t x lt) Empty L;
+
+fun searchBST Empty _ _ = false
+  | searchBST (Node (l, y, r)) lt x =
+      if x = y then true
+      else if lt (x, y) then searchBST l lt x
+      else searchBST r lt x;
+```
+
+**Por quê:**
+- `insert` não modifica a árvore: devolve uma **árvore nova**, reconstruindo o caminho até o
+  ponto de inserção (em SML os dados são imutáveis). `makeBST` insere os elementos um a um
+  com `foldl`, começando da árvore vazia.
+- `searchBST` desce **só por um lado** a cada nó, então visita no máximo a altura da árvore:
+  O(log n) numa árvore balanceada, O(n) no pior caso.
+- O tipo de `searchBST` tem `''a` por causa do `x = y`. Em `makeBST` não há `=`, e o tipo
+  fica `'a`.
+
+</details>
+
+## Questão 14 — Um interpretador
+
+**Assunto:** interpretador sobre um tipo algébrico (Aula 12) · **Tipo:** implementação
+
+> `datatype exp = NUM of int | SUM of exp * exp | MUL of exp * exp | UNMINUS of exp`.
+> `interpret : exp -> int`.
+
+<details>
+<summary>Resposta</summary>
+
+```sml
+fun interpret (NUM n) = n
+  | interpret (SUM (a, b)) = interpret a + interpret b
+  | interpret (MUL (a, b)) = interpret a * interpret b
+  | interpret (UNMINUS a) = ~ (interpret a);
+```
+
+`interpret (SUM (MUL (NUM 2, NUM 3), SUM (UNMINUS (NUM 3), NUM 5)))` = `6 + 2` = `8`.
+
+**Por quê:** o valor `exp` **é** a árvore de sintaxe abstrata da expressão, e o interpretador
+é uma cláusula por construtor. É o mesmo interpretador da Lista 3 (Q4b), só que lá a árvore
+vinha da gramática em Prolog, e aqui ela já vem pronta como um valor. Em SML o menos unário
+é `~`.
+
+</details>
+
+## Questões de prova relacionadas
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Cardinalidade de `datatype`, tupla, `option`, `struct`, `union`, `enum` | [Prova 26, Q1](/docs/aula-revisao-01-12/prova-26) | tipo soma = soma das cardinalidades; tipo produto = produto |
+| Tipos formados pela união de outros tipos | [Prova 27, Q3g](/docs/aula-revisao-01-12/prova-27) | citar uma linguagem (SML com `datatype`; C com `union`) |
+| `match nonexhaustive` | [Prova 28, Q2d](/docs/aula-revisao-01-12/prova-28), [Provas 23 e 25, Q1a](/docs/aula-revisao-01-12/prova-23) | por que o aviso aparece |
+
+## Para treinar
+
+1. Qual a cardinalidade de `number` (Questão 3)? E de `suit * bool`?
+2. Escreva `height : 'a tree -> int`.
+3. Acrescente `SUB of exp * exp` ao tipo `exp` e ao interpretador. O que o compilador diz se
+   você esquecer de mudar o `interpret`?
