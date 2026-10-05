@@ -16,6 +16,19 @@ Prova antiga midterm28, questão 3 (itens a–c):
   (`false + 2 = 2`); não percebe que são explicações alternativas.
 - Acertou: coerção ausente/presente, sobrecarga ausente para `bool` na (a)/(b).
 
+Prova 27, Q2b (2026-09-30), depois de ver a resposta:
+- Distinguiu sozinha `(op +)` (sobrecarga: "decide como somar pelos tipos") de `foldr`
+  (paramétrico: "funciona do mesmo jeito para qualquer tipo"). Critério correto.
+  Ainda não demonstrou a inferência de `+` sem anotação (padrão `int`).
+
+Prova 24, Q1 (diagrama de Venn em C, 2026-09-30):
+- (1) `return a = c > 10`: só é inválido pela falta de `;`. Achou que atribuição dentro do
+  `return` fosse erro de sintaxe (é válida em C).
+- (2) `int c = 10 * b` com `bool b`: **passa** nos tipos, porque `bool` em C é inteiro
+  (`_Bool`). Esqueceu os `;`.
+- (3) Não lembrou de nenhum exemplo (só "o do union").
+- (4) Acertou: `int c = a + b` com `double b`, e sabe que envolve coerção.
+
 ## O furo
 
 1. Estático × dinâmico é pergunta **independente** de paramétrico.

@@ -255,6 +255,56 @@ execução**, e o `javac` compila sem reclamar, porque o índice poderia ser uma
   "Dá erro" não pontua.
 </Callout>
 
+#### O que o programador escreve × o que o compilador produz
+
+Para enxergar as instruções invisíveis, reescreva o código **com** os testes que o
+compilador insere. Em SML, a chamada a `hd` vira um `if`:
+
+```sml
+(* o programador escreveu *)
+fun first L = hd L;
+
+(* o compilador produziu *)
+fun first L = if null L then raise Empty else hd L;
+```
+
+Sem o teste, `first []` leria a "cabeça" de uma lista que não tem cabeça, ou seja, um valor
+qualquer que estivesse na memória.
+
+Em Java, chamar um método exige **um** teste (a referência não é nula):
+
+```java
+void testImplicitIsNull(Element e) {
+    if (e == null) throw new NullPointerException();
+    System.out.println(e.toString());
+}
+```
+
+E acessar um vetor exige **três**:
+
+```java
+int boundsCheck(int[] array, int index) {
+    if (array == null) throw new NullPointerException();          // teste 1
+    if (index < 0 || index >= array.length)                        // testes 2 e 3
+        throw new ArrayIndexOutOfBoundsException(index);
+    return array[index];
+}
+```
+
+1. `array != null`: o vetor existe;
+2. `index >= 0`: o índice não é negativo;
+3. `index < array.length`: o índice não passa do fim.
+
+Em C, `array[index]` não tem nenhum desses três testes. Por isso é mais rápido e tem
+comportamento indefinido.
+
+<Callout title="Prova 22, Q2" type="warn">
+  A prova mostra o código do programador e pede **quais** testes o compilador insere e
+  **o que cada um verifica**. Escreva o teste como condição (`index < array.length`) e diga
+  a exceção que ele lança. Para SML, dê a entrada que quebraria sem o teste (`first []`).
+  Resolução em [Prova 22](/docs/aula-revisao-01-12/prova-22).
+</Callout>
+
 As linguagens mais famosas são dinamicamente tipadas.
 
 Como o compilador descobre os tipos numa linguagem estática: **anotações de tipo**,
@@ -288,6 +338,10 @@ C++ ou Java em sistemas grandes.
 - **Fracamente tipada:** permite usar um valor como se tivesse um tipo diferente do
   declarado. Exemplos de uso inseguro em C: ler a `union` pelo campo errado; acessar
   `a[3]` num arranjo `int a[3]` (índices 0–2).
+
+Forte × fraca **não é binário**: uma linguagem é *mais* fortemente tipada que outra quando
+tem *menos* situações de comportamento indefinido. Cada instrução invisível fecha uma
+dessas situações, e o preço é executar o teste.
 
 ---
 
