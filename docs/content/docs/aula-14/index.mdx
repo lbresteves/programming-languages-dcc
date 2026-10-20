@@ -2,3 +2,557 @@
 title: Aula 14 - Introdução à linguagem Python
 description: 05/10 — Lista 14
 ---
+
+## Linguagens imperativas: comandos e atribuição
+
+Até aqui vimos SML, que é funcional: um programa é feito de **expressões**, que produzem
+valores. Uma linguagem imperativa tem expressões **e comandos** (*commands*): coisas que
+são executadas pelo efeito que causam no estado do programa. Os três grandes tipos de
+comando:
+
+- **desvios** (*branches*): condicionais e iterações;
+- **sequências**: blocos;
+- **atribuições** (*assignments*).
+
+O comando imperativo por excelência é a **atribuição**. Em SML, `let val a = 2 val b = 3
+in a + b end` **não** tem atribuição: `val a = 2` só dá um nome a um valor, e esse nome
+nunca muda. Numa atribuição, o nome se refere a uma **posição de memória** cujo conteúdo é
+substituído — é um **efeito colateral** (*side effect*).
+
+## Por que Python é tão popular?
+
+Python é uma das linguagens mais famosas do mundo (ver o índice
+[TIOBE](https://www.tiobe.com/tiobe-index/)).
+
+Quando Python surgiu, existiam C e C++, que não são tão agradáveis de programar: não têm
+coleta de lixo (o programador libera a memória à mão), é preciso declarar todas as funções
+antes de usá-las, declarar o tipo de todas as variáveis, etc.
+
+Mas Python nunca pegaria o lugar de C: C é muito mais eficiente. E há coisas que seriam
+mais eficientes em C, mas para as quais se usa Python mesmo assim — mexer com dados, IA.
+
+Como se usa uma linguagem não eficiente para essas coisas? Python é muito
+**interoperável com C**: o `import` importa rotinas escritas em C.
+
+<Callout title="Linguagem de script" type="info">
+  Python é uma **linguagem de script**: uma linguagem que **cola outras linguagens**. Faz
+  isso com o `import`, e esse é o grande charme de Python — importar pacotes escritos em
+  outras linguagens, que são muito eficientes.
+</Callout>
+
+A história da popularidade, pelas bibliotecas:
+
+| Ano | Marco |
+|---|---|
+| 2001 | SciPy |
+| 2006 | NumPy |
+| 2008 | Pandas |
+| 2012 | Coursera / EdX |
+| 2015 | Projeto Jupyter |
+
+- Antes, Python competia com **MATLAB**, que tem muitos problemas — entre eles, precisa de
+  licença. MATLAB foi deixado de lado quando surgiu o **scikit-learn**.
+- Python também competia muito com **R**. **Pandas** foi a última grande biblioteca que
+  popularizou Python; depois dela, quase não faz mais sentido usar R.
+
+## O Zen de Python
+
+Os princípios que guiam o projeto da linguagem aparecem com `import this`
+([PEP 20](https://peps.python.org/pep-0020/)):
+
+```
+The Zen of Python, by Tim Peters
+
+Beautiful is better than ugly.
+Explicit is better than implicit.
+Simple is better than complex.
+Complex is better than complicated.
+Flat is better than nested.
+Sparse is better than dense.
+Readability counts.
+Special cases aren't special enough to break the rules.
+Although practicality beats purity.
+Errors should never pass silently.
+Unless explicitly silenced.
+In the face of ambiguity, refuse the temptation to guess.
+There should be one-- and preferably only one --obvious way to do it.
+Although that way may not be obvious at first unless you're Dutch.
+Now is better than never.
+Although never is often better than *right* now.
+If the implementation is hard to explain, it's a bad idea.
+If the implementation is easy to explain, it may be a good idea.
+Namespaces are one honking great idea -- let's do more of those!
+```
+
+## Python é uma linguagem dinâmica
+
+Uma linguagem muito dinâmica tem 3 coisas:
+
+1. **uso intenso do heap** — praticamente todo valor é um objeto alocado no heap (isso não
+   é exclusivo das linguagens dinâmicas: Java e SML também usam muito o heap);
+2. **tipagem dinâmica** — os tipos são verificados durante a execução. Os tipos
+   **existem**, só não são checados antes de rodar:
+
+   ```python
+   if 2 != 3:
+       a = "fernando"
+   else:
+       a = 0
+   ```
+
+   Em C, Java ou SML isso não compila: `a` precisa ter **um** tipo, conhecido antes da
+   execução;
+3. **`eval` / `exec`** — executar como programa um dado construído em tempo de execução.
+
+### `exec`: interpretar um dado como programa
+
+```python
+>>> s = 'a += 1'     # s é uma string
+>>> a = 41
+>>> exec(s)
+>>> a
+42
+```
+
+Repare que o `exec` alterou uma variável do **escopo atual**. Em Python há os dois:
+`eval` avalia uma **expressão** e devolve o valor; `exec` executa **comandos**. Em
+JavaScript (e PHP) o equivalente é o `eval`.
+
+Poucas linguagens têm isso, e a ideia vem de **LISP**. LISP era "a linguagem dos
+parênteses", e os parênteses existem por causa do *parsing*: LISP resolveu o problema de
+parsing fazendo o **programador** escrever a árvore, com parênteses. Como a árvore já vinha
+pronta, interpretar uma string como programa era simples: bastava um `eval`. Interpretar o
+dado como um programa.
+
+Linguagens que têm `eval` são muito dinâmicas. **Por que é difícil compilar uma linguagem
+que tenha `eval`?** Porque parte do programa não está lá na hora de compilar: ela só
+existe em tempo de execução, como uma string. O executável teria que levar um
+interpretador junto.
+
+Em C, SML ou Java não há como escrever esse programa: não existe um modo de transformar uma
+string em código que mexa nas variáveis do escopo atual.
+
+## Python é virtualizada
+
+Programas Python são **virtualizados**: o código é lido (*parsing*), traduzido para uma
+**representação intermediária** (os *bytecodes*) e então executado por uma **máquina
+virtual**. A implementação de referência é o **CPython** (feito em C). Existem compiladores
+JIT (*just-in-time*) para Python, como o Numba, mas eles não são o padrão.
+
+Formas de executar um programa:
+
+```bash
+$> python                  # interpretador interativo
+>>> 2 + 3.0
+5.0
+
+$> python hello.py         # carregando um arquivo
+
+$> cat script.py           # como script executável
+#! /usr/bin/env python
+print("Hello, world!")
+$> chmod u+x script.py
+$> ./script.py
+```
+
+<Callout title="Cai em prova: 37,5% (provas 22, 25 e 27)" type="warn">
+  Formato: "por que a linguagem X é tipicamente executada desse jeito?" — bash
+  interpretada, C compilada, Java virtualizada (prova 22, Q3c: por que Java usa
+  *bytecodes* em vez de ser compilada como C ou interpretada como bash). Também aparece
+  como diferença entre C/C++ e Java/C# (prova 25, Q2e) e na tabela de ligar
+  linguagem × característica (prova 27, Q3: "execução virtualizada"). A resposta gira em
+  torno de portabilidade × desempenho: a VM roda o mesmo *bytecode* em qualquer máquina,
+  e ainda é mais rápida que interpretar a árvore de sintaxe.
+</Callout>
+
+## Tudo é objeto
+
+Python não tem tipos primitivos no sentido literal da palavra. Até tem `int`, `float`,
+`bool`, mas cada valor desses é um **objeto do heap**. `dir(x)` mostra tudo o que o objeto
+`x` sabe fazer:
+
+```python
+>>> x = 1.0
+>>> x + 2        # invoca um método do objeto x (x.__add__(2))
+3.0
+>>> dir(x)       # lista os métodos: __add__, __mul__, ...
+```
+
+Por isso o professor distingue **primitivo** (o tipo que a máquina conhece) de **embutido**
+(*built-in*: o tipo que tem sintaxe própria na linguagem). Em Python os tipos são
+embutidos, não primitivos: inteiros, reais, strings e booleanos têm sintaxe própria, mas
+são objetos.
+
+```python
+>>> (50 - 5 * 6) / 4      # em Python 3, / sempre dá real
+5.0
+>>> (50 - 5 * 6) // 4     # // é a divisão inteira
+5
+>>> s = "Fernando" + " Magno"
+>>> 3 > 2
+True
+```
+
+Uma coisa que Python **não** tem: o tipo `char`. Um caractere é uma string de tamanho 1.
+
+### Operadores
+
+```
+* / // % + - << >> < > <= >= == != ~ & ^ | not and or
+= += -= *= /= %= &= ^= |= <<= >>=
+```
+
+Comparado a C, Python **não tem** `++` nem `--` (nem prefixo, nem sufixo).
+
+Tem expressão condicional, como o ternário `?:` de C, mas escrita por extenso:
+
+```python
+v = 1 if 0 else "oi"       # "oi": 0 é falso
+v = 1 if None else "oi"    # "oi": None é falso
+```
+
+E comparações podem ser encadeadas: `a < b == c` significa `a < b and b == c`.
+
+```python
+def inbetween(a, b, c): return a <= b <= c
+```
+
+Atribuição múltipla: `x = y = z = 0`.
+
+## Tipos compostos
+
+SML tem 2 tipos compostos embutidos: **listas** e **tuplas**. Python também tem listas e
+tuplas, e mais **strings** e **dicionários**. Tem **conjuntos** também, que são pouco usados.
+
+### Listas
+
+```python
+a = [1, 2, 3, 4]
+a = [1, 2, 3, True, 2 < 3, "oi"]
+```
+
+Posso colocar vários tipos numa mesma lista, o que **não** é possível em SML (lá, todos os
+elementos têm o mesmo tipo: `int list`). Se eu quisesse fazer algo parecido em C, cada
+posição da lista teria que ser um `void*`.
+
+`dir(a)` mostra tudo o que se faz com `a`. Dá para somar listas, multiplicá-las e pegar
+**fatias** (*slices*):
+
+```python
+>>> a = ['spam', 'eggs', 100, 1234]
+>>> a[-2]
+100
+>>> a[1:-1]
+['eggs', 100]
+>>> a[:2] + ['bacon', 2*2]
+['spam', 'eggs', 'bacon', 4]
+>>> 3*a[:3] + ['Boe!']
+['spam', 'eggs', 100, 'spam', 'eggs', 100, 'spam', 'eggs', 100, 'Boe!']
+```
+
+Fatias também servem do lado **esquerdo** de uma atribuição — trocar, remover e inserir:
+
+```python
+>>> a = [1, 12, 123, 1234]
+>>> a[0:2] = []                 # remove
+>>> a[1:1] = ['bletch', 'xyzzy']  # insere
+>>> a[:0] = a                   # insere uma cópia de a no começo
+```
+
+Exemplo: `duplist` recebe uma lista `l` e a transforma em `l + l`.
+
+```python
+def duplist0(l): l[:0] = l      # com efeito colateral: altera l
+
+def duplist1(l): return l + l   # sem efeito colateral: devolve uma lista nova
+```
+
+### Tuplas
+
+```python
+t = 1, 3, 3.14, True
+x, y, z, w = t      # um tipo de casamento de padrões em tuplas
+```
+
+Em Python, tuplas e listas são muito parecidas: as operações de leitura são idênticas
+(diferente de SML, onde lista e tupla são coisas bem distintas). **Em Python, uma tupla é
+uma lista somente leitura.**
+
+Uma tupla com um elemento só precisa da vírgula; a vazia é `()`:
+
+```python
+t = (9, )
+empty = ()
+```
+
+### Strings
+
+Uma string é parecida com uma lista, mas é ainda mais parecida com uma tupla: **uma string
+é uma lista de caracteres não modificável**.
+
+```python
+>>> x = "dsfsdf"
+>>> x[1:2]
+'s'
+>>> x[1:2] = "a"
+TypeError: 'str' object does not support item assignment
+```
+
+### Dicionários
+
+```python
+t = {"maria": 23, "joao": 93}
+a = t               # a e t são o MESMO dicionário (referência, não cópia)
+a["jose"] = 82
+del a["jose"]
+
+for k, v in a.items():
+    print(k, v)
+```
+
+## Funções e controle de fluxo
+
+A unidade principal de compilação de Python é a **função**. Em SML, a principal estrutura
+de controle era a recursão (com casamento de padrões); linguagens imperativas oferecem
+várias: `if/elif/else`, `for`, `while`, `break`.
+
+Um fatorial, recursivo e com `while`:
+
+```python
+def factR(n):
+    return 1 if n < 2 else n * factR(n - 1)
+
+def factW(n):
+    ans = 1
+    while n > 1:
+        ans *= n
+        n -= 1
+    return ans
+
+print(factR(4))
+print(factW(4))
+```
+
+### `for` com `else`
+
+```python
+def mystery(n):
+    for x in range(2, n):
+        if n % x == 0:
+            print(f"{n} = {x} * {n // x}")
+            break
+    else:
+        print(f"{n} passes the test!")
+```
+
+Verifica se `n` é **primo**. O `else` está alinhado com o **`for`**, não com o `if`: ele só
+executa se o laço terminar **sem** passar pelo `break`, ou seja, se nenhum divisor foi
+encontrado. Linguagens da família de C não têm nada parecido.
+
+### Indentação com significado
+
+Em Python, **a indentação tem significado semântico** — é uma das poucas linguagens assim.
+Outras: **Makefile** (o *tab* é obrigatório) e, um pouco, **Haskell**.
+
+Mover uma linha muda o programa. Se o `n -= 1` do `factW` sair do corpo do `while`:
+
+```python
+def factW(n):
+    ans = 1
+    while n > 1:
+        ans *= n
+    n -= 1          # agora fora do laço
+    return ans
+```
+
+o `n` nunca diminui dentro do laço: para `n > 1`, o programa entra em **laço infinito**.
+
+- **Vantagem:** os programas tendem a ficar mais legíveis (o Zen: *readability counts*).
+- **Desvantagens:** o programa não tem **formato livre**; e o *parsing* fica mais difícil:
+  alinhar ou desalinhar uma linha equivale a um `begin`/`end`, e reconhecer isso exige
+  lembrar os níveis de indentação abertos — algo que uma gramática livre de contexto
+  sozinha não faz. (Na prática, o analisador léxico guarda uma pilha de níveis e emite
+  *tokens* `INDENT`/`DEDENT`, e a gramática que vem depois volta a ser livre de contexto.)
+
+Para dois comandos na mesma linha, usa-se `;`: `ans *= n ; n -= 1`.
+
+## Funções de alta ordem e closures
+
+Funções em Python são **valores de primeira classe**: `f = factW` e depois `f(7)`. E há
+**funções de alta ordem**, que recebem funções:
+
+```python
+def apply_in_range(f, N):
+    for i in range(N):
+        print(f"{i}: {f(i)}")
+
+apply_in_range(factR, 4)
+apply_in_range(factW, 4)
+apply_in_range(lambda x: x * x, 4)   # existe expressão lambda em Python
+```
+
+Um **closure** em Python — o equivalente a `fn n => fn x => x + n`:
+
+```python
+def make_inc(n):
+    def inc(x):
+        return x + n
+    return inc
+
+def make_inc1(n):
+    return lambda x: x + n
+
+f = make_inc(3)
+print(f(4))       # 7
+
+g = lambda x: lambda y: x + y
+a = g(3)
+a(2)              # 5
+```
+
+`f` é um closure: um ponteiro para o código de `inc` associado ao ambiente onde `n = 3`.
+Ou seja, em Python consigo programar de forma imperativa **e** de forma funcional.
+
+<Callout title="Cai em prova: 37,5% (provas 23, 27 e 29)" type="warn">
+  Formato: escrever um closure em Python (prova 29, Q1b: "escreva um programa em Python 3
+  que contenha um exemplo de closure"), ou traduzir para Python um closure de SML (prova
+  23, Q3: `(fn x => fn y => x + y) 2 3`). Na prova 27, Q3, "suporte a closures" está na
+  tabela de ligar linguagens. Basta o `make_inc` ou o `lambda x: lambda y: x + y` de cor,
+  com a sintaxe certa.
+</Callout>
+
+### Compreensão de listas
+
+Uma coisa que existe em Python mas não existe em SML:
+
+```python
+L = [x * x for x in [2, 3, 4, 5, 6, 7] if x % 2 == 0]
+```
+
+É uma **compreensão de listas** (*list comprehension*); em SML seria uma combinação de
+`map` e `filter`. Com parênteses no lugar dos colchetes, o resultado é diferente:
+
+```python
+>>> I = (x * x for x in [2, 3, 4, 5, 6, 7] if x % 2 == 0)
+>>> type(I)
+<class 'generator'>
+>>> next(I)
+4
+>>> next(I)
+16
+>>> next(I)
+36
+>>> L
+[4, 16, 36]
+```
+
+`I` é um **iterador** (um gerador): os valores são produzidos sob demanda, um a cada
+`next`. `L` é a lista pronta.
+
+Compreensão também funciona com dicionários:
+
+```python
+def strLen(s):
+    return {key: len(key) for key in s.split()}
+```
+
+E também há `map` e `reduce`, como em SML:
+
+```python
+map(lambda n: n * n * n, range(1, 11))
+
+from functools import reduce
+def sum(l): return reduce(lambda a, b: a + b, l, 0)
+```
+
+## Duck typing
+
+```python
+>>> def filterC(c, L):
+...     return [s for s in L if s[0] == c]
+...
+>>> filterC(1, [[1, 2, 3], [2, 3, 4], (1, 2)])
+[[1, 2, 3], (1, 2)]
+>>> filterC('a', [[1, 2, 3], [2, 3, 4], (1, 2)])
+[]
+>>> filterC('a', [[1, 2, 3], ['a', 3, 4], (1, 2), "abc"])
+[['a', 3, 4], 'abc']
+```
+
+`filterC` funciona com listas, tuplas e strings misturadas: basta que cada `s` aceite
+`s[0]`. Isso é **duck typing**: *se se comporta como um pato, então é um pato*. Esses
+programas são muito reutilizáveis. A desvantagem está, por exemplo, na **documentação**: o
+tipo que a função espera não está escrito em lugar nenhum.
+
+Como o tipo só é conhecido em execução, às vezes é preciso testá-lo: `type(a)`.
+
+```python
+def div(n, d):
+    if d == 0:
+        return None
+    else:
+        return n / d
+
+a = div(1, 0)
+if type(a) == type(None):    # ou: if a is None
+    print("divisão por zero")
+```
+
+Uma mesma função devolve um real **ou** `None`. Em SML isso não tem tipo; o mais próximo é
+um tipo algébrico, como `real option` (`NONE` / `SOME x`). Em Java, devolver `null` só
+funciona para referências (`Double`, não `double`).
+
+## Por que Python não é eficiente
+
+Somar duas coisas é complicado em Python: muita coisa acontece por trás de `x + y`.
+
+- **Em C:** leio `x` e `y` (*loads*), somo, guardo (*store*). A soma de fato é **uma
+  instrução** de assembly.
+- **Em Python:** `x` e `y` não estão em registradores, estão no heap. É preciso carregá-los,
+  **verificar os tipos** para saber se existe um `+` para eles, buscar o método numa
+  **tabela hash** (se o operando da esquerda não sabe somar, tenta-se o da direita),
+  carregar a parte inteira de cada objeto, fazer a soma e **criar um novo objeto** no heap
+  para o resultado.
+
+Ou seja, somar duas coisas envolve muitas operações. Valores em Python são, essencialmente,
+**dicionários**, e operações são **chamadas de função**.
+
+<Callout title="Cai em prova: 50% (provas 24, 25, 27 e 28)" type="warn">
+  Formato: "por quê" sobre tipagem dinâmica e seu custo. Exemplos: prova 25, Q2c ("qual a
+  característica comum de PHP, Python, Lua e Ruby que as tornam tão lentas?"); prova 24,
+  Q1b (por que não há sobrecarga em Python: sem tipos estáticos, não dá para escolher a
+  função pelo tipo dos argumentos); prova 28, Q2b (por que Python não substitui Java em
+  sistemas corporativos grandes). Na prova 27, Q3, tipagem dinâmica × estática aparece na
+  tabela de ligar. Pegadinha: tipagem dinâmica **não** quer dizer "sem tipos" — os tipos
+  existem e são checados durante a execução.
+</Callout>
+
+## Exemplo: anagramas em O(n)
+
+```python
+def anagrams(s1, s2):
+    if len(s1) != len(s2):
+        return False
+    else:
+        table = {}
+        for c in s1:
+            if c in table:
+                table[c] += 1
+            else:
+                table[c] = 1
+        for c in s2:
+            try:
+                table[c] -= 1
+                if table[c] == 0:
+                    table.pop(c)
+            except KeyError:
+                return False
+        return True
+```
+
+Conta as letras de `s1` num dicionário e desconta as de `s2`; se aparecer uma letra que não
+está na tabela, não são anagramas.
+
+Esse algoritmo é **O(n)** (cada acesso ao dicionário é O(1) em média). Em SML, com as
+listas imutáveis que usamos, não se faz isso em O(n): a saída natural é ordenar as duas
+listas de caracteres e comparar, em **O(n log n)**.

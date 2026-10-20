@@ -1,0 +1,574 @@
+---
+title: Aula 16 - TADs
+description: 19/10 — Lista 16
+---
+
+## O que é um tipo abstrato de dados?
+
+Um **tipo abstrato de dados** (TAD, *abstract data type*) é um tipo de dados — um
+conjunto — que define um novo tipo de informação **através do seu comportamento**: das
+operações que se pode fazer sobre ele, e não da forma como os valores são guardados.
+
+Alguns tipos são **infinitos**, como as strings. Como se descreve um conjunto desses?
+Listando os valores não dá. Em C não existe string: representamos como `char*`. Em Python:
+
+```python
+>>> x = "abc"
+>>> dir(x)
+['__add__', '__class__', '__contains__', '__delattr__', '__dir__', '__doc__', '__eq__',
+ '__format__', '__ge__', '__getattribute__', '__getitem__', '__getnewargs__',
+ '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__iter__',
+ '__le__', '__len__', '__lt__', '__mod__', '__mul__', '__ne__', '__new__', '__reduce__',
+ '__reduce_ex__', '__repr__', '__rmod__', '__rmul__', '__setattr__', '__sizeof__',
+ '__str__', '__subclasshook__', 'capitalize', 'casefold', 'center', 'count', 'encode',
+ 'endswith', 'expandtabs', 'find', 'format', 'format_map', 'index', 'isalnum', 'isalpha',
+ 'isascii', 'isdecimal', 'isdigit', 'isidentifier', 'islower', 'isnumeric', 'isprintable',
+ 'isspace', 'istitle', 'isupper', 'join', 'ljust', 'lower', 'lstrip', 'maketrans',
+ 'partition', 'removeprefix', 'removesuffix', 'replace', 'rfind', 'rindex', 'rjust',
+ 'rpartition', 'rsplit', 'rstrip', 'split', 'splitlines', 'startswith', 'strip',
+ 'swapcase', 'title', 'translate', 'upper', 'zfill']
+```
+
+Ou seja, em Python, uma string é **tudo o que tem essas operações**. Um tipo abstrato de
+dados é um tipo que descrevo **listando as propriedades dele**. E ele é "abstrato" no
+sentido de **não ser concreto**: não diz como os dados estão representados.
+
+## Barbara Liskov
+
+Quem criou essa terminologia foi **Barbara Liskov** (a do **princípio da substituição**,
+mais abaixo), que descreveu os tipos abstratos de dados num artigo de 1974 e os
+implementou na linguagem **CLU**. Em CLU, todas as estruturas de dados implementavam
+**iteradores** (valor atual e próximo valor).
+
+## Por que encapsular: o custo de alterar software
+
+A ideia de **esconder os detalhes de implementação** reduz o custo de alterar software.
+Por quê?
+
+Os programas começaram a ficar muito grandes. Um programa pode ser visto como um **grafo**:
+os vértices são as unidades que fazem as coisas (funções, arquivos objeto — podemos imaginar
+que cada `.o` é um vértice; costumamos chamá-los de **módulos**), e as **arestas são as
+dependências**.
+
+Para alterar um módulo, altero o código-fonte e depois tenho que **propagar** as mudanças
+por todos que dependem dele. Num programa pequeno isso não é um problema, mas quando ele
+cresce começa a ficar problemático. Há um jeito de diminuir esse custo: se as dependências
+são todas **no nível da interface**, e a interface permanece inalterada, então **não há
+custo de propagação**.
+
+**Exemplo — o `'\0'` de C.** Para encontrar o tamanho de uma string em C, itera-se até
+encontrar o `'\0'`. Se uma nova versão de C trocasse o terminador para `'\1'`, daria
+problema: o `'\0'` é um **detalhe de implementação**, mas há muitos programas que
+dependem dele. Todos teriam que mudar — a não ser os que usam `strlen()`, mas não são
+todos que usam.
+
+**Exemplo — o bug do milênio.** Veio de COBOL: as pessoas usavam 2 dígitos para
+representar um ano. Isso custou caro, porque era um detalhe de implementação espalhado por
+todos os programas. Por isso **depender somente de interfaces** é uma boa ideia.
+
+<Callout title="Cai em prova: 25% (provas 23 e 28)" type="warn">
+  Formato: "por quê" histórico. Prova 23, Q4b: como o crescimento dos sistemas (número de
+  arquivos e linhas de código, anos 80) influenciou o projeto de linguagens? Resposta:
+  módulos, interfaces, TADs e encapsulamento, para que uma mudança não se propague. Prova
+  28, Q2b: por que Python não substitui Java em sistemas corporativos grandes, feitos por
+  equipes extensas e divididos em muitos módulos — sem tipos estáticos, interfaces
+  declaradas ou encapsulamento de verdade, nada garante que um módulo respeita o contrato
+  do outro.
+</Callout>
+
+## TADs e módulos
+
+Toda linguagem tem algum conceito de módulo, e TADs em geral são implementados como
+**módulos**. O que é um módulo? Pode-se dizer que é uma forma de implementar TADs.
+Conceitualmente, são duas coisas: **uma interface e uma implementação**.
+
+Linguagens diferentes têm maneiras diferentes de fazer isso. Algumas têm interfaces de
+maneira muito **implícita**, como Python e C.
+
+## TADs em C: `.h` e `.c`
+
+Como implementar um conjunto em C? Pode ser um arranjo — por exemplo, um arranjo de bits
+(um *bit-set*), em que o bit `e` diz se `e` está no conjunto.
+
+`set.h` (interface):
+
+```c
+#ifndef SET_H
+#define SET_H
+#define INT_BITS 32
+
+typedef struct {
+  unsigned* vector;
+  unsigned size;
+} set;
+
+void new_set(set*, unsigned);
+void add(set*, unsigned);
+void del(set*, unsigned);
+int contains(set*, unsigned);
+
+#endif
+```
+
+`set.c` (implementação):
+
+```c
+#include <stdlib.h>
+#include "set.h"
+
+void new_set(set* s, unsigned capacity) {
+  s->vector = (unsigned*) malloc((1 + capacity / INT_BITS) * sizeof(unsigned));
+  s->size = capacity;
+}
+
+void add(set* s, unsigned e) {
+  unsigned index = e / INT_BITS;
+  unsigned offset = e % INT_BITS;
+  unsigned bit = 1 << offset;
+  s->vector[index] |= bit;
+}
+
+void del(set* s, unsigned e) {
+  unsigned index = e / INT_BITS;
+  unsigned offset = e % INT_BITS;
+  unsigned bit = 1 << offset;
+  s->vector[index] &= ~bit;
+}
+
+int contains(set* s, unsigned e) {
+  unsigned index = e / INT_BITS;
+  unsigned offset = e % INT_BITS;
+  unsigned bit = 1 << offset;
+  return (s->vector[index] & bit) != 0;
+}
+```
+
+`main.c` (uso):
+
+```c
+#include <stdio.h>
+#include "set.h"
+
+int main() {
+  set s;
+  new_set(&s, 60);
+  add(&s, 2);
+  printf("%u esta no conjunto? %d\n", 1, contains(&s, 1));
+  printf("%u esta no conjunto? %d\n", 2, contains(&s, 2));
+  del(&s, 2);
+  printf("%u esta no conjunto? %d\n", 2, contains(&s, 2));
+  s.vector[0] = 1431655765;   /* nada impede mexer na representação */
+  printf("%u esta no conjunto? %d\n", 2, contains(&s, 2));
+}
+```
+
+A **interface** é a assinatura das funções que estão no `.h`, e a **implementação** fica no
+`.c`: essa é a definição de interface em C. Os dados normalmente são representados num
+`struct`.
+
+**C não tem bem um mecanismo de encapsular dados.** Quem inclui `set.h` vê os campos do
+`struct` e pode alterá-los (`s.vector[0] = ...`). Você pode dar `#include` em qualquer coisa
+— num `.txt`, por exemplo. As pessoas fazem **acordos** entre quem está programando, mas a
+linguagem não os força. O pouco que C oferece: uma função ou global declarada `static` fica
+visível só no próprio arquivo `.c`; e dá para declarar no `.h` só `typedef struct set set;`
+(um tipo incompleto), escondendo os campos no `.c`.
+
+## TADs em SML: `signature` e `structure`
+
+```sml
+signature SET =
+sig
+  type set
+  val new : set
+  val add : set -> int -> set
+  val contains : set -> int -> bool
+  val remove : set -> int -> set
+end;
+
+structure FunSet :> SET =
+struct
+  type set = int -> bool
+  val new = fn _ => false
+  fun add f i = fn x => if x = i then true else f x
+  fun contains f i = f i
+  fun remove f i = fn x => if x = i then false else f x
+end;
+```
+
+Temos uma interface, a **`signature`**, e uma implementação, a **`structure`**.
+
+- `type set` na `signature` é **abstrato**;
+- `type set = int -> bool` na `structure` é **concreto**: o conjunto é uma função que diz se
+  um inteiro pertence a ele.
+
+Fora da `structure`, só é visível o que foi definido na interface (o `:>` torna o tipo
+opaco):
+
+```sml
+structure S = FunSet;
+val s = S.new;
+val s = S.add s 3;
+val contains1 = S.contains s 1;   (* false *)
+val contains3 = S.contains s 3;   (* true *)
+```
+
+Não consigo usar `s` como função (`s 3` dá erro de tipo): ele **é** uma função quando visto
+de dentro da `structure`, mas pela `signature` é totalmente abstrato. Em SML há
+encapsulamento de verdade.
+
+## Interfaces pequenas: Java
+
+Quanto **menor** a interface de um tipo, **mais reutilizável** ele é. (É o princípio da
+segregação de interfaces; o vizinho dele é o **SRP**, princípio da responsabilidade única:
+cada módulo deve ter uma só responsabilidade, o que também o deixa mais reutilizável.)
+
+```java
+// Interface para objetos que podem voar
+interface Flyable {
+    void fly();
+}
+
+// Interface para objetos que podem nadar
+interface Swimmable {
+    void swim();
+}
+
+// Classe Duck que implementa ambas as interfaces
+class Duck implements Flyable, Swimmable {
+    @Override
+    public void fly() {
+        System.out.println("Duck is flying!");
+    }
+
+    @Override
+    public void swim() {
+        System.out.println("Duck is swimming!");
+    }
+
+    public void quack() {
+        System.out.println("Duck says: Quack!");
+    }
+}
+
+public class Main {
+
+    // Recebe uma lista de objetos Flyable
+    public static void fly_away(java.util.List<Flyable> fliers) {
+        for (Flyable f : fliers) {
+            f.fly();
+        }
+    }
+
+    public static void main(String[] args) {
+
+        // 1. Referência do tipo Flyable
+        Flyable flyer = new Duck();
+        flyer.fly();
+        // flyer.swim();  // Erro de compilação: Flyable não tem o método swim()
+        // flyer.quack(); // Erro de compilação: Flyable não tem o método quack()
+
+        // 2. Referência do tipo Swimmable
+        Swimmable swimmer = new Duck();
+        swimmer.swim();
+        // swimmer.fly();   // Erro de compilação: Swimmable não tem o método fly()
+        // swimmer.quack(); // Erro de compilação: Swimmable não tem o método quack()
+
+        // 3. Referência do tipo Duck
+        Duck duck = new Duck();
+        duck.fly();
+        duck.swim();
+        duck.quack();
+    }
+}
+```
+
+O tipo da **referência** decide o que pode ser chamado: `fly_away` aceita qualquer coisa
+que voe, não só patos.
+
+O conjunto em Java, com `interface` e `class`:
+
+```java
+public interface Set<E> {
+  void add(E element);
+  void del(E element);
+  boolean contains(E element);
+}
+
+public class BitSet implements Set<Integer> {
+  public final int INT_BITS = 32;
+  private int vector[];
+  private int capacity;
+  public BitSet(int capacity) {
+    vector = new int[1 + capacity / INT_BITS];
+    this.capacity = capacity;
+  }
+  public void add(Integer e) {
+    int index = e / INT_BITS;
+    int offset = e % INT_BITS;
+    int bit = 1 << offset;
+    vector[index] |= bit;
+  }
+  public void del(Integer e) {
+    int index = e / INT_BITS;
+    int offset = e % INT_BITS;
+    int bit = 1 << offset;
+    vector[index] &= ~bit;
+  }
+  public boolean contains(Integer e) {
+    int index = e / INT_BITS;
+    int offset = e % INT_BITS;
+    int bit = 1 << offset;
+    return (vector[index] & bit) != 0;
+  }
+}
+```
+
+`private` impede o acesso de fora da classe: `s.capacity = 0` é **erro de compilação**.
+(Ainda dá para furar com reflexão — `getDeclaredField("capacity")` +
+`setAccessible(true)` —, mas isso é uma porta dos fundos explícita.) `Set<Integer>` é
+**polimorfismo paramétrico**: um conjunto de inteiros.
+
+## Classes em Python
+
+**Estender um programa sem modificá-lo — é possível?** Sim, em quase todas as linguagens,
+menos C. Linguagens funcionais são ruins para extensão.
+
+A versão em Python do conjunto que fizemos em C:
+
+```python
+class Set:
+    INT_BITS = 32
+
+    def __init__(self, capacity):
+        self.vector = [0] * (1 + capacity // self.INT_BITS)
+        self.size = capacity
+
+    def add(self, e):
+        index = e // self.INT_BITS
+        offset = e % self.INT_BITS
+        bit = 1 << offset
+        self.vector[index] |= bit
+
+    def delete(self, e):
+        index = e // self.INT_BITS
+        offset = e % self.INT_BITS
+        bit = 1 << offset
+        self.vector[index] &= ~bit
+
+    def contains(self, e):
+        index = e // self.INT_BITS
+        offset = e % self.INT_BITS
+        bit = 1 << offset
+        return (self.vector[index] & bit) != 0
+
+
+def main():
+    s = Set(60)
+    s.add(2)
+    print(f"1 está no conjunto? {int(s.contains(1))}")
+    print(f"2 está no conjunto? {int(s.contains(2))}")
+    s.delete(2)
+    s.vector[0] = 827346      # de novo: nada impede mexer na representação
+    print(f"2 está no conjunto? {int(s.contains(2))}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+### O que é uma classe?
+
+Uma classe em Python parece um `struct` de C. Em C, um `struct` é um **espaço de nomes**:
+um jeito de dar um "sobrenome" às variáveis (`s.size`). É um **espaço de nomes
+instanciável**: o que dá o sobrenome é a instância. (Um módulo também é um espaço de nomes,
+mas não instanciável: em `import math as m` e `m.sqrt(2)`, `sqrt` é um nome dentro do
+módulo `math`.)
+
+Consigo encher um `struct` de ponteiros para funções e ter "métodos" em C, mas um `struct`
+não é o que chamamos de classe. **Uma classe tem dados + operações**, e o comportamento se
+refere aos dados: as operações têm um **alvo comum**, a instância — o `self`.
+
+Então, em Python:
+
+```python
+s = Set(60)
+s.add(3)
+```
+
+é o mesmo que escrever:
+
+```python
+Set.add(s, 3)
+```
+
+A sintaxe `o.m()` é só **açúcar sintático**.
+
+### Uma classe é (quase) uma tabela
+
+Em termos de implementação, uma classe em Python é um **dicionário**: uma tabela de nomes
+para valores e funções. Um dicionário, por sua vez, tem estas operações (`dir({})`):
+
+```python
+['__class__', '__class_getitem__', '__contains__', '__delattr__', '__delitem__', '__dir__',
+ '__doc__', '__eq__', '__format__', '__ge__', '__getattribute__', '__getitem__',
+ '__getstate__', '__gt__', '__hash__', '__init__', '__init_subclass__', '__ior__',
+ '__iter__', '__le__', '__len__', '__lt__', '__ne__', '__new__', '__or__', '__reduce__',
+ '__reduce_ex__', '__repr__', '__reversed__', '__ror__', '__setattr__', '__setitem__',
+ '__sizeof__', '__str__', '__subclasshook__', 'clear', 'copy', 'fromkeys', 'get', 'items',
+ 'keys', 'pop', 'popitem', 'setdefault', 'update', 'values']
+```
+
+E dá para montar um "objeto" com um dicionário comum:
+
+```python
+>>> a = {}
+>>> a['contains'] = Set.contains
+>>> b = Set(20)
+>>> a['contains'](b, 3)
+False
+>>> a['add'] = Set.add
+>>> a['add'](b, 3)
+>>> a['contains'](b, 3)
+True
+```
+
+(Nem é preciso ter classes para ter objetos: em JavaScript, uma função que devolve um
+dicionário de closures já é um objeto.)
+
+Go e Rust não têm a palavra `class`, mas têm `struct` com métodos: um `struct` em Go pode
+ser visto, essencialmente, como uma classe.
+
+### Não há encapsulamento em Python
+
+```python
+class X:
+    def __init__(self):
+        self.__y = 0
+
+x = X()
+x.__y       # AttributeError
+```
+
+Parece que está encapsulado, né? Mas não está:
+
+```python
+>>> dir(x)
+[..., '_X__y']
+>>> x._X__y
+0
+```
+
+O `__` só **troca o nome** do atributo (para `_X__y`); quem souber o nome novo acessa
+normalmente. E `s.vector[0] = 827346` no exemplo do `Set` funciona sem reclamação. Em
+Python o encapsulamento é só **convenção** (`_x` quer dizer "não mexa").
+
+<Callout title="Cai em prova: 37,5% (provas 23, 26 e 28)" type="warn">
+  Formato: comparar mecanismos de encapsulamento entre linguagens. Prova 26, Q2: quais
+  mecanismos C++, Python, C e SML/NJ oferecem para diferenciar a visibilidade de símbolos
+  no mesmo espaço de nomes (C++: `public`/`private`/`protected`; Python: só convenção e
+  troca de nome com `__`; C: `static` no arquivo e separação `.h`/`.c`; SML: `signature`
+  com `:>`). Prova 28, Q1b: existe algo equivalente a `public`/`private` em Python? Prova
+  23, Q3: traduzir uma classe Java com `private` para Python e dizer o que falta.
+  Pegadinha: `self.__x` **não** é privado — `x._X__x` acessa.
+</Callout>
+
+## Estendendo um TAD
+
+Em Python dá para **trocar um método da classe** em execução, porque a classe é uma tabela:
+
+```python
+def errorAdd(self, element):
+    if element > self.size:
+        raise IndexError(str(element) + " is out of range.")
+    else:
+        Set.add_original(self, element)
+
+Set.add_original = Set.add
+Set.add = errorAdd
+```
+
+Ou, de forma mais organizada, por **herança**:
+
+```python
+class ErrorSet(Set):
+    def add(self, element):
+        if element > self.size:
+            raise IndexError(str(element) + " is out of range.")
+        Set.add(self, element)
+```
+
+### Duck typing
+
+```python
+def fill(set, b, e, s):
+    for i in range(b, e, s):
+        set.add(i)
+```
+
+`fill` espera receber um conjunto, isto é, algo com a operação `add`:
+
+```python
+>>> x = Set(15)
+>>> fill(x, 10, 20, 3)     # adiciona 10, 13, 16, 19
+>>> x.contains(2)
+False
+>>> x.contains(13)
+True
+```
+
+Mas qualquer coisa que tenha `add` serve:
+
+```python
+class Num:
+    def __init__(self, num):
+        self.n = num
+    def add(self, y):
+        self.n += y
+```
+
+```python
+>>> n = Num(3)
+>>> fill(n, 0, 30, 1)
+>>> n.n
+438
+```
+
+(`3 + 0 + 1 + ... + 29 = 438`.) Isso é **duck typing** em Python: **qualquer coisa que tem
+`add` tem a interface do tipo conjunto** que `fill` espera.
+
+### O princípio da substituição de Liskov
+
+*"Se S é um subtipo de T, então S pode ser usado em qualquer situação em que T é
+esperado."* `ErrorSet` pode ser passado onde se espera `Set`. Paradoxo aparente: o subtipo
+tem **mais propriedades** que o supertipo, mas o supertipo tem **mais elementos** que o
+subtipo (todo `ErrorSet` é um `Set`, não o contrário).
+
+Em Java, `fill` só aceita quem é `Set<Integer>`:
+
+```java
+public static void fill(Set<Integer> set, int b, int e, int s) {
+  for (int i = b; i < e; i += s) {
+    set.add(i);
+  }
+}
+```
+
+Passar um `Num` seria erro de compilação, mesmo que ele tivesse um método `add`.
+
+### Herança em linguagens estáticas
+
+Em linguagens em que classes **não** são implementadas com tabelas — Java, por exemplo —
+não dá para adicionar coisas novas a uma classe em execução. Nessas linguagens estáticas
+com classes, eu ainda quero ser capaz de estender o comportamento, mas não consigo alterar
+as classes. Para isso existe a **herança**: ela me permite estender o programa **sem
+alterar** (nem recompilar) o código que já existe — o `BoundedBitSet extends BitSet`
+redefine `add`, `del` e `contains` checando a capacidade, e chama `super.add(e)`.
+
+## Resumo: as quatro linguagens
+
+| | Encapsulamento | Extensão |
+|---|---|---|
+| C | não de verdade | não |
+| SML | sim | não |
+| Python | não de verdade | sim |
+| Java | sim | sim |

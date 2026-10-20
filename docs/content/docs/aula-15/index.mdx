@@ -1,0 +1,460 @@
+---
+title: Aula 15 - Gerenciamento de memória
+description: 07/10 — Lista 15
+---
+
+## Onde as coisas ficam guardadas
+
+As linguagens de programação armazenam as coisas, geralmente, em **3 lugares**:
+
+1. **memória estática**;
+2. **pilha** (*stack*);
+3. **heap**.
+
+Na **área de memória estática** ficam as variáveis globais, o código do programa e as
+coisas declaradas `static`. São coisas cujo **endereço o compilador conhece**: quando o
+endereço é conhecido em tempo de compilação, chamamos de memória estática.
+
+### O espaço de endereçamento
+
+Em SO temos o sistema de **memória virtual**: quando se carrega um programa, ele "vê" todos
+os endereços da memória. Mas geralmente há muitos programas rodando ao mesmo tempo, vários
+programas residentes, e todos vêm do mesmo espaço de memória física. Quando o SO carrega o
+programa, ele dá ao programa um **espaço de endereçamento**.
+
+- Escrever no endereço `0x00000` dá erro: **falha de segmentação**.
+- Há também uma área além do espaço do programa em que não é possível ler nem escrever —
+  também dá falha de segmentação.
+
+O espaço de memória que você pode ler e escrever não é físico; o **compilador** (ou a
+máquina virtual) decide como ele será usado. Por exemplo, o compilador separa um lugar
+para colocar as variáveis globais.
+
+### As seções do binário (formato ELF)
+
+No Linux, o binário segue o formato **ELF** (*Executable and Linkable Format*), dividido
+em seções:
+
+| Seção | O que guarda |
+|---|---|
+| `.text` | o código (o `main` de C, por exemplo, fica aqui) |
+| `.data` | variáveis globais/estáticas **inicializadas** |
+| `.bss` | variáveis globais/estáticas **não inicializadas** |
+
+A área de memória estática é formada por `.text`, `.data` e `.bss`.
+
+```
+fernando@cuda:~/Program/C$ gcc -g apaga.c
+fernando@cuda:~/Program/C$ size a.out
+   text    data     bss     dec     hex filename
+   1598     608       8    2214     8a6 a.out
+```
+
+**Por que o ELF distingue o que é inicializado do que não é?** Quando se compila o
+programa, o `.text` e o `.data` vão para o arquivo: são a **imagem do programa**. Já o
+`.bss` não precisa ficar na imagem, porque não tem valor inicial a guardar: basta anotar o
+**tamanho** dele, e a área é criada (zerada) quando o programa é carregado. Isso economiza
+espaço no arquivo.
+
+Exemplo extremo: uma **rede neural treinada** é um programa pequeno, com pouco código
+assembly, mas com **constantes enormes** (as matrizes de pesos, em `.data`). O programa
+multiplica as matrizes e sai outra constante.
+
+### Pilha e heap no espaço de endereçamento
+
+A **pilha** fica na parte alta dos endereços, e é usada para chamar funções. Quem determina
+onde começa a pilha e onde começa o heap é o *script* do ligador (`ld`) usado para montar o
+executável.
+
+## Memória estática
+
+Para cada variável abaixo, qual a forma de armazenamento?
+
+```cpp
+#include <iostream>
+#include <cstdlib>
+
+int global_var = 7;
+const int global_const = 9;
+const int global_const2 = std::rand();
+
+void foo() {
+  int auto_var = 9;
+  const int local_const = 13;
+  static int static_var = 17;
+  int* ptr = new int(100);
+}
+
+int main() {
+  foo();
+}
+```
+
+| Variável | Onde fica | Observação |
+|---|---|---|
+| `global_var` | estática (`.data`) | |
+| `global_const` | estática | se o programa for otimizado ela **some**: vira só `9` no código |
+| `global_const2` | estática | o endereço é fixo, mas o **valor** só é conhecido em execução (inicializada antes do `main`) |
+| `auto_var`, `local_const` | pilha | não conhecemos o endereço antes de executar: é dinâmico |
+| `static_var` | estática | mesmo lugar que `global_var`; a diferença é só o **escopo** (visível só dentro de `foo`) |
+| `ptr` | pilha | o **ponteiro** fica na pilha; o **conteúdo** apontado (`100`) fica no **heap** |
+
+`new` e `delete` são usados para alocar e liberar coisas no heap. São funções que acessam
+a estrutura de dados que organiza o heap.
+
+- **Vantagem** da memória estática: não há custo nenhum de alocação em execução.
+- **Desvantagem:** o tamanho tem que ser conhecido de antemão, e só existe **uma** cópia —
+  não serve para recursão (aula 13).
+
+### Inicialização de variáveis estáticas
+
+```cpp
+#include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+const int global_const = rand() % 100;
+
+void foo() {
+  static const int static_const = rand() % 100;
+  const int local_const = rand() % 100;
+  printf("Global = %d\n", global_const);
+  printf("Static = %d\n", static_const);
+  printf("Local = %d\n", local_const);
+}
+
+int main() {
+  srand(time(NULL));
+  foo();
+  foo();
+}
+```
+
+```
+Global = 83
+Static = 13
+Local = 10
+Global = 83
+Static = 13
+Local = 73
+```
+
+O valor da global e o da estática são sempre os mesmos; o da local muda. A linha do
+`static const` em `foo` executa **uma vez só**: a inicialização de variáveis estáticas
+acontece apenas uma vez (na primeira chamada).
+
+(Este programa é C++: em C, uma global não pode ser inicializada com uma chamada de
+função.)
+
+Um contador com variável estática:
+
+```c
+#include <stdio.h>
+
+int count() {
+  static int num_counts = 0;
+  return num_counts++;
+}
+
+int main() {
+  for (int i = 0; i < 7; i++) {
+    printf("%d ", count());
+  }
+}
+```
+
+Imprime `0 1 2 3 4 5 6`. O **escopo** de uma `static` declarada dentro da função é só a
+função, mas o **tempo de vida** é o programa inteiro. Duas funções podem ter cada uma a
+sua `static int store`, sem conflito: são duas variáveis diferentes.
+
+## Memória de pilha
+
+Para se ter programas recursivos, devemos armazenar as variáveis numa **pilha**. Isso
+começou com **Algol**, mas se tornou tão comum que quase toda arquitetura tem instruções
+especiais para isso: `pushq`, `popq`, e o registrador `rsp`, que marca o **topo** da
+pilha.
+
+**A pilha cresce para baixo**: o topo é o **menor** endereço em uso, e cada nova chamada
+ganha endereços menores que os de quem a chamou.
+
+```c
+#include <stdio.h>
+
+void func_0() {
+  int local_1 = 13;
+  int local_2 = 17;
+  printf("0: %p\n", &local_1);
+  printf("0: %p\n", &local_2);
+}
+
+void func_1() {
+  func_0();
+  int local_3 = 13;
+  int local_4 = 17;
+  printf("1: %p\n", &local_3);
+  printf("1: %p\n", &local_4);
+}
+
+int main() {
+  func_1();
+}
+```
+
+```
+fernando@cuda:~/Program/C/apaga$ clang stack.c
+fernando@cuda:~/Program/C/apaga$ ./a.out
+0: 0x7fffb7364c3c
+0: 0x7fffb7364c38
+1: 0x7fffb7364c5c
+1: 0x7fffb7364c58
+```
+
+As locais de `func_0` (chamada por `func_1`) têm endereços **menores** que as de `func_1`.
+
+Na pilha colocamos os **registros de ativação** (aula 13): endereço de retorno, parâmetros,
+variáveis locais, link de aninhamento, ponteiro para o registro anterior, etc.
+
+O tamanho do registro nem sempre é fixo — em C, um arranjo pode ter tamanho decidido em
+execução (`char str[strlen(s1) + strlen(s2) + 1];`).
+
+**Por que alocar na pilha é tão simples?** Porque a ordem é **LIFO**: alocar é mover o
+topo para baixo, liberar é movê-lo de volta. Não há buraco nem busca.
+
+## O heap
+
+**E se uma função quer criar um valor que sobreviva depois que ela retorna?** Algumas
+saídas:
+
+- copiar o registro de ativação — pouco eficiente, pois poderia haver muitos;
+- declarar o valor como variável estática — mas não sei quantas vou precisar declarar, então
+  não funciona muito bem;
+- criar um **arranjo grande** na área de memória estática, não inicializado (no `.bss`), e
+  criar as coisas dentro dele quando precisar. O risco: preciso saber que o lugar do
+  arranjo está livre. É preciso uma **estrutura de dados** para saber onde posso criar as
+  coisas lá dentro: alguns blocos estarão livres, outros ocupados.
+
+**O nome disso é heap!** Esse arranjo virou um padrão de projeto. Às vezes ele faz parte da
+linguagem: o heap de C não é muito parte da linguagem (é a biblioteca: `malloc`/`free`),
+mas o de C++ é (`new`/`delete` são operadores da linguagem).
+
+### Implementando o heap: lista de blocos livres
+
+O heap é um arranjo de palavras. Cada bloco guarda o seu tamanho na primeira palavra:
+
+- **bloco livre:** tamanho; próximo bloco livre; área vazia;
+- **bloco ocupado:** tamanho; área ocupada.
+
+Os blocos livres formam uma lista encadeada. Alocar com **first-fit** é percorrer a lista
+até o primeiro bloco grande o suficiente, e partir o que sobrar:
+
+```python
+class HeapManager:
+    NULL = -1
+
+    def __init__(self, memory):
+        self.memory = memory
+        self.memory[0] = len(memory)       # um único bloco livre com tudo
+        self.memory[1] = HeapManager.NULL
+        self.freeStart = 0
+
+    def allocate(self, requestedSize):
+        size = requestedSize + 1           # +1 para a palavra do tamanho
+        p = self.freeStart
+        lag = HeapManager.NULL
+        while p != HeapManager.NULL and self.memory[p] < size:
+            lag = p
+            p = self.memory[p + 1]
+        if p == HeapManager.NULL:
+            raise MemoryError()
+        nextFree = self.memory[p + 1]
+        unused = self.memory[p] - size
+        if unused > 1:                     # sobrou espaço: parte o bloco
+            nextFree = p + size
+            self.memory[nextFree] = unused
+            self.memory[nextFree + 1] = self.memory[p + 1]
+            self.memory[p] = size
+        if lag == HeapManager.NULL:
+            self.freeStart = nextFree
+        else:
+            self.memory[lag + 1] = nextFree
+        return p + 1
+
+    def deallocate(self, address):
+        addr = address - 1
+        self.memory[addr + 1] = self.freeStart   # o bloco volta para o início da lista
+        self.freeStart = addr
+```
+
+Para colocar uma coisa no heap usa-se `malloc`; para liberar, `free`. O custo do `malloc`
+é proporcional ao **tamanho da lista de blocos livres**, que cresce à medida que se chama
+`free` e o heap se fragmenta.
+
+O heap tem que resolver três problemas:
+
+- **Posicionamento** (*placement*): onde alocar o bloco — *first fit*, *best fit*, *next
+  fit*; com listas, árvores, tabelas hash...
+- **Divisão** (*splitting*): quando e como partir um bloco grande. Às vezes é melhor partir
+  em blocos de tamanhos conhecidos (ex.: gerência por regiões em servidores web).
+- **Junção** (*coalescing*): quando e como juntar blocos livres vizinhos — nunca, de
+  imediato (*eager*) ou adiado (*delayed*).
+
+### Fragmentação
+
+```python
+p1 = m.allocate(4)
+p2 = m.allocate(4)
+m.deallocate(p1)
+m.deallocate(p2)
+p3 = m.allocate(7)    # falha, mesmo havendo memória livre suficiente
+```
+
+Há espaço livre de sobra, mas partido em blocos menores que o pedido: é a **fragmentação
+do heap**. Para resolver:
+
+- se o bloco vizinho (logo abaixo) está vazio, consigo **juntá-los em O(1)** ao liberar;
+- passar pelo heap inteiro juntando os blocos (compactação) — mas para isso é preciso
+  **parar o programa**.
+
+Blocos pequenos são alocados e liberados com muito mais frequência; dá para manter
+**listas rápidas** (*quick lists*) só para eles.
+
+Por isso o `malloc` não é super rápido. JavaScript compilado com JIT no Node.js pode, em
+alguns casos, ser mais rápido que C — há vários motivos para isso, e o custo do `malloc` é
+um deles.
+
+## Erros de gerenciamento de memória
+
+Existe o problema de o **programador** ter que liberar a memória. Esse problema existe em
+C e C++, mas não em PHP ou Python, por exemplo.
+
+### Vazamento de memória (*memory leak*)
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+void problem() {
+  int* i = (int*) malloc(sizeof(int));
+  *i = 3;
+  printf("%d\n", *i);
+}
+
+int main() {
+  problem();
+}
+```
+
+O bloco nunca é liberado, e ao fim de `problem` ninguém mais sabe o endereço dele.
+
+### Ponteiro pendente (*dangling pointer*)
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+void problem() {
+  int* i = (int*) malloc(sizeof(int));
+  int* j;
+  *i = 3;
+  free(i);
+  j = (int*) malloc(sizeof(int));
+  *j = 8;
+  printf("%d\n", *i);
+}
+
+int main() {
+  problem();
+}
+```
+
+O programa lê `*i` depois de ter liberado essa memória com `free(i)` — um uso depois de
+liberar (*use after free*). Como a alocação de `j` frequentemente reaproveita o bloco que
+acabou de ser liberado, o valor impresso pode ser `8`.
+
+Os dois erros podem ser encontrados com o **valgrind**:
+
+```bash
+$> gcc -g Leak.c
+$> valgrind -v ./a.out
+```
+
+### Exemplo: onde fica cada coisa, e quando é liberada
+
+```python
+>>> def new_set(x):
+...     s = set([x])
+...     return s
+>>> a = new_set(1)
+```
+
+O **conjunto** `{1}` fica no **heap**; a variável `s` fica no registro de ativação de
+`new_set` (**pilha**). `s` deixa de existir quando `new_set` retorna; o conjunto continua
+vivo, porque `a` aponta para ele, e só é liberado pelo coletor quando nenhuma referência
+chegar mais a ele. Em C++, com `std::set<int>* s = new std::set<int>();`, o conjunto **nunca**
+é liberado, a menos que alguém chame `delete`: sem isso, é um vazamento (o SO recupera a
+memória quando o programa termina).
+
+## Coleta de lixo
+
+Linguagens modernas resolvem os problemas acima com um **coletor de lixo** (*garbage
+collector*): o coletor dá o `free` pelo programador. Python, Java, SML, JavaScript, PHP têm
+coletor. O coletor só existe para o **heap**; pilha e variáveis estáticas não precisam
+dele.
+
+O que o coletor procura é a memória **alcançável**: blocos que podem ser atingidos a
+partir das raízes (variáveis da pilha e globais), seguindo ponteiros. O que não é
+alcançável é lixo.
+
+### Contagem de referências (*reference counting*)
+
+Cada bloco guarda um contador de quantas referências apontam para ele. O contador sobe
+quando uma referência é copiada e desce quando ela é descartada; quando chega a zero, o
+bloco é liberado.
+
+- **Vantagem:** é simples e naturalmente **incremental** — não há uma pausa grande.
+- **Desvantagens:** exige mais processamento (atualizar contadores a cada cópia) e, como
+  dentro do heap há ponteiros, é fácil criar **ciclos**: uma estrutura que aponta para
+  outra que aponta de volta. O contador delas nunca chega a zero, mesmo que ninguém de fora
+  as alcance.
+
+Em **Swift** (que veio de Objective-C) a memória é gerida por contagem de referências: os
+ciclos podem acontecer, e quem deve lidar com eles é o **programador** (marcando
+referências como fracas).
+
+### Marcação e varredura (*mark and sweep*)
+
+Marca a memória alcançada (a partir das raízes, segue todos os ponteiros e marca os blocos
+atingidos) e depois **varre o heap**, devolvendo à lista livre todo bloco não marcado.
+É o coletor que a maioria das linguagens usa, mas ele exige **pausar** o programa enquanto
+marca e varre.
+
+### Cópia e coleta (*copying collection*)
+
+A memória é dividida em duas metades, e só uma é usada por vez. Quando ela enche, os
+blocos vivos são **copiados** para a outra metade, e a antiga é apagada inteira. Vantagem:
+a cópia já deixa a memória compactada (sem fragmentação). Complicação: todos os ponteiros
+para os blocos movidos precisam ser **atualizados**.
+
+### Melhorias
+
+- **Gerações** (*generational*): dividir os blocos por idade; os novos morrem cedo e são
+  coletados com mais frequência.
+- **Incremental:** coletar um pouco de cada vez, em vez de uma pausa longa.
+
+### Por que é tão difícil ter coletor em C?
+
+Porque em C um ponteiro pode virar um inteiro e voltar a ser ponteiro (`int i = p2; p3 =
+i;`): o coletor não consegue saber quais palavras da memória são ponteiros. A antiga
+**lista XOR** é o exemplo extremo: cada nó guarda `anterior ^ próximo`, então nenhum
+endereço aparece explicitamente na memória, e um coletor liberaria nós ainda em uso.
+
+### Sem coletor, com mais segurança
+
+C++ não tem coletor, mas dá para programar de forma mais segura com bibliotecas, como os
+ponteiros que se liberam sozinhos (`auto_ptr`, hoje `unique_ptr`): o **destrutor** do
+objeto chama `delete` quando a variável sai de escopo — inclusive quando uma exceção é
+lançada.
+
+**Quando escolher uma linguagem sem coletor?** Quando é preciso controle de tempo e de
+memória: sistemas de tempo real, *kernels*, jogos. Nos demais casos, o coletor elimina
+vazamentos e ponteiros pendentes.

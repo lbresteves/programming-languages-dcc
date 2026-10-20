@@ -1,0 +1,399 @@
+Memory Management
+=================
+
+1) Which "program things" need memory storage?
+
+2) Where are these "things" stored?
+
+3) There are three ways to manage memory. What are they?
+- Static memory
+- Stack memory
+- Heap memory
+
+4) Which type of storage will be performed for each variable below?
+
+#include <iostream>
+
+int global_var = 7 ;
+const int global_const = 9 ;
+const int global_const2 = std::rand() ;
+
+void foo() {
+  int auto_var = 9 ;
+  int auto_const = 9 ;
+  const int auto_const2 = std::rand() ;
+  static int static_var = 7 ;
+  static const int static_const = 9 ;
+  static const int static_const2 = std::rand() ;
+  int* ptr = new int(100) ;
+}
+
+4.1) Who takes care of organizing this memory: the architecture, the
+compiler or the SO?
+
+5) What is static storage?
+5.1) Advantages?
+5.2) Disadvantages?
+
+6) As an example, what does this program do?
+import java.util.List;
+import java.util.LinkedList;
+
+public class Pop {
+  private static int popNum = 0;
+  private int thisPop;
+  public Pop() {
+    thisPop = popNum++;
+  } 
+  @Override
+  public String toString() {
+    return "Pop " + thisPop;
+  } 
+  public static void main(String args[]) {
+    List<Pop> pops = new LinkedList<Pop>();
+    for (int i = 0; i < 10; i++) {
+      pops.add(new Pop());
+    } 
+    for (Pop p : pops) {
+      System.out.println(p);
+    } 
+  } 
+}
+
+7) And what will be printed by this program below?
+7.1) What is the scope of a static variable declared inside a function?
+
+#include <stdio.h>
+int counter1() {
+  static store = 0;
+  store++;
+  printf("Counter 1 = %d\n", store);
+  return store;
+}
+int counter2() {
+  static store = 0;
+  store++;
+  printf("Counter 2 = %d\n", store);
+  return store;
+}
+int main() {
+  int i;
+  char* s = "Counter = ";
+  for (i = 0; i < 5; i++) {
+    if (i % 2) {
+      counter1();
+    } else {
+      counter2();
+    }
+  }
+}
+
+7.2) When are the static variables initialized in a C++ program?
+
+7.3) What will be printed by this program:
+#include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
+const int global_const = rand() % 100 ;
+void foo() {
+  static const int static_const = rand() % 100 ;
+  const int local_const = rand() % 100 ;
+  printf("Global: %d\n", global_const);
+  printf("Static: %d\n", static_const);
+  printf("Local: %d\n", local_const);
+}
+int main() {
+  srand(time(NULL));
+  foo();
+  foo();
+}
+
+8) When I call a function, where are the variables in the function
+stored?
+
+9) How is the stack organized? Does it grow up, or does it grow down?
+9.1) In the program below, sum.c, which address will be bigger, &aux_1, &aux_2
+or &aux_3?
+
+#include <stdio.h>
+void sum_second(int a, int b) {
+  int aux_1 = a;
+  int aux_2 = b;
+  printf("2) &aux_1 = %p\n", &aux_1);
+  printf("2) &aux_2 = %p\n", &aux_2);
+}
+void sum_first(int a, int b) {
+  int aux_1 = a;
+  int aux_2 = b;
+  printf("1) &aux_1 = %p\n", &aux_1);
+  printf("1) &aux_2 = %p\n", &aux_2);
+  sum_second(a, b);
+}
+int main() {
+  sum_first(1, 2);
+}
+
+* The activation record of sum has at least six words: two for the
+parameters, two for the locals, and one for the return address, plus one
+word (or two) for the previuos activation record.
+- Example: slides 12/13, where we allocate m = 3, m = 2, and m = 1 in a stack
+with eigth cells.
+
+9.2) Is the size of the activation record always fixed?
+int getLength(char* s1, char* s2) {
+  char str[strlen(s1) + strlen(s2) + 1];
+  strcpy(str, s1);
+  strcpy(str, s2);
+  return sizeof(str);
+}
+
+10) If I had to implement this memory manager in Java, how would that be,
+considering that its interface would have two methods:
+public int push(int requestSize)
+public void pop()
+
+11) Why is stack allocation so simple to implement?
+
+12) Some data require out-of-order allocation. Which data is this?
+
+13) How to implement a memory management system for dynamically allocated
+data?
+
+* A free block has the structure: size; Next Free Block; empty area (size - 2)
+* A full block has the structure: size; occupied area (size - 1)
+
+int allocate(int requestedSize) {
+  int size = requestedSize + 1;
+  int p = FL;
+  int lag = NULL;
+  while (p != NULL && memory[p] < size) {
+    lag = p;
+    p = memory[p+1];
+  }
+  if (p == NULL) {
+    throw new OutOfMemoryError();
+  }
+  int nextFree = memory[p+1];
+  unused = memory[p] - size;
+  if (unused > 1) {
+    nextFree = p + size;
+    memory[nextFree] = unused;
+    memory[nextFree + 1] = memory[p+1];
+    memory[p] = size;
+  }
+  if (lag == NULL)
+    FL = nextFree;
+  else
+    memory[lag+1] = nextFree;
+  return p+1;
+}
+
+deallocate(int address) {
+  addr = address - 1;
+  memory[addr+1] = FL;
+  FL = addr;
+}
+
+* Example, slides 20-24
+14) How would be the sequence below?
+
+p1 = m.allocate(4);
+p2 = m.allocate(2);
+m.deallocate(p1);
+p3 = m.allocate(1);
+
+13) Which problem do you see in this kind of memory management?
+13.1) What about:
+p1 = m.allocate(4);
+p2 = m.allocate(4);
+m.deallocate(p1);
+m.deallocate(p2);
+p3 = m.allocate(7);
+
+14) How to solve this problem?
+
+15) Small blocks tend to be allocated and deallocated much more often.
+How to use this knowledge to speed up memory management?
+
+16) Even with quick lists and coalescing, which other problem we see in
+this type of management?
+- Ex.:
+p1 = m.allocate(4);
+p2 = m.allocate(1);
+m.deallocate(p1);
+p3 = m.allocate(5);
+
+* Heap management deals with three main issues:
+- Placement: where to allocate a block
+- Splitting: when and how to split large blocks
+- Coalescing: when and how to recombine
+
+17) Where to allocate a block?
+- first fit, best fit, next fit
+- Lists, Trees, Hashtables, etc
+
+18) When and how to split a large block?
+- We are splitting to deliver the requested size.
+- Sometimes it is better to split in a way to create blocks of well-known sizes.
+- Ex.: region management in web servers.
+
+19) When and how to recombine adjacent free blocks?
+- No coalescing
+- Eager coalescing
+- Delayed coalescing
+
+20) Which are common errors in memory management?
+
+- Memory leak:
+22) What is the problem here?
+#include <stdio.h>
+#include <stdlib.h>
+void problem() {
+  int* i = (int*) malloc (sizeof(int));
+  *i = 3;
+  printf("%d\n", *i);
+}
+int main() {
+  problem();
+}
+
+- Dangling pointer:
+21) What will be printed?
+#include <stdio.h>
+#include <stdlib.h>
+void dangling() {
+  int* i = (int*) malloc (sizeof(int));
+  int* j;
+  *i = 3;
+  free(i);
+  j = (int*) malloc (sizeof(int));
+  *j = 8;
+  printf("%d\n", *i);
+} 
+int main() {
+  dangling();
+}
+
+23) We can use valgrind to find out these errors to us:
+$> gcc -g Leak.c
+$> valgrind -v ./a.out
+
+- or -
+
+$> gcc -g Dangling.c
+$> valgrind -v ./a.out
+
+24) How to read the error message in this case?
+
+25) How are these problems solved by modern programming languages?
+25.1) Which languages use a garbage collector?
+
+26) If I had to ask you to implement a garbage collector, how would you
+do it?
+
+* Mark and sweep: find the live heap links and mark those blocks that are
+reachable. Then make a pass over the heap and return unmarked free blocks
+to the free pool.
+
+* Copying collection: memory is divided in two; only one half is used at
+a time. When the used half is full, copy used blocks to the other location,
+and erase the old one.
+
+27) Advantages?
+27.1) What is the main complication in this scheme?
+Pointers must be changed.
+
+28) Why is it so difficult to implement in C?
+- What if I change a variable that is not a current heap link?
+int main(int argc, char**  argv) {
+  int* p1 = (int*) malloc (sizeof(int));
+  char a[80];
+  printf("Address = %d\n", p1);
+  scanf("%s", a);
+  {
+    int* p2 = atoi(a);
+    int* p3;
+    int i = p2;
+    p1[0] = 3;
+    printf("Address = %d\n", p2);
+    printf("Address = %d\n", *p2);
+    printf("Address = %d\n", i);
+    p3 = i;
+    *p3 = 4;
+    printf("Address = %d\n", *p2);
+  }
+}
+
+29) Such a garbage collector would crash with the old 'xor list'. Do you know
+how this list works?
+
+A         B         C         D         E  ...
+B   <->  A^C  <->  B^D  <->  C^E  <->
+
+visit(first) {                 |    visit(node, prev) {
+  process(first)               |      process(node)
+  visit(first.next, &first)    |      visit(node.next ^ prev, &node)
+}                              |    }
+
+29.1) Can you show the implementation of this list in C?
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <inttypes.h> // For uintptr_t
+
+typedef struct Node {
+    int data;
+    uintptr_t xor_ptr; // XOR of prev and next
+} Node;
+
+Node* xor(Node* a, Node* b) {
+    return (Node*)((uintptr_t)a ^ (uintptr_t)b);
+}
+
+void traverse_forward(Node* head) {
+    Node* curr = head;
+    Node* prev = NULL;
+    Node* next;
+    while (curr != NULL) {
+        printf("%d ", curr->data);
+        next = xor(prev, curr->xor_ptr);
+        prev = curr;
+        curr = next;
+    }
+    printf("\n");
+}
+
+void insert(Node** head, int data) {
+    Node* new_node = (Node*)malloc(sizeof(Node));
+    new_node->data = data;
+    new_node->xor_ptr = xor(NULL, *head); // New node's next is current head
+    if (*head != NULL) {
+        (*head)->xor_ptr = xor(new_node, xor(NULL, (*head)->xor_ptr));
+    }
+    *head = new_node;
+}
+
+int main() {
+    Node* head = NULL;
+    insert(&head, 1);
+    insert(&head, 2);
+    insert(&head, 3);
+    traverse_forward(head); // Output: 3 2 1
+    return 0;
+}
+
+* Reference counting: each block has a counter of links that point to it.
+This counter is incremented when a heap link is copied, decremented when
+the link is discarded. When the counter goes to zero, the block is
+freed.
+
+29) Advantages?
+- naturally incremental, with no big pause.
+29.1) What is the main problem with this scheme?
+
+30) Which improvements can we think for garbage collection?
+- Generational collectors: divide block into generations, according to age.
+- Incremental: does GC a little at a time.
+
+31) When should I choose a language without garbage collection? When
+should I go for GC?

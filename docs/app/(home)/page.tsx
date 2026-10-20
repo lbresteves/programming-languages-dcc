@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { githubProfile, githubRepo } from '@/lib/shared';
 
 export default function HomePage() {
   return (
@@ -10,6 +11,17 @@ export default function HomePage() {
           /docs
         </Link>
         .
+      </p>
+      <p className="mt-6 text-sm text-fd-muted-foreground">
+        Feito por{' '}
+        <a href={githubProfile} target="_blank" rel="noreferrer" className="font-medium underline">
+          @lbresteves
+        </a>
+        . Se te ajudou, deixa uma ⭐ no{' '}
+        <a href={githubRepo} target="_blank" rel="noreferrer" className="font-medium underline">
+          repositório
+        </a>
+        !
       </p>
     </div>
   );
