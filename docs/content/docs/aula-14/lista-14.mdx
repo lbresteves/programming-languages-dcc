@@ -1,0 +1,375 @@
+---
+title: Lista 14 - Resolução
+description: Introdução a Python — crivo imperativo × declarativo, indentação, for com else, None × option, permutações
+---
+
+Resolução completa da Lista 14. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Python 2 × Python 3" type="info">
+  A lista foi escrita para Python 2 (`print x`, `raw_input`, `time.clock`, `filter` devolvendo
+  lista). As respostas usam Python 3, como na aula, e avisam onde o código do enunciado
+  quebra na versão nova.
+</Callout>
+
+## Questão 1a — Qual crivo é imperativo?
+
+**Assunto:** estilo imperativo × declarativo (Aula 14) · **Tipo:** conceitual
+
+> `sievePrimes0` percorre índices e zera os múltiplos dentro da própria lista;
+> `sievePrimes1` filtra os múltiplos de `l[0]` e chama a si mesma no resto.
+
+<details>
+<summary>Resposta</summary>
+
+**`sievePrimes0` é o imperativo.** Ele diz **como** fazer, passo a passo: laços sobre
+índices, e **atribuições** que mudam o estado da lista (`candidates[j] = 0`). O resultado só
+existe depois que a sequência de comandos altera a memória.
+
+`sievePrimes1` é mais **declarativo**: diz **o que** é o resultado. "Os primos de `l` são a
+cabeça de `l` seguida dos primos do resto, depois de tirados os múltiplos da cabeça." É
+recursão com `filter` e `lambda`, o estilo de SML.
+
+**Por quê:** o critério é o comando de atribuição, o comando imperativo por excelência (Aula
+14). Uma ressalva: `sievePrimes1` não é puramente funcional, porque `l[1:] = ...` é uma
+atribuição a uma fatia e **altera** a lista recebida. Em SML a mesma ideia seria escrita sem
+efeito colateral nenhum:
+
+```sml
+fun sieve nil = nil
+  | sieve (p :: t) = p :: sieve (List.filter (fn x => x mod p <> 0) t);
+```
+
+</details>
+
+## Questão 1b — Qual é mais legível?
+
+**Assunto:** legibilidade (Aula 14) · **Tipo:** aberta
+
+<details>
+<summary>Resposta</summary>
+
+Uma resposta possível: **`sievePrimes1`**. Ela cabe em três linhas, e a definição recursiva
+lê como a definição matemática do crivo. Não há índices para acompanhar (`i + currentPrime`,
+`len(candidates) ** 0.5 + 1`), que é onde aparecem os erros "por um".
+
+A resposta oposta também é defensável: `sievePrimes0` é o algoritmo como ele é ensinado
+("risque os múltiplos de cada primo"), e quem não está acostumado com recursão e `lambda` o
+segue mais facilmente.
+
+**Critério de uma boa resposta:** escolher um, e justificar com propriedades **concretas**
+da sintaxe (número de linhas, presença de índices e de estado mutável, proximidade da
+definição matemática), e não com "é mais bonito". Ligar ao Zen de Python ajuda: *Readability
+counts*, *Simple is better than complex*.
+
+</details>
+
+## Questão 1c — Qual é mais eficiente? Medidas
+
+**Assunto:** custo de estilos de programação (Aula 14) · **Tipo:** experimento
+
+<details>
+<summary>Resposta</summary>
+
+**`sievePrimes0` é mais eficiente**, e a diferença cresce com o tamanho do crivo. Medidas
+de uma execução (Python 3.7; tempo em segundos, uma rodada):
+
+| Tamanho | `sievePrimes0` | `sievePrimes1` | `1` ÷ `0` |
+|---|---|---|---|
+| 1.000 | 0,00017 | 0,00031 | 1,8× |
+| 5.000 | 0,00096 | 0,00203 | 2,1× |
+| 10.000 | 0,0021 | 0,0051 | 2,4× |
+| 50.000 | 0,012 | 0,041 | 3,3× |
+| 100.000 | 0,030 | 0,129 | 4,3× |
+| 500.000 | 0,160 | 1,118 | 7,0× |
+
+(Abaixo de 1.000 os tempos são de microssegundos e se confundem com o ruído.) Os números
+exatos dependem da máquina; o que importa é a **razão crescer** com o tamanho.
+
+Para rodar em Python 3, três ajustes:
+
+- `time.clock` não existe mais (removido no 3.8): use `time.perf_counter`;
+- `range(2, maxPrime)` não é mais uma lista, e `sievePrimes0` faz atribuições nela: passe
+  `list(range(2, maxPrime))`;
+- `filter` devolve um iterador, e `sievePrimes1` faz `l[0]` nele (`TypeError`): use
+  `list(filter(...))`.
+
+</details>
+
+## Questão 1d — Por que a diferença? A complexidade é a mesma?
+
+**Assunto:** complexidade assintótica (Aula 14) · **Tipo:** conceitual
+
+<details>
+<summary>Resposta</summary>
+
+**A complexidade é diferente**, e por isso a razão cresce na tabela.
+
+- `sievePrimes0` é o crivo de verdade: para cada primo `p`, só visita os **múltiplos** de
+  `p` (`range(i + p, len, p)`), que são n/p posições. Somando para todos os primos, dá
+  O(n log log n), quase linear.
+- `sievePrimes1` é, na verdade, **divisão por tentativa**: em cada nível, `filter` testa
+  `x % p` em **todos** os elementos que sobraram, não só nos múltiplos. São cerca de π(√n)
+  níveis (um por primo até √n), cada um percorrendo quase a lista inteira: algo como
+  O(n · √n / log n).
+
+Além disso, `sievePrimes1` paga custos constantes maiores: cada nível **cria uma lista
+nova** com `filter`, e `l[1:] = ...` copia a lista mais uma vez; cada teste é uma chamada da
+`lambda`; e cada nível é uma chamada recursiva, com seu registro de ativação.
+
+**Por quê:** o estilo declarativo não é lento por natureza; esta versão é que faz mais
+trabalho. Mas o exemplo mostra o custo típico de programar sem mutação em Python: em vez de
+mudar uma posição, cria-se uma estrutura nova. Em SML o compilador e o coletor de lixo são
+feitos para isso; em Python, cada lista nova é um objeto no heap.
+
+</details>
+
+## Questão 1e — `testPrimes`
+
+**Assunto:** entrada e conversão de tipos (Aula 14) · **Tipo:** implementação
+
+> Ler `numTimes` e `maxPrime` da entrada e chamar `timeSieve` com os dois crivos.
+
+<details>
+<summary>Resposta</summary>
+
+```python
+def testPrimes():
+    numTimes = int(input("Quantas vezes? "))
+    maxPrime = int(input("Tamanho do crivo? "))
+    timeSieve(maxPrime, numTimes, sievePrimes0)
+    timeSieve(maxPrime, numTimes, sievePrimes1)
+```
+
+**Por quê:** `input` (o `raw_input` de Python 2) devolve sempre uma **string**, e `int`
+converte. Sem a conversão, `range(2, maxPrime)` lança `TypeError` em execução: tipagem
+dinâmica, mas **forte**. Python não converte `"100"` em `100` sozinho, ao contrário de
+JavaScript ou PHP.
+
+</details>
+
+## Questão 2 — Indentação como sintaxe
+
+**Assunto:** sintaxe de Python (Aulas 02 e 14) · **Tipo:** conceitual
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** A indentação **delimita os blocos**: é ela que diz quais comandos estão dentro de
+um `if`, de um `while` ou de uma função, o papel que `{ }` têm em C e Java e que
+`begin`/`end` têm em Pascal. Mudar a indentação muda o programa: tirar o `n -= 1` de dentro
+do `while` no `factW` da aula gera um laço infinito. Em C, a indentação é ignorada pelo
+compilador, e o que vale são as chaves.
+
+**(b)**
+
+- **Vantagens:** o código fica sempre indentado do jeito que é executado, e não há como a
+  indentação "mentir" sobre a estrutura (o erro clássico de C: duas linhas indentadas sob um
+  `if` sem chaves, das quais só a primeira está dentro dele). Menos símbolos na tela, mais
+  legibilidade (*Readability counts*).
+- **Desvantagens:** o programa perde o **formato livre**: não dá para quebrar ou alinhar o
+  código como se quer. Misturar *tabs* e espaços gera erros invisíveis. Copiar e colar código
+  (de páginas, de e-mails) pode destruir a estrutura. E o *parsing* fica mais difícil: o
+  analisador léxico precisa de uma pilha de níveis de indentação para emitir `INDENT` e
+  `DEDENT`, porque uma gramática livre de contexto sozinha não reconhece essa estrutura.
+
+**Por quê:** foi uma decisão de projeto a favor da legibilidade, coerente com o Zen. Quem a
+critica aponta o custo na ferramenta (*parser*) e na liberdade do programador. Outras
+linguagens com indentação significativa: Haskell (em parte), Makefile (o *tab*), YAML.
+
+</details>
+
+## Questão 3 — `mystery`, com `for`/`else`
+
+**Assunto:** `else` em laços (Aula 14) · **Tipo:** rastreio
+
+<details>
+<summary>Resposta</summary>
+
+**`mystery(limit)` devolve a lista dos primos menores que `limit`.** Por exemplo,
+`mystery(20) == [2, 3, 5, 7, 11, 13, 17, 19]`.
+
+Para cada `n`, o laço interno procura um divisor `x` entre 2 e `n - 1`. Se acha, `break`. O
+`else` está alinhado com o **`for`** interno (e não com o `if`): ele só executa se o laço
+terminar **sem** `break`, isto é, se nenhum divisor foi encontrado. Então `n` é primo e
+entra na lista.
+
+**Por quê:** é o mesmo `mystery` da aula, acumulando em vez de imprimir. Em C ou Java, seria
+preciso uma variável auxiliar (`int primo = 1;`, zerada antes do `break`, e um `if (primo)`
+depois do laço). O `else` do laço dispensa essa variável.
+
+</details>
+
+## Questão 4 — Tipagem estática × dinâmica, `None` × `option`
+
+**Assunto:** sistemas de tipos e tipos algébricos (Aulas 07, 12 e 14) · **Tipo:** conceitual + implementação
+
+<Callout title="Conceito frágil: estático × dinâmico" type="warn">
+  Nos registros de aprendizado, estático × dinâmico está **frágil**. No item (a), diga
+  **quando** o tipo é verificado e **o que acontece** com um erro de tipo em cada caso.
+</Callout>
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Na tipagem **estática** (SML), os tipos são verificados **antes da execução**, na
+compilação; um programa com erro de tipo não chega a rodar. Cada variável tem **um** tipo,
+conhecido (ou inferido) em tempo de compilação. Na tipagem **dinâmica** (Python), os tipos
+são verificados **durante a execução**, quando a operação acontece; o erro é uma exceção
+(`TypeError`), e uma variável pode guardar valores de tipos diferentes ao longo do programa.
+Nos dois casos os tipos **existem**: SML não exige declarações porque **infere** os tipos, e
+não porque não os tenha.
+
+**(b)**
+
+```python
+def pydiv(n, d):
+    if d == 0:
+        return None
+    else:
+        return n / d
+```
+
+**(c)** Em SML a função não pode devolver um `real` numa chamada e "nada" em outra: precisa
+de **um** tipo de retorno. A saída é um tipo algébrico com os dois casos, o `option`:
+
+```sml
+fun smldiv (n : real, d : real) : real option =
+  if Real.== (d, 0.0) then NONE else SOME (n / d);
+```
+
+O tipo é `real * real -> real option`. O mesmo com um tipo definido à mão:
+
+```sml
+datatype result = Nothing | Value of real;
+```
+
+Atenção: em SML, `real` **não** é um tipo com igualdade, e `d = 0.0` é **erro de tipo**. Por
+isso o `Real.==`.
+
+**Por quê:** a diferença de fundo é que quem chama `smldiv` é **obrigado** a tratar o
+`NONE`: para usar o valor, precisa casar o padrão `SOME x`, e o compilador avisa se o caso
+`NONE` faltar. Em Python, nada impede `pydiv(1, 0) + 1`, que só falha em execução. Em Java,
+devolver `null` só funciona com `Double` (referência), e não com `double` (primitivo); em C
+não há como, e o costume é devolver um código de erro e o resultado por ponteiro.
+
+</details>
+
+## Questão 5 — `perm(n, l)`
+
+**Assunto:** recursão e listas em Python (Aula 14) · **Tipo:** implementação
+
+> Todas as permutações de `n` elementos de `l`, na ordem do exemplo.
+
+<details>
+<summary>Resposta</summary>
+
+```python
+def perm(n, l):
+    if n == 0:
+        return [[]]
+    result = []
+    for i in range(len(l)):
+        for p in perm(n - 1, l[:i] + l[i+1:]):
+            result.append([l[i]] + p)
+    return result
+```
+
+```python
+>>> perm(2, ["a", "b", "c"])
+[['a', 'b'], ['a', 'c'], ['b', 'a'], ['b', 'c'], ['c', 'a'], ['c', 'b']]
+```
+
+Para cada elemento `l[i]`: ele é o primeiro, seguido de cada permutação de `n - 1` elementos
+do **resto** (`l` sem a posição `i`, montada com duas fatias). O caso base é a única
+permutação de zero elementos, a lista vazia.
+
+**Por quê:** é a mesma indução que se escreveria em SML ou Prolog, só que com laço no lugar
+de casamento de padrões. Em Prolog, a versão de `n = len(l)` cabe em duas linhas com
+`select/3`:
+
+```prolog
+perm([], []).
+perm(L, [H | T]) :- select(H, L, R), perm(R, T).
+```
+
+</details>
+
+## Questão 6 — A terceira sequência de primos
+
+**Assunto:** reúso com `import` (Aula 14) · **Tipo:** implementação
+
+> Três primos menores que 9999, permutações dos mesmos quatro dígitos distintos, em
+> progressão aritmética. Já conhecidas: 0163, 0613, 1063 e 1487, 4817, 8147.
+
+<details>
+<summary>Resposta</summary>
+
+**A sequência: 0379, 3709, 7039** (razão 3330).
+
+```python
+from ex import perm
+
+def isPrime(n):
+    if n < 2:
+        return False
+    d = 2
+    while d * d <= n:
+        if n % d == 0:
+            return False
+        d += 1
+    return True
+
+def toNumber(digits):
+    n = 0
+    for d in digits:
+        n = n * 10 + d
+    return n
+
+def sequences():
+    found = []
+    for a in range(10):
+        for b in range(a + 1, 10):
+            for c in range(b + 1, 10):
+                for d in range(c + 1, 10):
+                    nums = [toNumber(p) for p in perm(4, [a, b, c, d])]
+                    primes = [x for x in nums if isPrime(x)]
+                    for x in primes:
+                        for y in primes:
+                            if y > x and 2 * y - x in primes:
+                                found.append((x, y, 2 * y - x))
+    return found
+
+print(sequences())    # [(163, 613, 1063), (379, 3709, 7039), (1487, 4817, 8147)]
+```
+
+Os quatro laços escolhem quatro dígitos **distintos** (`a < b < c < d`, cada conjunto uma
+vez só). Para cada par de primos `x < y` do mesmo conjunto, o terceiro termo da progressão é
+`2y − x`; basta ver se ele também está entre os primos.
+
+**Por quê:** a restrição dos dígitos distintos é o que muda o resultado em relação ao
+Projeto Euler 49, cuja resposta é 2969, 6299, 9629, que repete o 9. O `from ex import
+perm` é o mecanismo de reúso de Python: um arquivo é um **módulo**, isto é, um espaço de
+nomes, e `import` traz nomes dele para o escopo atual.
+
+</details>
+
+## Questões de prova relacionadas
+
+As provas finais antigas ainda não estão resolvidas no site; a referência é o PDF em
+`material/provas-antigas/2a-prova/`.
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| A característica comum que torna PHP, Python, Lua e Ruby lentas | Final 25, Q2c | tipagem dinâmica (Questões 1d e 4a) |
+| Por que Python não substitui Java em sistemas grandes | Final 28, Q2b | sem tipos estáticos, o contrato entre módulos não é verificado |
+| Ligar linguagens a "tipagem dinâmica", "execução virtualizada", "closures" | Final 27, Q3 | tabela de ligar |
+| Traduzir para Python um closure de SML e um laço de C | Final 23, Q3 | escrever Python com a sintaxe certa |
+| Um closure em Python 3 | Final 29, Q1b | `make_inc` de cor ([Aula 14](/docs/aula-14)) |
+| Por que Java é virtualizada, e não compilada ou interpretada | Final 22, Q3c | ver a [Aula 14](/docs/aula-14) |
+
+## Para treinar
+
+1. Reescreva `mystery` sem o `else` do laço, como seria em C.
+2. Escreva `smlperm` em SML: `fun perm 0 _ = [[]] | ...`, com a mesma ordem de saída.
+3. Escreva `pyhead(l)`, que devolve o primeiro elemento ou `None` se a lista for vazia, e a
+   versão em SML com o tipo `'a list -> 'a option`.

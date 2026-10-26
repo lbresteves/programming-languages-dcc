@@ -1,0 +1,416 @@
+---
+title: Lista 17 - Resolução
+description: Orientação por objetos — despacho dinâmico, sobrecarga × sobrescrita, tipo estático × dinâmico em Java e Python
+---
+
+Resolução completa da Lista 17. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Cai em prova: 62,5% das provas finais (22, 23, 24, 26 e 28)" type="warn">
+  Orientação por objetos é um dos assuntos mais cobrados na 2ª prova. Os formatos: dizer
+  qual de dois códigos é mais orientado por objetos e qual é mais fácil de estender (Final
+  22 = Questão 6 daqui), sobrecarga em Python (Final 24 = Questão 5), e por que a chamada
+  virtual é O(1) em C++ e não em Python (Final 28 = Questões 7 e 8).
+</Callout>
+
+Duas regras decidem quase toda a lista:
+
+- **Sobrescrita** (*overriding*): qual **implementação** de `o.m()` roda é decidido em
+  **execução**, pelo tipo **dinâmico** de `o` (o objeto). Isso é o **despacho dinâmico**
+  (*dynamic dispatch*).
+- **Sobrecarga** (*overloading*) e **verificação de tipos** em Java: qual **assinatura**
+  `m(Knife)` ou `m(Sword)` usar, e se `o.m()` pode ser chamado, é decidido na
+  **compilação**, pelo tipo **estático** (o tipo declarado da variável).
+
+## Questão 1 — Uma pilha que não é orientada por objetos
+
+**Assunto:** o que é orientação por objetos (Aula 17) · **Tipo:** conceitual + implementação
+
+> `Node` e `Stack` só têm campos; `add(s, data)`, `hasMore(s)` e `remove(s)` são funções
+> soltas que recebem a pilha e mexem em `s.top`. O nó vazio inicial (`link = 0`) marca o fim.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** As classes são usadas só como `struct` de C: guardam dados, mas não têm
+comportamento. As operações ficam **fora** do objeto e manipulam a representação dele
+diretamente (`s.top`, `n.link`). Na visão antropomórfica da orientação por objetos, o objeto
+**sabe agir sobre si mesmo**: a pilha deveria saber se empilhar. Consequências:
+
+- não há encapsulamento nem por convenção: qualquer código mexe em `top`;
+- não há despacho dinâmico: uma `Queue` com a mesma interface teria de ter funções com
+  **outros nomes** (`addQueue(q, x)`), e `test` não funcionaria com ela sem ser reescrito;
+- o fim da lista é marcado com `0` e com um nó sentinela, o jeito de C de fazer `NULL`.
+
+**(b)**
+
+```python
+class Node:
+    def __init__(self, data, link):
+        self.data = data
+        self.link = link
+
+class Stack:
+    def __init__(self):
+        self.top = None
+    def add(self, data):
+        self.top = Node(data, self.top)
+    def hasMore(self):
+        return self.top is not None
+    def remove(self):
+        n = self.top
+        self.top = n.link
+        return n.data
+
+def test():
+    s = Stack()
+    s.add("AA")
+    s.add(0)
+    while s.hasMore():
+        print(s.remove())
+```
+
+Imprime `0` e depois `AA` (como o original).
+
+**Por quê:** a frase do enunciado é a tese da aula: orientação por objetos é um **estilo**
+do programa, e não uma propriedade da linguagem. Dá para escrever C em Python (este
+programa) e dá para escrever objetos em C (um `struct` com ponteiros para função). Lembre que
+`s.add(x)` é só açúcar para `Stack.add(s, x)`: o que muda não é a sintaxe, e sim **quem
+decide** qual código roda. Com `s.add(x)`, a classe de `s` decide.
+
+</details>
+
+## Questão 2 — Rastreio com herança em Python
+
+**Assunto:** herança e despacho dinâmico em Python (Aula 17) · **Tipo:** rastreio
+
+> `Animal` (`__str__`, `eat`) ← `Mammal` (`__str__`, `suckMilk`) ← `Dog` (`__str__`,
+> `bark`, `eat`). `Dog.eat` imprime e depois faz `self.bark`, sem parênteses.
+
+<details>
+<summary>Resposta</summary>
+
+| Linha | Resultado |
+|---|---|
+| 1 | `Tigrinho is an animal` |
+| 2 | `Oncinha is a mammal` |
+| 3 | `Mameluco is a dog` |
+| 4 | `Tigrinho, which is an animal, is eating.` |
+| 5 | `Oncinha, which is a mammal, is sucking milk.` |
+| 6 | `Oncinha, which is an animal, is eating.` (herdado de `Animal`) |
+| 7 | `Mameluco is barking rather loudly.` |
+| 8 | `Mameluco, which is a mammal, is sucking milk.` (herdado de `Mammal`) |
+| 9 | `Mameluco barks when it eats.` e **só isso** |
+| 10 | **erro em execução**: `AttributeError`, `Animal` não tem `bark` |
+| 11 | `Mameluco is barking rather loudly.` |
+
+- **Linha 9:** `self.bark` sem `()` só **avalia** o método (um objeto-função ligado a
+  `self`) e descarta o resultado. Nada é chamado. É a pegadinha da questão.
+- **Linha 10:** o erro aborta `test()`, então na prática a linha 11 nem roda. Pensando nela
+  isoladamente: depois de `a1 = a3`, `a1` aponta para o cão, e o cão sabe latir.
+
+**Por quê:** em Python **variáveis não têm tipo; valores têm**. `a1.bark()` procura `bark` no
+objeto e na cadeia de classes dele, em execução. Se achar, roda; se não, `AttributeError`.
+Não existe erro de compilação para essas linhas, e por isso as opções da questão são só (i)
+e (ii).
+
+</details>
+
+## Questão 3 — O mesmo rastreio em Java
+
+**Assunto:** tipo estático × tipo dinâmico (Aula 17) · **Tipo:** rastreio
+
+> `a1 = new Animal()`, `a2 = new Mammal()`, `a3 = new Dog()`, **todas declaradas como
+> `Animal`**. Opções: imprime, erro de compilação, erro em execução, atribuição.
+
+<Callout title="Conceito frágil: estático × dinâmico" type="warn">
+  Nos registros de aprendizado, "estático ou dinâmico" ainda é **frágil**: a resposta foi
+  omitida três vezes seguidas na Prova 28 da 1ª avaliação. Nesta questão, em cada linha, diga **qual** tipo
+  decidiu: o declarado (compilação) ou o do objeto (execução).
+</Callout>
+
+<details>
+<summary>Resposta</summary>
+
+| Linha | Resultado | Quem decide |
+|---|---|---|
+| 1 | `Animal` | `toString` pelo tipo dinâmico |
+| 2 | `Mammal` | idem |
+| 3 | `Dog` | idem |
+| 4 | `Animal is eating` | |
+| 5 | **erro de compilação** | tipo estático `Animal` não tem `suckMilk` |
+| 6 | `Mammal is eating` | `eat` herdado; dentro dele, `this` usa o `toString` de `Mammal` |
+| 7 | **erro de compilação** | o tipo do `? :` é `Animal` (o tipo comum a `a3` e `Dog`); `Animal` não pode ser atribuído a `Dog` sem *cast* |
+| 8 | atribuição | `Dog` → `Mammal` é *upcast*, sempre seguro |
+| 9 | `Dog is barking` | |
+| 10 | `Dog is sucking` | `m1` é `Mammal` (estático) e aponta para um `Dog` (dinâmico) |
+| 11 | `Dog is sucking` | `suckMilk` herdado de `Mammal` |
+| 12 | atribuição | *downcast* aceito na compilação e conferido em execução: o objeto é mesmo um `Dog` |
+| 13 | **erro de compilação** | tipo estático `Animal` não tem `bark`, ainda que o objeto seja um `Dog` |
+| 14 | `Dog is barking` | |
+| 15 | **erro em execução** | `ClassCastException`: o objeto é um `Mammal`, e não um `Dog` |
+
+(Com três erros de compilação o programa inteiro não compila; a questão pede cada linha como
+se as outras estivessem certas.)
+
+**Por quê:** em Java a **referência** tem tipo (estático) e o **objeto** tem tipo (dinâmico).
+O compilador só deixa chamar o que o tipo estático garante existir (linhas 5 e 13); a
+implementação que roda é escolhida pelo tipo dinâmico (linhas 1–3, 6, 10). O *cast* é a
+ponte entre os dois: o compilador aceita, mas insere uma **verificação em execução** (uma
+"instrução invisível", como a de índice de arranjo), que falha na linha 15. Compare com a
+Questão 2: o que lá era erro em execução (linha 10), em Java é erro de compilação (linhas 5
+e 13).
+
+</details>
+
+## Questão 4 — `Avatar`, `Knife` e `Sword`
+
+**Assunto:** sobrecarga (estática) × sobrescrita (dinâmica) (Aula 17) · **Tipo:** rastreio
+
+> `Avatar` e `SpiderAv` têm `buy(Knife)` e `buy(Sword)`; `Knife` e `Sword` têm
+> `isBoughtBy(Avatar a) { a.buy(this); }`. `ks` é declarada `Knife` e aponta para um `Sword`.
+
+<details>
+<summary>Resposta</summary>
+
+```
+Avatar bought a knife
+Spider bought a knife
+Spider bought a knife
+Avatar bought a sword
+Spider bought a sword
+Spider bought a sword
+```
+
+Duas decisões em cada chamada:
+
+1. **Qual assinatura** (`buy(Knife)` ou `buy(Sword)`): pelo tipo **estático** do argumento,
+   na compilação.
+2. **Qual classe** (`Avatar` ou `SpiderAv`): pelo tipo **dinâmico** do receptor, em execução.
+
+- `a1.buy(ks)`, `a2.buy(ks)`, `sa.buy(ks)`: `ks` é `Knife` estaticamente, então é sempre
+  `buy(Knife)`. O receptor escolhe a classe: `Avatar`, `SpiderAv`, `SpiderAv`.
+- `ks.isBoughtBy(...)`: o despacho dinâmico em `ks` leva a `Sword.isBoughtBy`. **Lá dentro**,
+  `this` tem tipo estático `Sword`, então `a.buy(this)` é compilado como `buy(Sword)`. O
+  receptor `a` escolhe a classe.
+
+**Por quê:** Java faz despacho dinâmico só no **receptor** (*single dispatch*); nos
+argumentos, vale o tipo estático. `isBoughtBy` é o truque do **despacho duplo** (*double
+dispatch*): uma primeira chamada virtual descobre o tipo dinâmico de `ks` e o transforma em
+tipo estático (`this` dentro de `Sword`); a segunda escolhe pelo receptor. É a base do padrão
+*visitor* (Questão 5c). Por que `Sword` repete `isBoughtBy` igualzinho? Porque o mesmo texto
+`a.buy(this)` compila para assinaturas diferentes em `Knife` e em `Sword`.
+
+(Detalhe: em Java, cada classe `public` precisa estar no seu próprio arquivo.)
+
+</details>
+
+## Questão 5 — Sobrecarga em Python
+
+**Assunto:** sobrecarga × tipagem dinâmica (Aulas 08 e 17) · **Tipo:** conceitual + implementação
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Por dois motivos:
+
+- Em Python, parâmetros **não têm tipo estático**: não há o que o compilador possa usar para
+  escolher entre `buy(Knife)` e `buy(Sword)`.
+- Uma classe é uma **tabela** de nomes. Escrever `def buy` duas vezes só faz a segunda
+  definição **sobrescrever** a primeira na tabela: fica um único `buy`.
+
+**(b)** Um único `buy` que examina o argumento em execução:
+
+```python
+class Knife:
+    pass
+
+class Sword(Knife):
+    pass
+
+class Avatar:
+    def buy(self, item):
+        if isinstance(item, Sword):
+            print("Avatar bought a sword")
+        else:
+            print("Avatar bought a knife")
+
+a = Avatar()
+a.buy(Knife())    # Avatar bought a knife
+a.buy(Sword())    # Avatar bought a sword
+```
+
+O teste de `Sword` vem primeiro, porque um `Sword` também é um `Knife`. A emulação não é
+idêntica: ela decide pelo tipo **dinâmico**. Com `ks = Sword()` "declarado" como faca (o
+caso da Questão 4), Java imprime *knife* e esta versão imprime *sword*.
+
+**(c)** O *visitor* separa uma operação (o visitante) da hierarquia de classes que ela
+percorre. Em Java, cada nó tem `accept(Visitor v) { v.visit(this); }`, e o `visit` certo é
+escolhido pelo tipo estático de `this`, como em `isBoughtBy`. Em Python há três saídas:
+
+- dar **nomes diferentes** aos métodos: o nó chama `v.visitLeaf(self)` ou
+  `v.visitBranch(self)`, e cada classe de nó sabe qual é o seu;
+- montar o nome em execução: `getattr(v, "visit" + type(node).__name__)(node)`;
+- usar `functools.singledispatchmethod`, que escolhe pelo tipo **dinâmico** do argumento.
+
+**Por quê:** sobrecarga é polimorfismo **ad hoc** resolvido na **compilação**, e depende de
+tipos estáticos. C++ e Java têm; C não tem sobrecarga nenhuma; SML só a tem embutida em
+operadores como `+` (que precisa saber se é `int` ou `real`); Python só pode decidir em
+execução, com `isinstance`. É a mesma pergunta da Final 24, Q1b.
+
+</details>
+
+## Questão 6 — `computeValue` orientado por objetos
+
+**Assunto:** despacho dinâmico × testes de tipo (Aula 17) · **Tipo:** implementação + conceitual
+
+> `computeValue` é um método estático de `Branch` que faz `instanceof Leaf` e *casts* para
+> somar os valores das folhas.
+
+<details>
+<summary>Resposta</summary>
+
+O comportamento vai para **dentro** de cada classe, e a interface declara a operação:
+
+```java
+public interface TreeNode {
+  int computeValue();
+}
+
+public class Leaf implements TreeNode {
+  final int value;
+  public Leaf(int value) {
+    this.value = value;
+  }
+  public int computeValue() {
+    return value;
+  }
+}
+
+public class Branch implements TreeNode {
+  final TreeNode l, r;
+  final int value;
+  public Branch(int value, TreeNode l, TreeNode r) {
+    this.value = value;
+    this.l = l;
+    this.r = r;
+  }
+  public int computeValue() {
+    return l.computeValue() + r.computeValue();
+  }
+}
+```
+
+Uso: `t.computeValue()`. O despacho dinâmico escolhe a versão de `Leaf` ou de `Branch`, e não
+há mais nenhum `instanceof` nem *cast*. (Mantive a semântica original, que ignora o `value`
+de `Branch`.)
+
+O que o original contrariava:
+
+- o tipo do objeto é **perguntado** (`instanceof`) em vez de o objeto **saber agir**;
+- os *casts* são verificações em execução que podem falhar: o `else` supõe que tudo que não é
+  `Leaf` é `Branch`;
+- um tipo de nó novo exige **editar** `computeValue`, e a interface `TreeNode` vazia não
+  promete nada.
+
+**Por quê:** é o **problema da expressão** (*expression problem*), que caiu na Final 22, Q2:
+
+| | Novo **tipo** de nó | Nova **operação** |
+|---|---|---|
+| Orientado por objetos | fácil: uma classe nova, nada muda | difícil: um método novo em **cada** classe |
+| Procedural / funcional | difícil: editar cada função | fácil: uma função nova, nada muda |
+
+O original é, na verdade, o estilo de SML escrito em Java. Em SML ele é natural, porque o
+casamento de padrões substitui os `instanceof` e os *casts*, e o compilador avisa se faltar
+um caso:
+
+```sml
+datatype tree = Leaf of int | Branch of int * tree * tree;
+
+fun computeValue (Leaf v) = v
+  | computeValue (Branch (_, l, r)) = computeValue l + computeValue r;
+```
+
+</details>
+
+## Questão 7 — Custo da chamada virtual em Java
+
+**Assunto:** implementação do despacho dinâmico (Aula 17) · **Tipo:** conceitual
+
+> `Animal a = new Animal(); Animal m = new Mammal();` — `a.eat()` custa diferente de
+> `m.eat()`?
+
+<details>
+<summary>Resposta</summary>
+
+⚠️ **Erro no enunciado:** como está, `Animal` não declara `eat`, e as duas chamadas são
+**erro de compilação** (o tipo estático de `a` e de `m` é `Animal`). A questão claramente
+supõe um `eat()` em `Animal`, que `Mammal` sobrescreve.
+
+Com isso: **não há diferença.** As duas chamadas são compiladas do mesmo jeito (uma chamada
+virtual, `invokevirtual`), e custam o mesmo em execução:
+
+1. ler, no objeto, o ponteiro para a **tabela de métodos virtuais** (*vtable*) da classe;
+2. ler a entrada de `eat`, num **deslocamento fixo**, conhecido na compilação;
+3. chamar o endereço que estava lá.
+
+`Mammal` herda o *layout* da tabela de `Animal`: a entrada de `eat` está na **mesma
+posição** nas duas, só aponta para outro código. O custo é O(1), qualquer que seja a
+profundidade da hierarquia.
+
+**Por quê:** os tipos estáticos garantem, na compilação, que o método existe e onde ele está
+na tabela; só o **conteúdo** da entrada depende do objeto. (Um JIT ainda pode otimizar
+chamadas em que só aparece uma classe, mas isso vale para as duas.) É o que a Final 28, Q1d
+pergunta: a chamada `virtual` de C++ é O(1) pelo mesmo motivo.
+
+</details>
+
+## Questão 8 — Custo da chamada em Python
+
+**Assunto:** classes como tabelas e busca de métodos (Aulas 16 e 17) · **Tipo:** conceitual
+
+> `Mammal(Animal)` só tem `pass`. `a1.eat()` (um `Animal`) custa diferente de `a2.eat()`
+> (um `Mammal`)?
+
+<details>
+<summary>Resposta</summary>
+
+**Sim: a Chamada 1 é (um pouco) mais eficiente.**
+
+Em Python, `o.eat` é uma **busca por nome** em execução: primeiro no dicionário do objeto,
+depois no da classe, depois no da superclasse, e assim por diante.
+
+- `a1.eat()`: objeto → `Animal` (achou). Duas buscas.
+- `a2.eat()`: objeto → `Mammal` (não está) → `Animal` (achou). Três buscas.
+
+Quanto mais funda a hierarquia, mais longa a busca.
+
+**Por quê:** não há tipos estáticos, e a classe é uma tabela que pode mudar em execução (dá
+para adicionar ou trocar um método, como o `Set.add = errorAdd` da aula). Por isso não há
+como fixar, na compilação, a posição de `eat` numa tabela como em Java. (O CPython guarda
+em cache o resultado dessas buscas, o que na prática aproxima os custos, mas o modelo é a
+busca em cadeia.) É o contraste da Final 28, Q1d: O(1) em C++ e Java, busca por nome em
+Python.
+
+</details>
+
+## Questões de prova relacionadas
+
+As provas finais antigas ainda não estão resolvidas no site; a referência é o PDF em
+`material/provas-antigas/2a-prova/`.
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Código orientado por objetos × procedural; qual é mais fácil de estender com um novo tipo de nó e com uma nova operação | Final 22, Q2 (Kotlin) | a Questão 6, com a tabela do problema da expressão |
+| Sobrecarga é polimorfismo ad hoc ou universal? Por que não há em Python? Escrever o equivalente | Final 24, Q1 (C++) | as Questões 5a e 5b |
+| O que é `virtual` em C++; por que a chamada virtual é O(1) em C++ e não em Python; que linguagem a introduziu (Simula 67) | Final 28, Q1c–e | as Questões 7 e 8 |
+| Traduzir uma classe com `private` para Python | Final 23, Q3; Final 28, Q1a–b | ver a [Lista 16](/docs/aula-16/lista-16) e a [Aula 16](/docs/aula-16) |
+| Encapsulamento em C++, Python, C e SML/NJ | Final 26, Q2 | ver a [Aula 16](/docs/aula-16) |
+
+## Para treinar
+
+1. Na Questão 4, acrescente `Knife k2 = new Knife(); a2.buy(k2); k2.isBoughtBy(sa);`. O que
+   é impresso? Agora remova o `isBoughtBy` de `Sword`: o que muda na saída de `main`?
+2. Na Questão 3, troque a declaração para `Mammal a2 = new Mammal();`. Quais linhas mudam de
+   resultado?
+3. Acrescente uma operação `height()` às duas versões da Questão 6 (a sua e a original).
+   Quantas classes você editou em cada uma? E para acrescentar um nó `Ternary`?

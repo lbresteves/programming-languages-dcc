@@ -99,6 +99,14 @@ int main() {
 | `static_var` | estática | mesmo lugar que `global_var`; a diferença é só o **escopo** (visível só dentro de `foo`) |
 | `ptr` | pilha | o **ponteiro** fica na pilha; o **conteúdo** apontado (`100`) fica no **heap** |
 
+A versão do professor (a mesma da Lista 15, Q1) tem mais três casos dentro de `foo`:
+
+| Variável | Onde fica | Observação |
+|---|---|---|
+| `const int auto_const2 = std::rand()` | pilha | `const` não muda o lugar: é local, recalculada a cada chamada |
+| `static const int static_const = 9` | estática | como `global_const`: tende a virar só `9` no código |
+| `static const int static_const2 = std::rand()` | estática | endereço fixo; o valor é calculado **uma vez**, na primeira chamada |
+
 `new` e `delete` são usados para alocar e liberar coisas no heap. São funções que acessam
 a estrutura de dados que organiza o heap.
 
@@ -312,6 +320,33 @@ Há espaço livre de sobra, mas partido em blocos menores que o pedido: é a **f
 do heap**. Para resolver:
 
 - se o bloco vizinho (logo abaixo) está vazio, consigo **juntá-los em O(1)** ao liberar;
+  para isso, o `deallocate` do `HeapManager.py` do curso (o do livro do Webber) mantém a
+  lista livre **ordenada por endereço** e junta o bloco liberado com os vizinhos livres:
+
+  ```python
+      def deallocate(self, address):
+          addr = address - 1
+          p = self.freeStart
+          lag = HeapManager.NULL
+          while p != HeapManager.NULL and p < addr:   # acha a posição na lista ordenada
+              lag = p
+              p = self.memory[p + 1]
+          if addr + self.memory[addr] == p:           # junta com o bloco de cima
+              self.memory[addr] += self.memory[p]
+              p = self.memory[p + 1]
+          if lag == HeapManager.NULL:
+              self.freeStart = addr
+              self.memory[addr + 1] = p
+          elif lag + self.memory[lag] == addr:        # junta com o bloco de baixo
+              self.memory[lag] += self.memory[addr]
+              self.memory[lag + 1] = p
+          else:
+              self.memory[lag + 1] = addr
+              self.memory[addr + 1] = p
+  ```
+
+  Com essa versão, o exemplo acima (num heap de 10 palavras) já não falha: liberar `p2`
+  junta os dois blocos num só, de 10 palavras;
 - passar pelo heap inteiro juntando os blocos (compactação) — mas para isso é preciso
   **parar o programa**.
 
@@ -458,3 +493,5 @@ lançada.
 **Quando escolher uma linguagem sem coletor?** Quando é preciso controle de tempo e de
 memória: sistemas de tempo real, *kernels*, jogos. Nos demais casos, o coletor elimina
 vazamentos e ponteiros pendentes.
+
+**Resolução da lista:** [Lista 15 - Resolução](/docs/aula-15/lista-15)

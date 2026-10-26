@@ -1,0 +1,261 @@
+---
+title: Lista 15 - Resolução
+description: Gerenciamento de memória — estática, pilha e heap, best-fit × first-fit, coleta de lixo e auto_ptr
+---
+
+Resolução completa da Lista 15. Tente cada questão no papel antes de abrir a resposta.
+
+## Questão 1 — Onde fica cada variável
+
+**Assunto:** memória estática, pilha e heap (Aula 15) · **Tipo:** conceitual
+
+> Globais `a = 7`, `const b = 9`, `const c = std::rand()`; em `foo`: `d = 9`, `e = 9`,
+> `const f = std::rand()`, `static g = 7`, `static const h = 9`,
+> `static const i = std::rand()`, `int* j = malloc(...)`.
+
+<details>
+<summary>Resposta</summary>
+
+| Variável | Alocação | Observação |
+|---|---|---|
+| `a` | estática (`.data`) | global inicializada |
+| `b` | estática | constante conhecida na compilação: com otimização, costuma **sumir** e virar só `9` no código |
+| `c` | estática | o **endereço** é fixo; o **valor** só é conhecido em execução, calculado antes do `main` |
+| `d`, `e` | pilha | locais: o endereço depende do registro de ativação de `foo` |
+| `f` | pilha | `const` não muda o lugar: é local, e o valor é calculado a cada chamada |
+| `g` | estática | o mesmo lugar de uma global; a diferença é só o **escopo** (visível em `foo`) |
+| `h` | estática | como `b`: tende a virar uma constante no código |
+| `i` | estática | inicializada **uma vez só**, na primeira chamada de `foo` |
+| `j` | pilha + heap | o **ponteiro** `j` fica na pilha; o `int` apontado fica no **heap** |
+
+**Por quê:** a pergunta que decide é "o compilador conhece o **endereço**?". `static` e
+globais têm endereço fixo (memória estática), mesmo quando o **valor** só é conhecido em
+execução (`c`, `i`). Locais, `const` ou não, vivem no registro de ativação (pilha), porque
+cada chamada (e cada chamada recursiva) precisa da sua cópia. O heap só aparece com uma
+alocação explícita (`malloc`, `new`). Em Java, o equivalente de `j` é toda variável de
+objeto: a referência na pilha, o objeto no heap. Em Python e SML, quase todo valor está no
+heap.
+
+⚠️ **Erro no enunciado:** o programa é **C++**, e não C: `std::rand()` é C++, e em C uma
+global não pode ser inicializada com uma chamada de função (`c` e `i` seriam erro de
+compilação).
+
+</details>
+
+## Questão 2 — Best-fit
+
+**Assunto:** gerência do heap: posicionamento (Aula 15) · **Tipo:** implementação + rastreio
+
+> Modificar o `allocate` do `HeapManager` (first-fit) para *best-fit*, e completar com três
+> `allocate` uma sequência em que first-fit funciona e best-fit falha.
+
+<details>
+<summary>Resposta</summary>
+
+O `allocate` percorre **toda** a lista livre guardando o menor bloco que serve (e o bloco
+anterior a ele, `bestLag`, para poder religar a lista). Se achar um bloco de tamanho exato,
+para. O resto do método (partir o bloco e religar a lista) é o mesmo do first-fit:
+
+```python
+class BestFitHeapManager(HeapManager):
+    def allocate(self, requestedSize):
+        size = requestedSize + 1
+        p = self.freeStart
+        lag = HeapManager.NULL
+        best = HeapManager.NULL
+        bestLag = HeapManager.NULL
+        while p != HeapManager.NULL:
+            if self.memory[p] >= size and (best == HeapManager.NULL or self.memory[p] < self.memory[best]):
+                best = p
+                bestLag = lag
+                if self.memory[p] == size:
+                    break
+            lag = p
+            p = self.memory[p + 1]
+        if best == HeapManager.NULL:
+            raise MemoryError()
+        p = best
+        lag = bestLag
+        nextFree = self.memory[p + 1]
+        unused = self.memory[p] - size
+        if unused > 1:
+            nextFree = p + size
+            self.memory[nextFree] = unused
+            self.memory[nextFree + 1] = self.memory[p + 1]
+            self.memory[p] = size
+        if lag == HeapManager.NULL:
+            self.freeStart = nextFree
+        else:
+            self.memory[lag + 1] = nextFree
+        return p + 1
+```
+
+**A sequência:** depois das cinco linhas do enunciado,
+
+```python
+mm.allocate(2)
+mm.allocate(3)
+mm.allocate(1)
+```
+
+Depois do enunciado, a memória de 11 palavras tem dois blocos livres: o de `a`, na posição 0
+com **5** palavras, e o de `c`, na posição 7 com **4**. O `b` ocupa as posições 5 e 6. Cada
+pedido usa uma palavra a mais, para o tamanho:
+
+| Pedido | First-fit | Best-fit |
+|---|---|---|
+| `allocate(2)`: 3 palavras | bloco 0 (5): **parte**, sobra um bloco livre de 2 na posição 3 | bloco 7 (4), o menor que serve: sobraria 1, que não forma bloco, então leva as 4 |
+| `allocate(3)`: 4 palavras | bloco 3 (2) não serve; bloco 7 (4): exato | bloco 0 (5): sobraria 1, leva as 5 |
+| `allocate(1)`: 2 palavras | bloco 3 (2): exato ✔ | lista vazia: **falha** ✘ |
+
+**Por quê:** um bloco livre precisa de **duas** palavras (tamanho e próximo), então uma sobra
+de uma palavra não pode ser partida e vai **junto** com o bloco alocado. O best-fit, ao
+escolher o bloco "mais justo", desperdiçou uma palavra duas vezes. O first-fit partiu o bloco
+grande e deixou uma sobra **utilizável**. A lição: nenhuma política de posicionamento é
+melhor em todos os casos.
+
+**Uma condição importante:** a sequência funciona com o `HeapManager.py` do curso (o do livro
+do Webber), em que o `deallocate` mantém a lista livre **ordenada por endereço** e junta
+blocos vizinhos. Com o `deallocate` simplificado das anotações (o bloco liberado vai para o
+**início** da lista), a lista fica `7 → 0`, o first-fit já encontra o bloco pequeno primeiro e
+se comporta como o best-fit. Simulando todas as sequências de três pedidos de tamanho 1 a 4,
+nenhuma separa as duas políticas nesse caso.
+
+</details>
+
+## Questão 3 — Coleta de lixo
+
+**Assunto:** coleta de lixo (Aula 15) · **Tipo:** conceitual
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** **LISP**, criada por **John McCarthy** (1958–1960). As listas de LISP são
+alocadas no heap o tempo todo, e liberar cada célula à mão seria inviável; McCarthy propôs
+recuperar automaticamente as células inalcançáveis.
+
+**(b)** Uma desvantagem: **perda de controle sobre o tempo**. O coletor roda quando quer, e
+um coletor de marcação e varredura **pausa** o programa; o tempo de resposta fica
+imprevisível. (Outras: custo extra de processamento e de memória, porque o heap precisa de
+folga para o coletor trabalhar bem.) Por isso C e C++ são usados em *kernels*, jogos e
+sistemas de tempo real.
+
+**(c)**
+
+- **Marcação e varredura** (*mark and sweep*): a partir das **raízes** (variáveis da pilha e
+  globais), segue todos os ponteiros e **marca** os blocos alcançados. Depois **varre** o
+  heap inteiro e devolve à lista livre todo bloco não marcado. Não move os blocos (o heap
+  continua fragmentado), e exige pausar o programa durante a coleta.
+- **Cópia e coleta** (*copying*): o heap é dividido em duas metades, e só uma é usada por vez.
+  Quando ela enche, os blocos **vivos** são copiados para a outra metade, juntos, e a metade
+  antiga é descartada inteira. O heap fica **compactado** (sem fragmentação, e alocar é só
+  avançar um ponteiro), e o custo é proporcional aos blocos vivos. Desvantagens: metade da
+  memória fica parada, e todos os ponteiros para os blocos movidos precisam ser
+  **atualizados**.
+- **Contagem de referências** (*reference counting*): cada bloco tem um contador de quantas
+  referências apontam para ele, que sobe quando uma referência é copiada e desce quando ela é
+  descartada. Em zero, o bloco é liberado na hora. É **incremental** (sem grandes pausas),
+  mas custa uma atualização a cada cópia de ponteiro e não recupera **ciclos**: dois blocos
+  que apontam um para o outro nunca chegam a zero. O CPython usa contagem de referências mais
+  um coletor auxiliar para ciclos; Swift usa contagem e deixa os ciclos para o programador.
+
+</details>
+
+## Questão 4 — `auto_ptr`
+
+**Assunto:** polimorfismo e gerência de memória sem coletor em C++ (Aulas 08 e 15) · **Tipo:** conceitual + rastreio
+
+> `auto_ptr<T>` guarda um `T*`; o destrutor faz `delete ptr`; `operator*` e `operator->`
+> imitam um ponteiro.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+- **Polimorfismo paramétrico:** `template <class T>`, uma mesma classe para qualquer tipo
+  `T` (`auto_ptr<std::string>`, `auto_ptr<int>`, ...).
+- **Sobrecarga** (*overloading*), que é polimorfismo *ad hoc*: `operator*` e `operator->`
+  redefinem os operadores `*` e `->` para que um `auto_ptr` seja usado com a mesma sintaxe de
+  um ponteiro.
+
+(O `explicit` faz o contrário de um terceiro tipo: **proíbe** a coerção implícita de `T*` para
+`auto_ptr<T>`.)
+
+**(b)** `foo0`: **não há problema de memória.** `p` é uma variável **local** (pilha). Quando
+`foo0` termina, o destrutor `~auto_ptr` é chamado automaticamente e faz `delete` da string. O
+valgrind não acusa nada.
+
+⚠️ **Erro no enunciado:** `std::string` não tem método `print`, então `p->print()` é erro de
+compilação. A questão quer algo como `std::cout << *p;`.
+
+**(c)** `foo1`: **não há problema.** Quando a exceção é lançada, o C++ **desempilha** os
+registros de ativação até o `catch`, e chama os destrutores dos objetos locais de cada bloco
+que sai de escopo (*stack unwinding*). `~auto_ptr` roda, e a string é liberada antes de o
+`catch` executar.
+
+**(d)** `foo2`: **vazamento de memória.** `p` é um ponteiro comum, sem destrutor. O `throw`
+desvia para o `catch`, e o `delete p` **nunca executa**. Ao sair do `try`, a variável `p`
+deixa de existir, e ninguém mais tem o endereço da string. O valgrind informa o bloco como
+*definitely lost*.
+
+**Por quê:** a técnica se chama **RAII** (*resource acquisition is initialization*): o tempo de
+vida do recurso no heap fica amarrado ao tempo de vida de uma variável na **pilha**, que é
+previsível. O `auto_ptr` foi substituído pelo `unique_ptr` (C++11), mas a ideia é a mesma.
+Java e Python não precisam disso para memória, porque têm coletor; para outros recursos
+(arquivos), usam `finally`, `try`-com-recursos (Java) e `with` (Python). Em C não há
+destrutores: cada caminho de saída, inclusive os de erro, precisa do seu `free`.
+
+</details>
+
+## Questão 5 — Que coletor para cada cenário?
+
+**Assunto:** escolha do coletor de lixo (Aula 15) · **Tipo:** aberta
+
+<details>
+<summary>Resposta</summary>
+
+**(a) Braço de robô em tempo real.** O requisito é um **limite** para o tempo de resposta,
+então nenhuma pausa longa e imprevisível pode acontecer. Boas escolhas:
+
+- **contagem de referências**, que libera aos poucos, junto com o programa. Cuidado com o
+  efeito cascata: liberar uma estrutura grande de uma vez libera tudo o que ela apontava;
+- um coletor **incremental** (ou de tempo real), que trabalha em fatias de tempo limitadas;
+- ou **nenhum coletor**: alocar toda a memória de antemão, em memória estática, como é comum
+  em sistemas embarcados. Sem alocação dinâmica, não há o que coletar.
+
+Marcação e varredura comum é a pior escolha: para o programa inteiro por um tempo que depende
+do tamanho do heap.
+
+**(b) Servidor web.** Cada requisição cria poucos dados, de vida curta, independentes das
+outras. Boas escolhas:
+
+- **regiões** (*arenas*): cada requisição aloca numa região própria, avançando um ponteiro,
+  e quando ela termina a região inteira é liberada de uma vez, em O(1). É o "gerenciamento
+  por regiões em servidores web" da aula;
+- um coletor **geracional** com **cópia** para a geração jovem: quase tudo morre cedo, e o
+  custo da cópia é proporcional só ao que **sobrevive**, que é pouco.
+
+**Critério de uma boa resposta:** ligar a **característica** do cenário (prazo máximo; vida
+curta e previsível) à **propriedade** do coletor (pausas limitadas; custo proporcional aos
+vivos ou liberação em bloco).
+
+</details>
+
+## Questões de prova relacionadas
+
+As provas finais antigas ainda não estão resolvidas no site; a referência é o PDF em
+`material/provas-antigas/2a-prova/`.
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Em que área ficam o conjunto `{1}` e a variável `s` de `new_set`, e quando cada um é liberado; o mesmo em C++ com `new` | Final 25, Q3 | a Questão 1, em Python e C++ (ver o exemplo da [Aula 15](/docs/aula-15)) |
+| Registros de ativação na pilha: dados que não podem ficar nela | [Prova 22, Q4](/docs/aula-revisao-01-12/prova-22) | ver a [Lista 13](/docs/aula-13/lista-13) |
+
+## Para treinar
+
+1. Na Questão 1, troque `j` por `static int* j = (int*) malloc(sizeof(int));`. Onde fica
+   cada coisa agora? Há vazamento a cada chamada de `foo`?
+2. Ache uma sequência de pedidos em que o **best-fit** funciona e o **first-fit** falha.
+3. Desenhe dois objetos Python que apontam um para o outro e explique por que a contagem de
+   referências sozinha não os libera.

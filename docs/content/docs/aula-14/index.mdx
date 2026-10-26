@@ -114,7 +114,9 @@ Uma linguagem muito dinâmica tem 3 coisas:
 42
 ```
 
-Repare que o `exec` alterou uma variável do **escopo atual**. Em Python há os dois:
+Repare que o `exec` alterou uma variável do **escopo atual**. (Em Python 3 isso vale no
+nível do módulo, como no interpretador acima; dentro de uma função, o `exec` não consegue
+alterar as variáveis locais dela.) Em Python há os dois:
 `eval` avalia uma **expressão** e devolve o valor; `exec` executa **comandos**. Em
 JavaScript (e PHP) o equivalente é o `eval`.
 
@@ -556,3 +558,5 @@ está na tabela, não são anagramas.
 Esse algoritmo é **O(n)** (cada acesso ao dicionário é O(1) em média). Em SML, com as
 listas imutáveis que usamos, não se faz isso em O(n): a saída natural é ordenar as duas
 listas de caracteres e comparar, em **O(n log n)**.
+
+**Resolução da lista:** [Lista 14 - Resolução](/docs/aula-14/lista-14)

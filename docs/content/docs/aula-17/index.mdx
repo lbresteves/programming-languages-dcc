@@ -1,0 +1,34 @@
+---
+title: Aula 17 - Programação orientada a objetos
+description: 21/10 — Lista 17
+---
+
+<Callout title="Anotação ainda não feita" type="info">
+  Ainda não há anotações minhas nem notas do professor desta aula no repositório. Por
+  enquanto, esta página traz só o resumo da ementa; o conteúdo da aula está trabalhado na
+  resolução da Lista 17.
+</Callout>
+
+## Resumo da ementa
+
+Programação orientada a objetos (POO) não é exatamente um paradigma de linguagens de
+programação; é mais uma **filosofia**, um estilo de programação. Na **visão antropomórfica**,
+um objeto sabe como executar ações em si mesmo. Funcionalidades comuns às linguagens
+orientadas por objetos: **objetos**, **métodos** e **subtipagem**.
+
+**Questão para discutir:** por que a programação orientada por objetos é tão popular na
+indústria?
+
+## Os conceitos que a lista cobra
+
+- **Despacho dinâmico** (*dynamic dispatch*): em `o.m()`, a implementação que roda é a da
+  classe do **objeto** (tipo dinâmico), decidida em execução.
+- **Tipo estático × tipo dinâmico** em Java: o compilador só aceita `o.m()` se o tipo
+  **declarado** de `o` tiver `m`; *downcasts* são conferidos em execução.
+- **Sobrecarga × sobrescrita:** a sobrecarga escolhe a assinatura pelo tipo **estático** dos
+  argumentos (compilação); a sobrescrita escolhe a classe pelo tipo **dinâmico** do receptor
+  (execução).
+- **Custo da chamada:** em Java e C++, uma consulta à tabela de métodos virtuais (*vtable*),
+  O(1); em Python, uma busca por nome subindo a cadeia de classes.
+
+**Resolução da lista:** [Lista 17 - Resolução](/docs/aula-17/lista-17)

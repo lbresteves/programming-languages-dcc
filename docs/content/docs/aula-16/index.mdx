@@ -330,8 +330,8 @@ public class BitSet implements Set<Integer> {
 
 ## Classes em Python
 
-**Estender um programa sem modificá-lo — é possível?** Sim, em quase todas as linguagens,
-menos C. Linguagens funcionais são ruins para extensão.
+**Estender um programa sem modificá-lo — é possível?** Em Python e Java, sim; em C e SML,
+não (ver a tabela no fim). Linguagens funcionais são ruins para extensão.
 
 A versão em Python do conjunto que fizemos em C:
 
@@ -562,7 +562,9 @@ não dá para adicionar coisas novas a uma classe em execução. Nessas linguage
 com classes, eu ainda quero ser capaz de estender o comportamento, mas não consigo alterar
 as classes. Para isso existe a **herança**: ela me permite estender o programa **sem
 alterar** (nem recompilar) o código que já existe — o `BoundedBitSet extends BitSet`
-redefine `add`, `del` e `contains` checando a capacidade, e chama `super.add(e)`.
+redefine `add`, `del` e `contains` checando a capacidade, e chama `super.add(e)`. (Para
+compilar, `capacity` precisa ser `protected` em `BitSet`: um campo `private` não é visível
+nem na subclasse. No código da aula ele está `private`.)
 
 ## Resumo: as quatro linguagens
 
@@ -572,3 +574,5 @@ redefine `add`, `del` e `contains` checando a capacidade, e chama `super.add(e)`
 | SML | sim | não |
 | Python | não de verdade | sim |
 | Java | sim | sim |
+
+**Resolução da lista:** [Lista 16 - Resolução](/docs/aula-16/lista-16)
