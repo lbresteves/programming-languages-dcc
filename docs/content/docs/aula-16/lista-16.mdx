@@ -5,48 +5,60 @@ description: TADs em Python — a lista encadeada List, filas sobre Node, duck t
 
 Resolução completa da Lista 16. Tente cada questão no papel antes de abrir a resposta.
 
-<Callout title="As classes de base" type="info">
-  A lista usa `List.py` e `Worklist.py` da página do curso (o site estava fora do ar quando
-  esta resolução foi escrita). As respostas supõem a interface do livro do Webber, de onde
-  essas classes vêm, com campos acessados direto. Se o arquivo do professor usar
-  `getHead()`/`getTail()`, troque `cell.head` por `cell.getHead()` e assim por diante. O
-  código está em Python 3 (`print(...)`); o enunciado usa Python 2.
-</Callout>
+## As classes do professor
+
+A lista usa `List.py` e `Worklist.py` da página do curso (cópias em `listas/lista-16/`). Os
+arquivos estão em Python 2; os métodos daqui funcionam igual em Python 2 e 3, e seguem a
+indentação de dois espaços dos arquivos, porque são para colar **dentro** das classes deles.
 
 ```python
-class ConsCell:                  # List.py: uma célula da lista
-    def __init__(self, head, tail):
-        self.head = head
-        self.tail = tail
+class ConsCell:
+  def __init__(self, h, t):
+    self.head = h
+    self.tail = t
 
 class List:
-    def __init__(self, start=None):
-        self.start = start       # primeira ConsCell, ou None se vazia
-    def cons(self, h):
-        return List(ConsCell(h, self.start))
+  def __init__(self, n):
+    self.start = n          # primeira ConsCell, ou 0 se a lista for vazia
+  def cons(self, e):
+    return List(ConsCell(e, self.start))
+  # length() e __str__() percorrem com: while cell != 0: ... cell = cell.tail
 ```
+
+Duas coisas para notar:
+
+- O **fim da lista é `0`**, e não `None`: a lista vazia é `List(0)`, e a última célula tem
+  `tail == 0`. É o `NULL` de C escrito em Python. Todos os laços daqui testam `cell != 0`.
+- As listas do professor misturam tipos: o `test()` faz `b.cons("Hi!")` e `b.cons(True)`.
 
 ```python
-class Node:                      # Worklist.py
-    def __init__(self, data, link):
-        self.data = data
-        self.link = link
+class Node:
+  def __init__(self):
+    self.n = 0              # próximo nó (0 = nenhum)
+    self.e = ''             # elemento
 
 class Stack:
-    def __init__(self):
-        self.top = None
-    def add(self, data):
-        self.top = Node(data, self.top)
-    def hasMore(self):
-        return self.top is not None
-    def remove(self):
-        n = self.top
-        self.top = n.link
-        return n.data
+  def __init__(self):
+    self.top = Node()       # nó vazio: a sentinela
+  def add(self, element):
+    self.top.e = element    # guarda o elemento na sentinela...
+    aux = Node()            # ...e põe uma sentinela nova em cima
+    aux.n = self.top
+    self.top = aux
+  def remove(self):
+    self.top = self.top.n
+    return self.top.e
+  def hasMore(self):
+    return (self.top.n != 0)
 ```
 
+A `Stack` usa um **nó sentinela**: o `top` é sempre um nó **vazio**, e os elementos estão
+abaixo dele. Por isso `hasMore` testa `top.n`, e não `top`. `Node()` não recebe argumentos:
+cria-se o nó e depois preenchem-se `e` e `n`. O arquivo também tem uma classe `Worklist` com
+`add`, `remove` e `hasMore` só com *docstrings*, que funciona como uma interface (Questão 2d).
+
 O padrão de quase todos os métodos da Questão 1 é o mesmo laço: `cell = self.start`, e
-enquanto `cell is not None`, fazer algo com `cell.head` e andar com `cell = cell.tail`.
+enquanto `cell != 0`, fazer algo com `cell.head` e andar com `cell = cell.tail`.
 
 ## Questão 1a — `contains`
 
@@ -58,19 +70,20 @@ enquanto `cell is not None`, fazer algo com `cell.head` e andar com `cell = cell
 <summary>Resposta</summary>
 
 ```python
-    def contains(self, n):
-        cell = self.start
-        while cell is not None:
-            if cell.head == n:
-                return True
-            cell = cell.tail
-        return False
+  def contains(self, n):
+    cell = self.start
+    while cell != 0:
+      if cell.head == n:
+        return True
+      cell = cell.tail
+    return False
 ```
 
-**Por quê:** é a busca linear de sempre. O enunciado escreve `true`/`false` (Java); em
-Python os valores são `True`/`False`, com maiúscula. Em SML seria um casamento de padrões
-(*pattern matching*) — `fun contains (nil, _) = false | contains (h :: t, n) = h = n orelse
-contains (t, n)` —, e em Prolog é o próprio `member/2`.
+**Por quê:** é a busca linear de sempre, no mesmo laço do `length` do professor. O
+enunciado escreve `true`/`false` (Java); em Python os valores são `True`/`False`, com
+maiúscula. Em SML seria um casamento de padrões (*pattern matching*) — `fun contains (nil,
+_) = false | contains (h :: t, n) = h = n orelse contains (t, n)` —, e em Prolog é o próprio
+`member/2`.
 
 </details>
 
@@ -85,26 +98,29 @@ contains (t, n)` —, e em Prolog é o próprio `member/2`.
 <summary>Resposta</summary>
 
 ```python
-    def equals(self, other):
-        a = self.start
-        b = other.start
-        while a is not None and b is not None:
-            if a.head != b.head:
-                return False
-            a = a.tail
-            b = b.tail
-        return a is None and b is None
+  def equals(self, other):
+    a = self.start
+    b = other.start
+    while a != 0 and b != 0:
+      if a.head != b.head:
+        return False
+      a = a.tail
+      b = b.tail
+    return a == 0 and b == 0
 ```
 
 O `return` final cobre o caso de tamanhos diferentes: uma acabou e a outra não.
 
 - **Simetria:** o código trata `a` e `b` do mesmo jeito (comparação com `!=` e teste de fim
   nas duas), então trocar `x` por `y` dá o mesmo resultado.
-- **`x == y` ⇒ `x.equals(y)`:** sem `__eq__` definido, `==` entre objetos compara
-  **identidade** (é o mesmo objeto). Se é o mesmo objeto, as células são as mesmas e o laço
-  nunca acha diferença.
-- **A volta não vale:** `List().cons(1)` e `List().cons(1)` são objetos diferentes
+- **`x == y` ⇒ `x.equals(y)`:** `List` não define `__eq__`, então `==` entre duas `List`
+  compara **identidade** (é o mesmo objeto). Se é o mesmo objeto, as células são as mesmas,
+  e o laço nunca acha diferença.
+- **A volta não vale:** `List(0).cons(1)` e `List(0).cons(1)` são objetos diferentes
   (`==` falso) com o mesmo conteúdo (`equals` verdadeiro).
+
+Curiosidade, já que as listas do professor misturam tipos: em Python, `True == 1`. Então
+`List(0).cons(1).equals(List(0).cons(True))` dá `True`.
 
 **Por quê:** é a distinção entre **identidade** e **igualdade estrutural**. Java tem a
 mesma: `==` compara referências e `equals` compara conteúdo. Em Python, `is` é identidade,
@@ -125,21 +141,22 @@ identidade, e comparar conteúdo é escrever o laço à mão.
 <summary>Resposta</summary>
 
 ```python
-    def append(self, other):
-        elems = []
-        cell = self.start
-        while cell is not None:
-            elems.append(cell.head)
-            cell = cell.tail
-        result = other
-        for h in reversed(elems):
-            result = result.cons(h)
-        return result
+  def append(self, other):
+    elems = []
+    cell = self.start
+    while cell != 0:
+      elems.append(cell.head)
+      cell = cell.tail
+    result = List(other.start)
+    for h in reversed(elems):
+      result = result.cons(h)
+    return result
 ```
 
 Guardo os elementos de `x` e os ponho, do último ao primeiro, na frente de `y` com `cons`.
 Cada `cons` cria uma célula nova, então `x` não é tocada; `y` também não, porque `cons` só
-cria uma célula que **aponta** para o início de `y`.
+cria uma célula que **aponta** para o início de `y`. O `List(other.start)` garante que o
+resultado é sempre um objeto novo, mesmo quando `x` é vazia.
 
 **Por quê:** por que copiar `x` e não `y`? Porque a última célula de `x` teria de passar a
 apontar para `y`, e alterar essa célula seria um efeito colateral em `x`. As células de `y`
@@ -161,18 +178,19 @@ preciso copiar `y` também.
 <summary>Resposta</summary>
 
 ```python
-    def reverse(self):
-        result = List()
-        cell = self.start
-        while cell is not None:
-            result = result.cons(cell.head)
-            cell = cell.tail
-        return result
+  def reverse(self):
+    result = List(0)
+    cell = self.start
+    while cell != 0:
+      result = result.cons(cell.head)
+      cell = cell.tail
+    return result
 ```
 
 **Por quê:** percorrer do início para o fim e ir pondo cada elemento **na frente** do
 resultado inverte a ordem de graça. É o `rev` com acumulador de SML (`fun rev (nil, acc) =
-acc | rev (h :: t, acc) = rev (t, h :: acc)`), que também é linear e de cauda.
+acc | rev (h :: t, acc) = rev (t, h :: acc)`), que também é linear e de cauda. `List(0)` é
+o acumulador vazio, o `nil`.
 
 </details>
 
@@ -188,26 +206,27 @@ acc | rev (h :: t, acc) = rev (t, h :: acc)`), que também é linear e de cauda.
 Versão fácil (cria células novas):
 
 ```python
-    def reverseMe(self):
-        self.start = self.reverse().start
+  def reverseMe(self):
+    self.start = self.reverse().start
 ```
 
 Versão *in place* (só troca ponteiros):
 
 ```python
-    def reverseMe(self):
-        prev = None
-        cell = self.start
-        while cell is not None:
-            nxt = cell.tail
-            cell.tail = prev
-            prev = cell
-            cell = nxt
-        self.start = prev
+  def reverseMe(self):
+    prev = 0
+    cell = self.start
+    while cell != 0:
+      nxt = cell.tail
+      cell.tail = prev
+      prev = cell
+      cell = nxt
+    self.start = prev
 ```
 
 Em cada passo, a célula atual passa a apontar para a **anterior**; `nxt` guarda o resto
-antes de o ponteiro ser perdido. No fim, `prev` é a antiga última célula, o novo início.
+antes de o ponteiro ser perdido. A primeira célula passa a apontar para `prev = 0`, e vira o
+novo fim. No fim do laço, `prev` é a antiga última célula, o novo início.
 
 **Por quê:** a diferença entre `reverse` e `reverseMe` é a mesma entre o estilo funcional
 (devolve valor novo) e o imperativo (altera o estado). Só dá para fazer `reverseMe` porque
@@ -225,23 +244,25 @@ a representação é **mutável**: em SML, sem `ref`, a segunda versão é impos
 <details>
 <summary>Resposta</summary>
 
-Ordenação por inserção, construindo uma lista nova:
+Ordenação por inserção, construindo uma lista nova. A função auxiliar fica fora da classe:
 
 ```python
 def insertCell(x, cell, lessEq):
-    if cell is None or lessEq(x, cell.head):
-        return ConsCell(x, cell)
-    return ConsCell(cell.head, insertCell(x, cell.tail, lessEq))
+  if cell == 0 or lessEq(x, cell.head):
+    return ConsCell(x, cell)
+  return ConsCell(cell.head, insertCell(x, cell.tail, lessEq))
+```
 
-class List:
-    ...
-    def sort(self, lessEq):
-        start = None
-        cell = self.start
-        while cell is not None:
-            start = insertCell(cell.head, start, lessEq)
-            cell = cell.tail
-        return List(start)
+E o método, dentro de `List`:
+
+```python
+  def sort(self, lessEq):
+    start = 0
+    cell = self.start
+    while cell != 0:
+      start = insertCell(cell.head, start, lessEq)
+      cell = cell.tail
+    return List(start)
 ```
 
 Uso:
@@ -272,15 +293,15 @@ da biblioteca padrão).
 Trocar os **valores** das células, e não as células:
 
 ```python
-    def sortMe(self):
-        i = self.start
-        while i is not None:
-            j = i.tail
-            while j is not None:
-                if j.head < i.head:
-                    i.head, j.head = j.head, i.head
-                j = j.tail
-            i = i.tail
+  def sortMe(self):
+    i = self.start
+    while i != 0:
+      j = i.tail
+      while j != 0:
+        if j.head < i.head:
+          i.head, j.head = j.head, i.head
+        j = j.tail
+      i = i.tail
 ```
 
 Para cada célula `i`, varre as seguintes e traz para `i` o menor valor que encontrar (é a
@@ -300,16 +321,20 @@ existem. Trocar os `head` é mais curto que religar os `tail`, e cumpre a restri
 <details>
 <summary>Resposta</summary>
 
+Função auxiliar fora da classe:
+
 ```python
 def appendCells(a, b):
-    if a is None:
-        return b
-    return ConsCell(a.head, appendCells(a.tail, b))
+  if a == 0:
+    return b
+  return ConsCell(a.head, appendCells(a.tail, b))
+```
 
-class List:
-    ...
-    def append(self, other):
-        return List(appendCells(self.start, other.start))
+E o método, dentro de `List`:
+
+```python
+  def append(self, other):
+    return List(appendCells(self.start, other.start))
 ```
 
 **Por quê:** é a tradução direta do `append` de SML:
@@ -319,7 +344,7 @@ fun append (nil, ys) = ys
   | append (x :: xs, ys) = x :: append (xs, ys);
 ```
 
-O caso `None` é o `nil`, e `ConsCell(a.head, ...)` é o `::`. Python não faz eliminação de
+O caso `0` é o `nil`, e `ConsCell(a.head, ...)` é o `::`. Python não faz eliminação de
 recursão de cauda (e esta nem é de cauda), então uma lista muito longa estoura o limite de
 recursão (`RecursionError`, cerca de 1000 chamadas). A versão iterativa do item c não tem
 esse problema.
@@ -336,34 +361,39 @@ esse problema.
 <details>
 <summary>Resposta</summary>
 
+O mesmo truque da sentinela da `Stack`, só que **no fim** da fila: `rear` é sempre um nó
+vazio, e `add` preenche esse nó e pendura uma sentinela nova depois dele.
+
 ```python
 class Queue:
-    def __init__(self):
-        self.front = None
-        self.rear = None
-    def add(self, data):
-        n = Node(data, None)
-        if self.rear is None:
-            self.front = n
-        else:
-            self.rear.link = n
-        self.rear = n
-    def hasMore(self):
-        return self.front is not None
-    def remove(self):
-        n = self.front
-        self.front = n.link
-        if self.front is None:
-            self.rear = None
-        return n.data
+  def __init__(self):
+    self.front = Node()      # sentinela: a fila vazia tem front == rear
+    self.rear = self.front
+
+  def add(self, element):
+    self.rear.e = element
+    aux = Node()
+    self.rear.n = aux
+    self.rear = aux
+
+  def remove(self):
+    element = self.front.e
+    self.front = self.front.n
+    return element
+
+  def hasMore(self):
+    return self.front != self.rear
 ```
 
-Insere no fim (`rear`) e remove do começo (`front`), os dois em O(1).
+`add` entra pelo fim (`rear`) e `remove` sai pelo começo (`front`), os dois em O(1). A fila
+está vazia quando `front` alcança a sentinela (`front != rear` compara identidade, porque
+`Node` não define `__eq__`).
 
 **Por quê:** é o mesmo TAD da `Stack` (mesma interface), com outra política. Quem usa só
 `add`/`remove`/`hasMore` não sabe qual das duas recebeu, e é essa a ideia de TAD: o tipo é
-definido pelas **operações**, e não pela representação. Os dois cuidados são a fila vazia
-(`rear is None`) e esvaziar a fila no `remove` (zerar `rear` também).
+definido pelas **operações**, e não pela representação. Repare que a `Stack` põe a
+sentinela no **topo** e liga cada nó novo ao de baixo (`aux.n = self.top`); a `Queue` põe a
+sentinela no **fim** e liga o nó de trás ao novo (`self.rear.n = aux`).
 
 </details>
 
@@ -371,32 +401,44 @@ definido pelas **operações**, e não pela representação. Os dois cuidados s�
 
 **Assunto:** TAD fila de prioridades (Aula 16) · **Tipo:** implementação
 
-> Mesma interface; `remove` devolve sempre a menor string. Pode ser ineficiente.
+> Mesma interface; `remove` devolve sempre a menor string. Pode ser ineficiente. Pode mudar
+> `Node`, sem quebrar a `Stack`.
 
 <details>
 <summary>Resposta</summary>
 
-Manter a lista **ordenada na inserção**; `remove` e `hasMore` ficam iguais aos da `Stack`.
+Manter a lista **ordenada na inserção**, sem sentinela: `first` aponta para o menor
+elemento, e `0` marca o fim, como em `List`.
 
 ```python
 class PriorityQueue:
-    def __init__(self):
-        self.top = None
-    def add(self, data):
-        if self.top is None or data < self.top.data:
-            self.top = Node(data, self.top)
-        else:
-            n = self.top
-            while n.link is not None and n.link.data <= data:
-                n = n.link
-            n.link = Node(data, n.link)
-    def hasMore(self):
-        return self.top is not None
-    def remove(self):
-        n = self.top
-        self.top = n.link
-        return n.data
+  def __init__(self):
+    self.first = 0
+
+  def add(self, element):
+    node = Node()
+    node.e = element
+    if self.first == 0 or element < self.first.e:
+      node.n = self.first
+      self.first = node
+    else:
+      p = self.first
+      while p.n != 0 and p.n.e <= element:
+        p = p.n
+      node.n = p.n
+      p.n = node
+
+  def remove(self):
+    node = self.first
+    self.first = node.n
+    return node.e
+
+  def hasMore(self):
+    return self.first != 0
 ```
+
+`add` anda até o último nó com elemento `<=` ao novo e o encaixa logo depois; se o novo for
+o menor de todos, ele vira o `first`. `Node` não precisou mudar.
 
 Teste:
 
@@ -407,16 +449,19 @@ q.add("a")
 q.add("c")
 q.add("b")
 while q.hasMore():
-    print(q.remove())  # a, b, c
+  print(q.remove())    # a, b, c
 ```
-
-`Node` não precisou mudar, então a `Stack` continua funcionando.
 
 **Por quê:** `add` custa O(n) e `remove` O(1). A outra escolha (inserir na frente e procurar
 o menor no `remove`) inverte os custos. O enunciado aceita qualquer uma.
 
+A permissão de mudar `Node` "sem quebrar a `Stack`" sugere dar ao construtor parâmetros com
+**valor padrão**: `def __init__(self, e='', n=0)`. `Node()` continua funcionando como antes
+(a `Stack` não percebe a mudança), e a fila pode criar o nó já preenchido com
+`Node(element, p.n)`.
+
 ⚠️ **Erro no enunciado:** o exemplo cria `s = Stack()`, mas imprime `a b c`, que é o
-comportamento da `PriorityQueue`. Uma `Stack` imprimiria `b c a`.
+comportamento da `PriorityQueue`. A `Stack` do professor imprimiria `b c a`.
 
 </details>
 
@@ -427,8 +472,10 @@ comportamento da `PriorityQueue`. Uma `Stack` imprimiria `b c a`.
 <details>
 <summary>Resposta</summary>
 
-**Nenhuma.** O código só usa `<` e `<=` sobre os dados, e esses operadores funcionam para
-inteiros também. A mesma classe serve para qualquer tipo cujos valores se comparem com `<`.
+**Nenhuma.** O código só usa `<` e `<=` sobre os elementos, e esses operadores funcionam
+para inteiros também. A mesma classe serve para qualquer tipo cujos valores se comparem com
+`<`. (Inclusive o `0`: a fila compara **nós** com `0` para achar o fim, e nunca elementos,
+então um elemento `0` não se confunde com o fim da lista.)
 
 O que não funciona é **misturar** tipos: em Python 3, `"a" < 1` lança `TypeError` em tempo
 de execução. (Em Python 2, misturar era permitido e dava uma ordem arbitrária.)
@@ -445,7 +492,7 @@ com tipos concretos como `int` ou `string`.
 
 **Assunto:** duck typing (Aula 16) · **Tipo:** conceitual
 
-> `removeAll(s)` faz `while s.hasMore(): print(s.remove())`.
+> `removeAll(s)` faz `while s.hasMore(): print s.remove()`.
 
 <details>
 <summary>Resposta</summary>
@@ -456,15 +503,18 @@ Para o laço terminar, cada `remove` precisa aproximar `hasMore` de falso.
 
 **ii. Duck typing:** *"se anda como pato e grasna como pato, é um pato"*. O tipo de um
 objeto é dado pelos métodos que ele tem, e não pela classe de que ele herda. `removeAll`
-aceita `Stack`, `Queue`, `PriorityQueue` e **qualquer** objeto com `hasMore` e `remove`,
-sem uma classe-mãe comum e sem uma interface declarada. É o mesmo caso do `fill` da aula,
-que aceitava um `Num` só porque ele tinha `add`.
+aceita `Stack`, `Queue`, `PriorityQueue` e **qualquer** objeto com `hasMore` e `remove`.
+É o mesmo caso do `fill` da aula, que aceitava um `Num` só porque ele tinha `add`.
+
+O próprio `Worklist.py` mostra isso: a classe `Worklist` descreve o contrato (`add`,
+`remove`, `hasMore`, só com *docstrings*), mas a `Stack` **não herda** dela, e `removeAll`
+funciona assim mesmo. Em Python, `Worklist` é **documentação**, e não uma exigência que a
+linguagem confira.
 
 **Por quê:** em Python o contrato é **implícito** e conferido em execução: se `s` não tiver
 `remove`, é `AttributeError` na hora da chamada. Em Java ele precisaria ser **explícito**:
-uma `interface Worklist { void add(String e); String remove(); boolean hasMore(); }` que as
-três classes implementassem, e `removeAll(Worklist s)`. Passar outra coisa seria erro de
-compilação.
+`Worklist` seria uma `interface`, as três classes teriam `implements Worklist`, e o método
+seria `removeAll(Worklist s)`. Passar outra coisa seria erro de compilação.
 
 </details>
 
@@ -480,27 +530,27 @@ compilação.
 
 ```python
 class Int:
-    def __init__(self, x):
-        self.value = x
-    def plus(self, y):
-        return Int(self.value + y.value)
-    def minus(self, y):
-        return Int(self.value - y.value)
-    def times(self, y):
-        return Int(self.value * y.value)
-    def div(self, y):
-        return Int(self.value // y.value)
-    def toString(self):
-        return str(self.value)
-    def isPrime(self):
-        if self.value < 2:
-            return False
-        d = 2
-        while d * d <= self.value:
-            if self.value % d == 0:
-                return False
-            d += 1
-        return True
+  def __init__(self, x):
+    self.value = x
+  def plus(self, y):
+    return Int(self.value + y.value)
+  def minus(self, y):
+    return Int(self.value - y.value)
+  def times(self, y):
+    return Int(self.value * y.value)
+  def div(self, y):
+    return Int(self.value // y.value)
+  def toString(self):
+    return str(self.value)
+  def isPrime(self):
+    if self.value < 2:
+      return False
+    d = 2
+    while d * d <= self.value:
+      if self.value % d == 0:
+        return False
+      d += 1
+    return True
 ```
 
 ```python
@@ -516,8 +566,9 @@ Cada operação devolve um `Int` **novo**: os objetos são imutáveis, como os i
 verdade. `isPrime` só testa divisores até a raiz quadrada.
 
 **Por quê:** em Python 3, `/` sempre devolve `float`; a divisão inteira é `//`. (Em Python 2,
-`/` entre inteiros já era inteira.) Atenção com negativos: `//` arredonda para baixo
-(`-7 // 2 == -4`), enquanto C e Java truncam para zero (`-7 / 2 == -3`).
+`/` entre inteiros já era inteira, e `//` também funciona.) Atenção com negativos: `//`
+arredonda para baixo (`-7 // 2 == -4`), enquanto C e Java truncam para zero
+(`-7 / 2 == -3`).
 
 Sobre Smalltalk: em Python também, `3 + 4` é, por baixo, a chamada de método
 `(3).__add__(4)`. Inteiros **são** objetos. Se `Int` definisse `__add__` em vez de `plus`,
@@ -544,8 +595,9 @@ provas finais (22, 24 e 28).
 
 ## Para treinar
 
-1. Escreva `length` e `nth(i)` para `List`, no estilo da Questão 1a.
+1. Escreva `nth(i)` para `List`, no estilo da Questão 1a, e diga o que fazer quando `i` passa
+   do fim.
 2. Escreva uma `Deque` (insere e remove nas duas pontas) com a mesma interface de `Stack`
-   mais `addFront` e `removeBack`. Qual operação fica O(n) com `Node` só com `link`?
-3. Defina `__eq__` em `List` usando `equals`. O que passa a valer `x == y` para duas listas
-   diferentes com o mesmo conteúdo? E `x is y`?
+   mais `addFront` e `removeBack`. Qual operação fica O(n) com `Node` só com `n`?
+3. Faça a `Stack`, a `Queue` e a `PriorityQueue` herdarem de `Worklist`. O que muda no
+   comportamento de `removeAll`? E o que mudaria em Java?
