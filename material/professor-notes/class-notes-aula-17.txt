@@ -1,0 +1,463 @@
+=== Object Oriented Programming ===
+
+1) Is the program below object oriented or not?
+class Node:
+  def __init__(self):
+    self.data = ""
+    self.link = 0
+
+class Stack:
+  def __init__(self):
+    self.top = 0
+
+def add(stack, data):
+  n = Node()
+  n.data = data
+  n.link = stack.top
+  stack.top = n
+
+def hasMore(stack):
+  return stack.top != 0
+
+def remove(stack):
+  n = stack.top
+  stack.top = n.link
+  return n.data
+
+s = Stack()
+add(s, "AA")
+add(s, "BB")
+add(s, "CC")
+while hasMore(s):
+  print remove(s)
+
+2) How to recode it, to make it more object oriented?
+class Node:
+  def __init__(self, data, link):
+    self.data = data
+    self.link = link
+
+class Stack:
+  def __init__(self):
+    self.top = 0
+  def add(self, element):
+    n = Node(element, self.top)
+    self.top = n
+  def hasMore(self):
+    return self.top != 0
+  def remove(self):
+    aux = self.top
+    self.top = aux.link
+    return aux.data
+
+s = Stack()
+s.add("AA")
+s.add(2)
+s.add("BB")
+s.add([1, 2, 3])
+while s.hasMore():
+  print str(s.remove())
+
+2.1) Couldn't we simply add the methods to the class table?
+# Considering the original implementation:
+Stack.add = add
+Stack.hasMore = hasMore
+Stack.remove = remove
+s = Stack()
+s.add("AA")
+s.add("BB")
+s.add("CC")
+while s.hasMore():
+  print s.remove()
+
+3) This implementation of Stack works as a table. What is the advantage of
+programming with tables like that?
+
+4) How did it came through, historically?
+
+5) What are the main characteristics of object oriented languages?
+- Objects (tables with behavior and data)
+- Messages (methods)
+- Subtyping
+  - Liskov's substitution principle
+  - Dynamic dispatch
+- Heavy heap usage
+
+Some languages have these features:
+- Classes
+  - modules
+  - types
+- Inheritance
+  - the open-closed principle
+  - single inheritance
+  - multiple inheritance
+- Overloading
+- Information hiding
+- Run-time type interrogation
+- Garbage Collection
+
+6) What is a class?
+* A class is the implementation of an Abstract Data Type.
+* A class is a name space.
+* A class is static text.
+  - defines a compilation unit,
+  - is a module,
+  - is also a type.
+
+7) What is an object?
+* An object is data.
+* An object is a table with operations that refer to the table itself.
+* An object has a location in memory, has a state, needs to be created,
+  might be destroyed.
+* E.g., in Java, an object is an instance of a class.
+
+7.1) Can we have object without classes?
+* Sure thing. For instance, using tables in Python:
+def createObj(n):
+  t = {'x': n}
+  t['inc'] = lambda: t.update({'x': t['x'] + 1})
+  t['get'] = lambda: t['x']
+  return t
+
+o0 = createObj(10)
+print o0['get']()
+o0['inc']()
+print o0['get']()
+
+* Or using closures in JavaScript:
+function foo(n) {
+  function inc() { n++; }
+  function get() { return n; }
+  return {inc: inc, get: get};
+}
+
+var o0 = foo(1);
+o0.inc();
+alert(o0.get());
+
+var o1 = foo(100);
+o1.inc();
+alert(o1.get());
+
+* Or using closures in SML:
+
+exception Empty;
+
+fun newStack(x) =
+let
+  val stack = ref[x]
+in
+  {push = fn y => stack := y::(!stack),
+   pop = fn() => case !stack of
+                      nil => raise Empty
+                    | (y::ys) => (stack := ys; y)
+  }
+end;
+
+val myStack = newStack 0;
+#push myStack 1;
+#pop myStack ();
+
+- or -
+
+fun newObj(n) =
+    let
+      val c = ref n
+    in
+      { inc = fn() => c := 1 + !c, get = fn() => !c }
+    end
+
+val c0 = newObj(4);
+val c1 = newObj(2);
+#get c0();
+#get c1();
+#inc c0();
+#get c0();
+#get c1();
+
+* Or using closures in Scala:
+
+object ObjClosure {
+  def createObj1(n: Int) = {
+    var local = n
+    def set = (v: Int) => local = v
+    def get = () => local
+    def print() = () => println("n = " + local)
+    (get, print, set)
+  }
+  def createObj2(n: Int) = {
+    var local = n
+    def inc = (v: Int) => local += 1
+    def get = () => local
+    def print() = () => println("n = " + local)
+    (get, print, inc)
+  }
+  def main(args: Array[String]): Unit = {
+    val L = List(1, 2, 3, 4, 5)
+    val Obs = L.map(createObj1)
+    Obs.foreach { _._2() }
+    val L2 = (createObj2(40) :: Obs)
+    L2.foreach { _._2() }
+  }
+}
+
+$> scala
+scala> var x = ObjClosure.createObj1(4)
+scala> x._2()
+scala> x._3(6)
+scala> x._2()
+
+8) How does an object talk to another?
+* Objects exchange messages.
+* These messages are called 'methods'
+
+9) What is inheritance?
+* Reuse mechanism.
+
+10) Create an Animal class hierarchy, in which a Dog is a Mammal, which is
+an Animal.
+
+class Animal:
+  "The base class of the whole object zoo."
+  def __init__(self, name):
+    self.name = name
+  def __str__(self):
+    return self.name + " is an animal"
+  def eat(self):
+    print self.name + ", which is an animal, is eating."
+
+class Mammal(Animal):
+  "Mammals are animals that know how to suck milk."
+  def __str__(self):
+    return self.name + " is a mammal"
+  def suckMilk(self):
+    print self.name + ", which is a mammal, is sucking milk."
+
+class Dog(Mammal):
+  "Dogs are mammals that can bark, and bite when they eat."
+  def __str__(self):
+    return self.name + " is a dog"
+  def bark(self):
+    print self.name + " is barking rather loudly."
+  def eat(self):
+    print self.name + " barks when it eats."
+    self.bark
+
+def test0():
+  a = Animal("Tigrinho")
+  m = Mammal("Oncinha")
+  d = Dog("Mameluco")
+  print a
+  print m
+  print d
+  a.eat()
+  m.suckMilk()
+  d.bark()
+
+11) Can you think about a situation in which we would like to have multiple
+inheritance?
+
+class Flier:
+  "Fliers are entities that can fly."
+  def __init__(self, name, height):
+    self.name = name
+    self.height = height
+  def fly(self):
+    print self.name + " is flying ", self.height, " metters high!"
+
+class Bat(Flier, Mammal):
+  "Bats are mammals that fly."
+  def __str__(self):
+    return self.name + " is a bat"
+
+12) When I call __init__ over Bat, which method gets called? That from
+Flier, or that from Animal?
+
+13) What if the declaration of Flier were:
+class Bat(Mammal, Flier):
+  "Bats are mammals that fly."
+  def __str__(self):
+    return self.name + " is a bat"
+
+14) Multiple inheritance has a couple problems. Have you ever heard of the
+diamond inheritance problem?
+
+* the diamond problem is an ambiguity that arises when two classes B and C
+  inherit from A, and class D inherits from both B and C. If a method in D
+  calls a method defined in A (and does not override the method), and B and
+  C have overridden that method differently, then from which class does it
+  inherit: B, or C?
+
+Ex.:
+#include <iostream>
+struct A { virtual void f() { std::cout << "I'm A!\n"; } };
+
+struct B { virtual void f() { std::cout << "I'm B!\n"; } };
+
+struct C : public A, public B {};
+
+int main() {
+  C* pc = new C;
+  // pc->f();
+  pc->A::f();
+  pc->B::f();
+}
+
+15) What is overloading?
+class Animal:
+  ...
+  def eat(self):
+    print self.name + ", which is an animal, is eating."
+
+class Dog(Mammal):
+  ...
+  def eat(self):
+    print self.name + " barks when it eats."
+    self.bark
+
+15.1) Does python have true overloading?
+- Not really: we can overwrite a method's name, but there will be only one
+  implementation of that method reachable in the same base class.
+
+16) OO languages rely on dynamic binding. What is this?
+* the target of a call is chosen at run-time.
+
+17) Which methods are called below?
+def test2():
+  a1 = Animal("Tigrinho")
+  a2 = Mammal("Oncinha")
+  a3 = Dog("Mameluco")
+  print a1
+  print a2             
+  print a3             
+  a1.eat()             
+  a2.suckMilk()        
+  a2.eat()             
+  a3.bark()
+  a3.suckMilk()        
+  a3.eat()
+  a1.bark()
+  a1 = a3
+  a1.bark()
+
+18) What is subtyping polymorphism?
+
+19) What is the Liskov's substitution principle?
+* if S is a subtype of T, then S can be used in any situation where T is
+  expected.
+
+20) Assuming the same class hierarchy, which methods are called in the
+Java program below? Answers include "does not compile", or "runtime error".
+
+public class Zoo {
+  class Animal {
+    public void eat() { System.out.println(this + " is eating"); }
+    public String toString () { return "Animal"; }
+  }
+  class Mammal extends Animal {
+    public void suckMilk() { System.out.println(this + " is sucking"); }
+    public String toString () { return "Mammal"; }
+  }
+  class Dog extends Mammal {
+    public void bark() { System.out.println(this + " is barking"); }
+    public String toString () { return "Dog"; }
+  }
+  public void test () {
+    Animal a1 = new Animal();
+    Animal a2 = new Mammal();
+    Animal a3 = new Dog();
+    //
+    // What will be printed in each case below?
+    //
+    System.out.println(a1);
+    System.out.println(a2);
+    System.out.println(a3);
+    a1.eat();
+    // a2.suckMilk();
+    a2.eat();
+    // Dog d1 = a3;
+    Dog d1 = new Dog();
+    Mammal m1 = d1;
+    d1.bark();
+    m1.suckMilk();
+    d1.suckMilk();
+    // Type casts:
+    Dog d2 = (Dog)a3;
+    // a3.bark();
+    d2.bark();
+    // Dog d3 = (Dog)a2;
+  }
+  public static void main(String a[]) {
+    Zoo z = new Zoo();
+    z.test();
+  }
+}
+
+21) What is the difference between an object in Java and in Python?
+
+22) What is the complexity to find the target of a call in Python?
+
+23) What about the complexity to find the target of a call in Java?
+
+24) What is a virtual table?
+
+25) How do I know the type of a data-structure in C?
+
+26) How to know it in Python?
+  a = Mammal("Fortunato")
+  if a.__class__.__name__ == Mammal.__name__:
+    print "The thing is an animal!"
+
+26.1: what is the difference between
+  a.__class__.__name__ == Animal.__name__ and isinstance(a, Animal)
+
+27) Why object oriented languages use so much the heap?
+
+28) Which mechanisms these languages use to facilitate the management of the
+heap?
+
+29) What is the essential difference between software development in
+function oriented languages and object-oriented languages?
+
+top down X bottom up
+
+30) How is the design of a compiler according to these two paradigms?
+Top down:
+- translate source to machine code
+...
+1 Parse file
+2 Optimize program
+3 Generate machine code.
+...
+1.1 Open file
+1.2 Read tokens
+1.3 Produce AST
+1.4 close files
+
+31) Where does data come in in the top-down approach?
+
+Bottom up:
+We need: "ParseTree", "Optimizer", "CodeGenerator", "Parser", "Lexer",
+   "CodeGenerator", "ArchDescription", "File", "Token".
+
+32) What are the advantages of top-down?
+- Structured and sistematic
+- Global view
+- Easier to explain
+
+33) What are the advantages of bottom up?
+- Reusability
+- Data independence
+- No temporal ordering
+- Easier to change
+
+* In practice, programming is a mix of these two styles, but OO languages
+  favour bottom-up because we can work with interfaces, instead of needing
+  implementations.
+
+34) How should be a productive development environment?
+- Refactoring
+- Fast update
+- Persistence
+- Browsing
+- Documentation

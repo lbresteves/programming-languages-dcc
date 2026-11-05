@@ -3,32 +3,868 @@ title: Aula 17 - Programação orientada a objetos
 description: 21/10 — Lista 17
 ---
 
-<Callout title="Anotação ainda não feita" type="info">
-  Ainda não há anotações minhas nem notas do professor desta aula no repositório. Por
-  enquanto, esta página traz só o resumo da ementa; o conteúdo da aula está trabalhado na
-  resolução da Lista 17.
+## Este programa é orientado a objetos?
+
+```python
+class Node:
+    def __init__(self):
+        self.data = ""
+        self.link = 0
+
+class Stack:
+    def __init__(self):
+        self.top = 0
+
+def add(stack, data):
+    n = Node()
+    n.data = data
+    n.link = stack.top
+    stack.top = n
+
+def hasMore(stack):
+    return stack.top != 0
+
+def remove(stack):
+    n = stack.top
+    stack.top = n.link
+    return n.data
+
+s = Stack()
+add(s, "AA")
+add(s, "BB")
+add(s, "CC")
+while hasMore(s):
+    print(remove(s))
+```
+
+**Não.** Está escrito em Python e usa `class`, mas as classes são só `struct`s: a pilha
+não sabe fazer nada; quem faz são funções soltas que recebem a pilha (`add(s, x)` em vez de
+`s.add(x)`). Orientação a objetos é característica do **programa**, não da linguagem (é a
+Questão 1 da [Lista 17](/docs/aula-17/lista-17)).
+
+Para deixá-lo mais orientado a objetos, as operações passam para dentro da classe:
+
+```python
+class Node:
+    def __init__(self, data, link):
+        self.data = data
+        self.link = link
+
+class Stack:
+    def __init__(self):
+        self.top = 0
+    def add(self, element):
+        self.top = Node(element, self.top)
+    def hasMore(self):
+        return self.top != 0
+    def remove(self):
+        aux = self.top
+        self.top = aux.link
+        return aux.data
+
+s = Stack()
+s.add("AA")
+s.add(2)
+s.add("BB")
+s.add([1, 2, 3])
+while s.hasMore():
+    print(str(s.remove()))
+```
+
+Não daria simplesmente para **acrescentar os métodos na tabela da classe**? Dá, partindo da
+implementação original:
+
+```python
+Stack.add = add
+Stack.hasMore = hasMore
+Stack.remove = remove
+
+s = Stack()
+s.add("AA")
+s.add("BB")
+s.add("CC")
+while s.hasMore():
+    print(s.remove())
+```
+
+Funciona porque, em Python, **uma classe é uma tabela** (um dicionário) e um método é só uma
+função guardada nela, cujo primeiro parâmetro recebe o objeto (`s.add("AA")` vira
+`Stack.add(s, "AA")`). A vantagem de programar com tabelas assim é a **flexibilidade**: dá
+para acrescentar ou trocar comportamento em execução (como o `Set.add = errorAdd` da
+[Aula 16](/docs/aula-16)). O preço é que nada é garantido antes da execução, e achar um
+método vira uma busca por nome (ver "Custo da chamada", mais abaixo).
+
+## O que é POO?
+
+Será que programação orientada a objetos (POO, *object-oriented programming*) é
+encapsulamento? **Não é.** É um **paradigma** (para a ementa, mais uma filosofia, um estilo
+de programação do que uma característica da linguagem).
+
+Se não é orientado a objetos, é orientado a quê? Pode ser orientado a **operações**:
+funções (SML), procedimentos (C), rotinas etc.
+
+JavaScript é orientado a objetos? Mas JavaScript não tinha classes antigamente (`class` só
+chegou em 2015), né? **Então POO não é classes.**
+
+> POO é um paradigma de programação em que **os dados "sabem" fazer as coisas**. Ou, de
+> outra forma, **dados possuem ações**. (A ementa chama isso de **visão antropomórfica**:
+> um objeto sabe como executar ações em si mesmo.)
+
+### Dados que não sabem fazer nada: uma lista em C
+
+Quando temos uma lista em C, por exemplo uma lista encadeada, existe uma função que
+inicializa a lista, uma que insere um elemento, uma que remove etc. **A lista não faz
+nada**: quem faz são as funções que recebem a lista.
+
+```c
+typedef struct Lista {
+    struct Lista* next;
+    int data;
+    int (*f)(int, int); /* ponteiro para função: aponta para código.
+                           Possível, porém isso não é muito comum em C. */
+} Lista;
+```
+
+"Os bits que estão em uma `struct` estão todos no **cache de dados** (*DCache*)." Em
+essência, o que fica no **cache de instruções** (*ICache*) são os bits de instruções — as
+funções. O campo `f` é a exceção: são bits de dados que **apontam para código**.
+
+Mas se eu falo em Java, por exemplo:
+
+```java
+class Lista {
+    private Lista next;
+    private int data;
+
+    public Lista(int data) {
+        this.data = data;
+    }
+
+    public Lista getNext() {
+        return next;
+    }
+}
+```
+
+É um paradigma em que **os dados possuem bits que apontam para o cache de instruções**: os
+dados sabem fazer as coisas. Dentro da lista temos os bits que sabem fazer as coisas —
+coletar, inserir etc.
+
+## Por que dados que sabem fazer coisas importam: encapsulamento
+
+Por causa do **encapsulamento** (ou ocultação de informação, *information hiding*). Uma
+`struct` em C, por exemplo, não sabe fazer nada. Teria razão de ter um campo `private` em
+C? Haveria algum propósito? Ninguém nunca usaria, não serviria para nada: **se uma `struct`
+não sabe fazer nada, alguma outra coisa tem que fazer** — e essa outra coisa precisa
+enxergar os campos. Encapsular partes de uma `struct` em C não faz muito sentido.
+
+Consigo ter **encapsulamento verdadeiro** em Java, C#, Delphi não porque os programadores
+concordam, mas porque **a linguagem força isso**: encapsulamento a nível de linguagem. Uma
+linguagem em que os dados sabem fazer as coisas **leva muito naturalmente ao
+encapsulamento**: só os métodos do próprio objeto precisam ver o estado.
+
+### Python tem encapsulamento?
+
+Python não tem muito encapsulamento... Dá para programar orientado a objetos em Python,
+então? Dá — encapsulamento não é o que define POO. Vejam:
+
+```python
+class X:
+    def __init__(self):
+        self.__att = 0
+
+a = X()
+a.__att     # AttributeError: parece privado...
+a._X__att   # 0 — mas não é: Python não tem encapsulamento!
+```
+
+O `__` só **troca o nome** do atributo (para `_X__att`); quem souber o nome novo acessa
+normalmente. Com um sublinhado só (`self._att`), nem isso: `a._att` acessa direto, e o `_`
+é apenas uma **convenção** ("não mexa").
+
+Mas por que não tem? Será que é porque Python é **dinamicamente tipada**? **Não é por
+isso.** Ruby também é dinamicamente tipada e possui `private`; JavaScript possui campos
+privados com `#` (`#balance`).
+
+A questão é que adicionar encapsulamento a Python **complicaria bastante a linguagem**. Em
+Python tudo é objeto, e os objetos são, no fundo, **dicionários** (tabelas hash): os
+atributos de um objeto ficam em `obj.__dict__`, os métodos de uma classe ficam em
+`Classe.__dict__`, as funções e os módulos também guardam seus atributos em dicionários.
+
+```python
+>>> a = X()
+>>> a.__dict__
+{'_X__att': 0}
+>>> '__init__' in X.__dict__
+True
+```
+
+Então como faria um campo privado em Python? Se tenho uma tabela hash, **nada me impede de
+varrer todos os valores dela**. Ter campos privados aumentaria bastante a complexidade de
+Python. Python é uma implementação simples, uma linguagem simples: é essencialmente **uma
+linguagem com dicionários e funções**. E Python tem herança, então vai ficando ainda mais
+complicado (um campo privado seria visível na subclasse? e numa busca pela cadeia de
+classes?).
+
+<Callout title="Cai em prova: 37,5% (finais 23, 26 e 28)" type="warn">
+  Formato: "existe `public`/`private` em Python? Por quê?" ou traduzir uma classe com
+  `private` para Python e dizer o que falta. Exemplo: Final 28, Q1b. Pegadinha: `self.__x`
+  **não** é privado — `obj._Classe__x` acessa. A comparação entre C++, Python, C e SML/NJ
+  (Final 26, Q2) está no callout da [Aula 16](/docs/aula-16).
 </Callout>
 
-## Resumo da ementa
+## História: Simula 67, Smalltalk, Java
 
-Programação orientada a objetos (POO) não é exatamente um paradigma de linguagens de
-programação; é mais uma **filosofia**, um estilo de programação. Na **visão antropomórfica**,
-um objeto sabe como executar ações em si mesmo. Funcionalidades comuns às linguagens
-orientadas por objetos: **objetos**, **métodos** e **subtipagem**.
+As ideias que vêm a seguir conseguimos emular em qualquer linguagem. Mas nos anos 60 surgiu
+**Simula 67**, que trouxe os conceitos de **classe**, **herança**, **ligação tardia**
+(procedimentos `virtual`), **tabelas virtuais** e **encapsulamento sintático**. De certa
+forma, ela deu o norte para todas as linguagens orientadas a objetos.
 
-**Questão para discutir:** por que a programação orientada por objetos é tão popular na
-indústria?
+**Smalltalk** (Alan Kay, anos 70) não era muito eficiente: era **dinamicamente tipada**, e
+toda mensagem era resolvida em execução.
 
-## Os conceitos que a lista cobra
+**Java** foi quem popularizou essas ideias de Simula (antes dela, C++ nos anos 80 já as
+levava para a indústria).
 
-- **Despacho dinâmico** (*dynamic dispatch*): em `o.m()`, a implementação que roda é a da
-  classe do **objeto** (tipo dinâmico), decidida em execução.
-- **Tipo estático × tipo dinâmico** em Java: o compilador só aceita `o.m()` se o tipo
-  **declarado** de `o` tiver `m`; *downcasts* são conferidos em execução.
-- **Sobrecarga × sobrescrita:** a sobrecarga escolhe a assinatura pelo tipo **estático** dos
-  argumentos (compilação); a sobrescrita escolhe a classe pelo tipo **dinâmico** do receptor
-  (execução).
-- **Custo da chamada:** em Java e C++, uma consulta à tabela de métodos virtuais (*vtable*),
-  O(1); em Python, uma busca por nome subindo a cadeia de classes.
+## Características das linguagens orientadas a objetos
+
+Uma linguagem orientada a objetos deve ter **quatro coisas**:
+
+1. **Objetos**: tabelas com comportamento e dados; valores que contêm estado e sabem fazer
+   coisas sobre esse estado.
+2. **Mensagens**: os métodos, as ações. **Alan Kay** inventou a linguagem **Smalltalk** e
+   dizia que POO deveria se chamar programação orientada a **mensagens**. Em SML a mensagem
+   é o `#m o`; em Python, `o.m()` ou `o['m']`.
+3. **Subtipagem**, que traz junto:
+   - o **princípio da substituição de Liskov**;
+   - o **despacho dinâmico** (*dynamic dispatch*), ou **ligação tardia** (*late binding*):
+     a relação entre um **símbolo** e a **implementação** do símbolo é fixada só em **tempo
+     de execução**. Em linguagens de programação, a ligação de símbolos geralmente ocorre em
+     **tempo de compilação** (ver os tempos de ligação na [Aula 04](/docs/aula-04)).
+4. **Uso intenso do heap**: entre memória estática, pilha e heap, POO usa muito o heap
+   (detalhes mais abaixo).
+
+Algumas linguagens têm, além disso:
+
+- **Classes** (que funcionam como módulos e como tipos);
+- **Herança**: o **princípio aberto-fechado** (*open-closed*: aberto para extensão, fechado
+  para modificação), herança **simples** e herança **múltipla**;
+- **Sobrecarga** (*overloading*);
+- **Ocultação de informação** (*information hiding*);
+- **Consulta de tipo em tempo de execução** (*run-time type interrogation*);
+- **Coleta de lixo** (*garbage collection*).
+
+## O que é uma classe?
+
+- A **implementação de um tipo abstrato de dados** (o TAD da [Aula 16](/docs/aula-16)).
+- Um **espaço de nomes** (*name space*).
+- Um **texto estático**: define uma unidade de compilação, é um **módulo** e é também um
+  **tipo**.
+
+Isso vale como descrito para Java. Em Python, a classe não é texto estático: o `class` é um
+comando executado que cria uma tabela em execução. Nesse sentido, **classe é só um açúcar
+sintático** para gerar as tabelas e os estados de dados que sabem fazer as coisas —
+exatamente o que o `createObj` abaixo faz à mão.
+
+## O que é um objeto?
+
+- Um objeto é **dado**: um **valor que possui ações**, um **dado que sabe fazer coisas**.
+- Um objeto é **uma tabela com operações que se referem à própria tabela**.
+- Um objeto tem **uma posição na memória**, tem **estado**, **precisa ser criado** e
+  **pode ser destruído**.
+- Em Java, por exemplo, um objeto é uma **instância de uma classe**.
+
+### Objetos sem classes
+
+Dá para ter objetos sem classes? Claro. Por exemplo, usando tabelas em Python:
+
+```python
+def createObj(n):
+    t = {'x': n}
+    t['inc'] = lambda: t.update({'x': t['x'] + 1})
+    t['get'] = lambda: t['x']
+    return t
+
+c0 = createObj(4)
+c1 = createObj(4)
+
+c0['inc']()
+c0['get']()   # 5
+c1['get']()   # 4
+```
+
+Nesse caso `c0` e `c1` são objetos: **as ações conseguem fazer referência ao estado dentro
+da própria tabela**. A tabela é muito forte em POO: as ações se referem a campos da
+tabela. Chamamos essa tabela de **`self`**:
+
+```python
+def createObj(n):
+    self = {'x': n}
+    self['inc'] = lambda: self.update({'x': self['x'] + 1})
+    self['get'] = lambda: self['x']
+    return self
+
+c0 = createObj(4)
+c0['inc']()
+c1 = createObj(4)
+
+c0['x']   # 5 — em Python conseguimos fazer isso: o estado está exposto
+```
+
+Ou usando **closures** em JavaScript:
+
+```javascript
+function foo(n) {
+  function inc() { n++; }
+  function get() { return n; }
+  return {inc: inc, get: get};
+}
+
+var o0 = foo(1);
+o0.inc();
+alert(o0.get());   // 2
+
+var o1 = foo(100);
+o1.inc();
+alert(o1.get());   // 101
+```
+
+Ou usando closures em uma linguagem funcional, SML:
+
+```sml
+fun newObj n =
+    let
+        val c = ref n
+    in
+        { inc = fn () => c := 1 + !c,
+          get = fn () => !c }
+    end;
+
+val c0 = newObj 4;
+val c1 = newObj 2;
+
+#get c0 ();   (* 4 *)
+#get c1 ();   (* 2 *)
+#inc c0 ();   (* () — incrementa c0 *)
+#get c0 ();   (* 5 *)
+#get c1 ();   (* 2: c1 tem o seu próprio estado *)
+```
+
+São **dois contadores**. `{inc = ..., get = ...}` é um **registro** (*record*): uma tupla
+indexada por nomes. Uma tupla, por sua vez, é um registro cujos rótulos são `1`, `2`, ...;
+com uma tupla no lugar do registro, as mensagens viram `#1` e `#2`:
+
+```sml
+fun newObj2 n =
+    let
+        val c = ref n
+    in
+        (fn () => !c, fn () => c := 1 + !c)
+    end;
+
+val c0 = newObj2 4;
+val c1 = newObj2 2;
+
+#1 c0 ();   (* get: 4 *)
+#1 c1 ();   (* get: 2 *)
+#2 c0 ();   (* inc *)
+#1 c0 ();   (* get: 5 *)
+#1 c1 ();   (* get: 2 *)
+```
+
+(As notas do professor fazem o mesmo em Scala: uma função que devolve uma tupla de
+closures sobre uma variável local.)
+
+Atenção ao `()` no fim: `#inc c0` sozinho só **devolve** a função, não a chama.
+
+São sintaxes imperativas em SML:
+
+- `ref n` — parecido com o `malloc` de C: cria uma célula de memória e coloca `n` dentro
+  dela;
+- `!c` — igual ao `*c` de C: lê o conteúdo;
+- `c := v` — escreve na célula.
+
+O mesmo vale para uma pilha:
+
+```sml
+exception Empty;
+
+fun newStack x =
+    let
+        val stack = ref [x]
+    in
+        { push = fn y => stack := y :: (!stack),
+          pop  = fn () => case !stack of
+                              nil => raise Empty
+                            | (y :: ys) => (stack := ys; y) }
+    end;
+
+val myStack = newStack 0;
+#push myStack 1;
+#pop myStack ();   (* 1 *)
+```
+
+Mas por que `c0` é um objeto? Porque **`c0` recebe uma mensagem e sabe fazer as coisas**.
+As **mensagens** são os campos do registro. De quebra, nos closures (JavaScript e SML) o
+estado está **encapsulado de verdade**: `n`, `c` e `stack` só são alcançáveis pelas funções
+do objeto; não há como lê-los de fora. Compare com a tabela em Python, em que `c0['x']`
+está exposto.
+
+Programar orientado a objetos em SML, apesar de possível, **não é muito natural**. Algumas
+linguagens têm um suporte bem maior para programar com esses dados que sabem fazer as
+coisas.
+
+Go e Rust também **não têm classes** nem herança (têm *structs* com métodos, e Go tem
+*embedding*, Rust tem *traits*). JavaScript não tinha classes: a herança dele é por
+**protótipos** — um objeto delega a outro objeto, não a uma classe.
+
+### Como um objeto fala com outro?
+
+**Objetos trocam mensagens**, e essas mensagens são chamadas de **métodos**. Em Python, com
+classes:
+
+```python
+class Exp:
+    def eval(self):
+        raise NotImplementedError
+
+class BinExp(Exp):
+    def __init__(self, e0, e1):
+        self.e0 = e0
+        self.e1 = e1
+
+class Add(BinExp):
+    def eval(self):
+        return self.e0.eval() + self.e1.eval()
+
+class Mul(BinExp):
+    def eval(self):
+        return self.e0.eval() * self.e1.eval()
+
+class Num(Exp):
+    def __init__(self, num):
+        self.num = num
+    def eval(self):
+        return self.num
+
+Add(Num(2), Mul(Num(3), Num(4))).eval()   # 14
+```
+
+O `Exp` é uma **bolinha de bits que recebe uma mensagem `eval`**. Cada tipo de nó sabe se
+avaliar; ninguém de fora precisa perguntar "que nó é esse?".
+
+Um objeto tem algumas mensagens que **perguntam sobre o estado** do objeto (*getters*,
+métodos `const` em C++) e outras que **alteram o estado** do objeto (*setters*).
+
+## Herança
+
+Herança é um **mecanismo de reuso**. Uma hierarquia em que um `Dog` é um `Mammal`, que é um
+`Animal`:
+
+```python
+class Animal:
+    "The base class of the whole object zoo."
+    def __init__(self, name):
+        self.name = name
+    def __str__(self):
+        return self.name + " is an animal"
+    def eat(self):
+        print(self.name + ", which is an animal, is eating.")
+
+class Mammal(Animal):
+    "Mammals are animals that know how to suck milk."
+    def __str__(self):
+        return self.name + " is a mammal"
+    def suckMilk(self):
+        print(self.name + ", which is a mammal, is sucking milk.")
+
+class Dog(Mammal):
+    "Dogs are mammals that can bark, and bite when they eat."
+    def __str__(self):
+        return self.name + " is a dog"
+    def bark(self):
+        print(self.name + " is barking rather loudly.")
+    def eat(self):
+        print(self.name + " barks when it eats.")
+        self.bark
+
+def test0():
+    a = Animal("Tigrinho")
+    m = Mammal("Oncinha")
+    d = Dog("Mameluco")
+    print(a)        # Tigrinho is an animal
+    print(m)        # Oncinha is a mammal
+    print(d)        # Mameluco is a dog
+    a.eat()
+    m.suckMilk()
+    d.bark()
+```
+
+`Mammal` e `Dog` reusam o `__init__` de `Animal` sem reescrevê-lo. Repare no `self.bark` sem
+parênteses no `eat` de `Dog`: só **lê** o método, não o chama — nada é impresso por ele
+(pegadinha da Questão 2 da lista).
+
+### Herança múltipla
+
+Uma situação em que queremos herança múltipla: um morcego é um mamífero que voa.
+
+```python
+class Flier:
+    "Fliers are entities that can fly."
+    def __init__(self, name, height):
+        self.name = name
+        self.height = height
+    def fly(self):
+        print(self.name, "is flying", self.height, "meters high!")
+
+class Bat(Flier, Mammal):
+    "Bats are mammals that fly."
+    def __str__(self):
+        return self.name + " is a bat"
+```
+
+Quando chamo o `__init__` de `Bat`, qual roda: o de `Flier` ou o de `Animal`? Python busca
+o nome na **ordem de resolução de métodos** (*MRO*, `Bat.__mro__`), que segue a ordem das
+superclasses na declaração: `Bat → Flier → Mammal → Animal`. Roda o de **`Flier`**, e
+`Bat("Morcego", 10)` funciona.
+
+E se a declaração fosse `class Bat(Mammal, Flier)`? A ordem vira
+`Bat → Mammal → Animal → Flier`, e roda o `__init__` de **`Animal`**: `Bat("Morcego", 10)`
+dá `TypeError` (sobra um argumento), e `Bat("Morcego").fly()` dá `AttributeError` (não há
+`height`).
+
+**O problema do diamante** (*diamond problem*): é uma ambiguidade que surge quando duas
+classes `B` e `C` herdam de `A`, e `D` herda de `B` e de `C`. Se `D` chama um método
+definido em `A` (sem sobrescrevê-lo), e `B` e `C` o sobrescreveram de formas diferentes, de
+quem `D` herda: de `B` ou de `C`?
+
+O exemplo do professor mostra a mesma ambiguidade em C++ (ainda sem a base comum `A`, mas
+com dois `f` herdados):
+
+```cpp
+#include <iostream>
+
+struct A { virtual void f() { std::cout << "I'm A!\n"; } };
+
+struct B { virtual void f() { std::cout << "I'm B!\n"; } };
+
+struct C : public A, public B {};
+
+int main() {
+  C* pc = new C;
+  // pc->f();   // erro de compilação: chamada ambígua
+  pc->A::f();   // I'm A!
+  pc->B::f();   // I'm B!
+}
+```
+
+C++ recusa a chamada ambígua e obriga a dizer de quem é o `f`; Python resolve sozinho pela
+MRO; Java proíbe herança múltipla de classes (só de interfaces).
+
+## Sobrecarga × sobrescrita
+
+- **Sobrescrita** (*overriding*): a subclasse **redefine** um método herdado, com a mesma
+  assinatura. É o `eat` de `Dog` sobre o `eat` de `Animal`. Qual roda é decidido pelo
+  objeto, em execução.
+- **Sobrecarga** (*overloading*): **vários métodos com o mesmo nome e assinaturas
+  diferentes** na mesma classe (`buy(Knife)` × `buy(Sword)` em Java). Qual roda é decidido
+  pelos tipos estáticos dos argumentos, na compilação.
+
+Python tem sobrecarga de verdade? **Não.** Dá para reescrever o nome de um método, mas só
+uma implementação fica alcançável na classe — a classe é um dicionário, e a segunda
+definição substitui a primeira:
+
+```python
+class Calc:
+    def soma(self, a, b):
+        return a + b
+    def soma(self, a, b, c):   # substitui a anterior
+        return a + b + c
+
+Calc().soma(1, 2)   # TypeError: falta o argumento c
+```
+
+## Ligação dinâmica
+
+Linguagens orientadas a objetos dependem de **ligação dinâmica** (*dynamic binding*): **o
+alvo de uma chamada é escolhido em tempo de execução.**
+
+```c
+int i;
+struct Lista L;
+init(&L);
+```
+
+Nesse caso **o compilador sabe tudo**: que função `init` é chamada está fixado antes de o
+programa rodar. Em POO, não:
+
+```java
+List<Integer> l = args.length % 2 == 0 ? new ArrayList<>() : new LinkedList<>();
+l.add(4);
+```
+
+Qual `add` roda **depende de algo conhecido só em tempo de execução**: se o número de
+argumentos for par, acontece de um jeito (o `add` de `ArrayList`); senão, de outro (o de
+`LinkedList`). O que é importante em POO é essa **relação entre símbolo e implementação**,
+decidida tarde.
+
+No `test2` abaixo (com a hierarquia de `Animal` em Python), cada `print` e cada chamada
+escolhem o método pela **classe do objeto**, e não pelo nome da variável:
+
+```python
+def test2():
+    a1 = Animal("Tigrinho")
+    a2 = Mammal("Oncinha")
+    a3 = Dog("Mameluco")
+    print(a1)
+    print(a2)
+    print(a3)
+    a1.eat()
+    a2.suckMilk()
+    a2.eat()
+    a3.bark()
+    a3.suckMilk()
+    a3.eat()
+    a1.bark()     # AttributeError: um Animal não sabe latir
+    a1 = a3
+    a1.bark()     # agora a1 é o Dog: funciona
+```
+
+(O rastreio completo é a Questão 2 da [Lista 17](/docs/aula-17/lista-17).)
+
+## Subtipagem e o princípio de Liskov
+
+**Polimorfismo de subtipagem** (*subtyping polymorphism*): um código escrito para um tipo
+`T` funciona também com valores de qualquer subtipo de `T` (ver a
+[Aula 08](/docs/aula-08)).
+
+**Princípio da substituição de Liskov**: se `S` é um subtipo de `T`, então `S` pode ser
+usado em qualquer situação em que se espera um `T`. Um `Dog` pode estar onde se espera um
+`Animal`.
+
+### Tipo estático × tipo dinâmico
+
+> **O que** um objeto é (quais mensagens posso mandar) é determinado pelo **tipo
+> estático**; **como** ele responde é determinado pelo **tipo dinâmico**.
+
+No exemplo da ligação dinâmica, o tipo estático de `l` é `List<Integer>` (o declarado) e o
+tipo dinâmico é `ArrayList` ou `LinkedList` (o do objeto criado):
+
+```java
+List<Integer> l = args.length % 2 == 0 ? new ArrayList<>() : new LinkedList<>();
+l.add(4);    // compila: List tem add. Qual add roda: o do objeto (execução)
+l.push(4);   // erro de compilação: List não tem push, embora LinkedList tenha
+```
+
+A mesma hierarquia em Java:
+
+```java
+public class Zoo {
+  class Animal {
+    public void eat() { System.out.println(this + " is eating"); }
+    public String toString () { return "Animal"; }
+  }
+  class Mammal extends Animal {
+    public void suckMilk() { System.out.println(this + " is sucking"); }
+    public String toString () { return "Mammal"; }
+  }
+  class Dog extends Mammal {
+    public void bark() { System.out.println(this + " is barking"); }
+    public String toString () { return "Dog"; }
+  }
+  public void test () {
+    Animal a1 = new Animal();
+    Animal a2 = new Mammal();
+    Animal a3 = new Dog();
+    System.out.println(a1);   // Animal
+    System.out.println(a2);   // Mammal: toString do tipo dinâmico
+    System.out.println(a3);   // Dog
+    a1.eat();                 // Animal is eating
+    // a2.suckMilk();         // não compila: Animal não tem suckMilk
+    a2.eat();                 // Mammal is eating
+    // Dog d1 = a3;           // não compila: um Animal não é, estaticamente, um Dog
+    Dog d1 = new Dog();
+    Mammal m1 = d1;           // compila: subtipo onde se espera o supertipo (Liskov)
+    d1.bark();                // Dog is barking
+    m1.suckMilk();            // Dog is sucking
+    d1.suckMilk();            // Dog is sucking
+    // Type casts:
+    Dog d2 = (Dog)a3;         // compila, e em execução o objeto é mesmo um Dog
+    // a3.bark();             // não compila: o tipo estático de a3 é Animal
+    d2.bark();                // Dog is barking
+    // Dog d3 = (Dog)a2;      // compila, mas erro em execução: ClassCastException
+  }
+  public static void main(String a[]) {
+    Zoo z = new Zoo();
+    z.test();
+  }
+}
+```
+
+As linhas comentadas são justamente as que dão erro. Em Java, isso dá três regras:
+
+- **Se `o.m()` compila** é decidido pelo tipo **estático** de `o`.
+- **Qual implementação de `m` roda** (sobrescrita) é decidido pelo tipo **dinâmico** de
+  `o`, em execução.
+- **Qual assinatura usar** entre métodos sobrecarregados é decidido pelo tipo **estático
+  dos argumentos**, na compilação.
+
+Um *downcast* (`(Dog) a`) passa na compilação e é conferido em execução. Em Python não há
+tipo estático: tudo vira erro (ou não) em execução, quando a busca pelo nome falha.
+
+## Custo da chamada: Java × Python
+
+Qual a diferença entre um objeto em Java e em Python? Em **Java**, o *layout* do objeto é
+fixado na compilação: os campos ficam em deslocamentos fixos, mais um ponteiro para a
+tabela da classe; não dá para acrescentar campos ou métodos em execução. Em **Python**, o
+objeto é um dicionário: campos (e até métodos) podem ser acrescentados a qualquer momento,
+objeto a objeto.
+
+Isso muda o custo de achar o alvo de uma chamada:
+
+- **Java e C++:** cada classe tem uma **tabela virtual** (*virtual table*, *vtable*): um
+  arranjo com os endereços dos seus métodos. Cada objeto guarda um ponteiro para a tabela
+  da sua classe. Como os tipos são estáticos, o compilador sabe, para `l.add`, **em que
+  posição da tabela** está `add`; a subclasse herda o mesmo *layout* e só troca o conteúdo
+  da entrada. A chamada é: ler o ponteiro da tabela, ler a entrada num deslocamento fixo,
+  saltar. **O(1)**, qualquer que seja a profundidade da hierarquia. Em Java todo método de
+  instância é virtual por padrão; em C++, só os marcados com **`virtual`** (os outros são
+  ligados na compilação).
+- **Python:** não há tipos estáticos, e a classe é um dicionário que pode mudar em execução.
+  `o.m` é uma **busca por nome**: no dicionário do objeto, depois no da classe, depois no da
+  superclasse... Quanto mais funda a hierarquia, mais longa a busca (proporcional à altura
+  da hierarquia).
+- **C:** não há ligação dinâmica na linguagem; dá para emulá-la à mão com ponteiros para
+  função (o campo `f` da `struct` lá em cima).
+- **SML:** a ligação dinâmica vem de graça com os closures: `#inc c0 ()` chama a função que
+  foi guardada **naquele** registro.
+
+<Callout title="Cai em prova: 25% (finais 27 e 28)" type="warn">
+  Formato: "por quê" sobre a implementação da chamada. Exemplo: Final 28, Q1c–e — o que
+  significa `virtual` em C++, por que o alvo da chamada virtual é resolvido em O(1) em C++
+  e não em Python, e que linguagem introduziu a ideia (Simula 67). A Final 27, Q3 pede para
+  associar linguagens à "invocação dinâmica". Pegadinha: o O(1) não vem de C++ ser
+  compilada, e sim dos **tipos estáticos**, que fixam a posição do método na *vtable*. Ver
+  as Questões 7 e 8 da [Lista 17](/docs/aula-17/lista-17).
+</Callout>
+
+## Descobrindo o tipo em execução
+
+Como sei o tipo de uma estrutura de dados em **C**? Não sei: em execução, uma `struct` é só
+bytes, sem informação de tipo. Se for preciso, guardo à mão um campo com uma etiqueta
+(*tag*) e confio na convenção.
+
+Em **Python**, todo objeto sabe a sua classe:
+
+```python
+a = Mammal("Fortunato")
+if a.__class__.__name__ == Mammal.__name__:
+    print("The thing is a mammal!")
+```
+
+Qual a diferença entre `a.__class__.__name__ == Animal.__name__` e `isinstance(a, Animal)`?
+A comparação de nomes testa a **classe exata** (e só pelo nome: duas classes diferentes com
+o mesmo nome passariam): dá `False`, porque a classe de `a` é `Mammal`. O `isinstance`
+respeita a **subtipagem**: dá `True`, porque um `Mammal` é um `Animal`.
+
+Em Java há `instanceof` e `getClass()`. Em SML os tipos somem depois da compilação; o que
+existe em execução são os construtores de um `datatype`, testados por casamento de
+padrões. Em Prolog, predicados como `atom/1`, `number/1` e `is_list/1`.
+
+## POO e o heap
+
+Por que linguagens orientadas a objetos usam tanto o heap (ver a [Aula 15](/docs/aula-15))?
+Numa chamada de função, os dados são **empilhados** e morrem quando o registro de ativação
+é desempilhado. Mas os objetos devem **viver um tempo maior** do que a função que os criou:
+usar a pilha num construtor não daria certo, porque o objeto morreria quando o construtor
+retornasse.
+
+Que mecanismos facilitam o gerenciamento desse heap? **Coleta de lixo**: Java, Python,
+Smalltalk e JavaScript desalocam sozinhos o que não é mais alcançável. C++ não tem coleta
+de lixo; oferece **destrutores** e ponteiros inteligentes (`std::unique_ptr`,
+`std::shared_ptr`), que desalocam quando o dono sai de escopo.
+
+## Top-down × bottom-up
+
+Qual a diferença essencial entre desenvolver software numa linguagem orientada a funções e
+numa orientada a objetos? **Top-down × bottom-up.**
+
+Como seria o projeto de um **compilador** nos dois paradigmas?
+
+**Top-down** (orientado a funções): parto da tarefa e a quebro em subtarefas.
+
+- traduzir código-fonte para código de máquina:
+  1. analisar o arquivo (*parse*):
+     1. abrir o arquivo;
+     2. ler os *tokens*;
+     3. produzir a árvore de sintaxe abstrata (AST);
+     4. fechar os arquivos;
+  2. otimizar o programa;
+  3. gerar código de máquina.
+
+Onde entram os dados na abordagem top-down? **Só no fim**, como os parâmetros que passam de
+uma função para outra; cada estrutura de dados acaba espalhada pelas funções que a usam.
+
+**Bottom-up** (orientado a objetos): parto dos dados, das "coisas" de que preciso:
+`ParseTree`, `Optimizer`, `CodeGenerator`, `Parser`, `Lexer`, `ArchDescription`, `File`,
+`Token`. Depois as faço conversar.
+
+| Top-down | Bottom-up |
+|---|---|
+| estruturado e sistemático | reuso |
+| visão global | independência dos dados |
+| mais fácil de explicar | sem ordem temporal |
+| | mais fácil de alterar |
+
+Na prática, programar é uma mistura dos dois estilos, mas as linguagens orientadas a
+objetos **favorecem o bottom-up**, porque podemos trabalhar com **interfaces**, sem precisar
+das implementações.
+
+A mesma diferença aparece quando é preciso estender o programa. A Lista 17 (Questões 1 e 6)
+e a Final 22, Q2 comparam o mesmo programa escrito de forma procedural (uma função que
+pergunta "que nó é esse?" com `instanceof`/`when`) e orientada a objetos (cada classe sabe
+fazer a sua parte, como o `eval` de `Exp`):
+
+| Mudança | Orientado a objetos | Procedural |
+|---|---|---|
+| Novo **tipo** de dado (ex.: nó ternário) | fácil: uma classe nova, nada mais muda | difícil: editar toda função que distingue os casos |
+| Nova **operação** (ex.: imprimir a árvore) | difícil: um método novo em cada classe | fácil: uma função nova, nada mais muda |
+
+## Um ambiente de desenvolvimento produtivo
+
+Como deveria ser um ambiente de desenvolvimento produtivo? (O de Smalltalk já tinha tudo
+isso.)
+
+- **Refatoração** (*refactoring*);
+- **Atualização rápida** (*fast update*): alterar o código e ver o efeito sem recompilar
+  tudo;
+- **Persistência**: o estado dos objetos sobrevive entre sessões;
+- **Navegação** (*browsing*) pelas classes e métodos;
+- **Documentação**.
+
+## Por que POO é tão popular na indústria?
+
+É a questão para discutir da ementa. Juntando o que vimos:
+
+- **Encapsulamento imposto pela linguagem**: as dependências ficam no nível da interface,
+  e o custo de alterar software grande cai (o argumento da [Aula 16](/docs/aula-16)).
+- **Extensão por novos tipos**: com subtipagem e ligação dinâmica, código antigo que chama
+  `o.m()` passa a funcionar com classes que ainda nem existiam quando ele foi escrito
+  (o princípio aberto-fechado).
+- **Reuso por herança**, desenvolvimento bottom-up por interfaces, e um mapeamento natural
+  entre objetos do programa e entidades do domínio (cliente, conta, pedido).
+
+## Resumo nas cinco linguagens
+
+| | C | Java | Python | SML | Prolog |
+|---|---|---|---|---|---|
+| Objetos (dados com ações) | só emulados: `struct` + ponteiro para função | classes | classes (dicionários por baixo) | registros de closures + `ref` | ∅ |
+| Mensagens | à mão: `s->f(...)` | `o.m()` | `o.m()`, ou `t['m']()` numa tabela | `#m o ()` | ∅ |
+| Ligação dinâmica | à mão, com ponteiro para função | métodos de instância, via *vtable*, O(1) | busca por nome em execução | chamar o closure guardado no registro | ∅ |
+| Herança | ∅ | simples (classes) e múltipla só de interfaces | múltipla, resolvida pela MRO | ∅ | ∅ |
+| Sobrecarga | ∅ | sim, pelo tipo estático dos argumentos | ∅ (a última definição vence) | ∅ | ∅ |
+| Encapsulamento | `static` no arquivo, `.h`/`.c` | `private`/`protected` | só convenção (`_x`, `__x`) | `signature` com `:>`; estado escondido no closure | ∅ |
+| Tipo em execução | ∅ (etiqueta à mão) | `instanceof`, `getClass()` | `isinstance`, `__class__` | construtores do `datatype` | `atom/1`, `number/1`... |
+| Heap | `malloc`/`free` à mão | coleta de lixo | coleta de lixo | coleta de lixo | coleta de lixo |
 
 **Resolução da lista:** [Lista 17 - Resolução](/docs/aula-17/lista-17)

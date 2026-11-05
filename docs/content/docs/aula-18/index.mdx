@@ -1,0 +1,692 @@
+---
+title: Aula 18 - Tratamento de erros
+description: 26/10 — Lista 18
+---
+
+## O problema: o que pode dar errado no `pop`?
+
+Vamos lidar com uma lista (pilha), nesse caso:
+
+```java
+public class List {
+    Node top;
+
+    int pop() {
+        int i = top.data;
+        this.top = top.next;
+        return i;
+    }
+}
+```
+
+Mas e se a lista estiver vazia? `top` é `null` e `top.data` dispara um
+`NullPointerException`. Existem várias formas de lidar com erros numa linguagem de
+programação; o professor lista seis: **definição total**, **erro fatal**, **guardas**,
+**sinalização de erro** (*error flagging*), **pré/pós-condições** e **exceções**.
+
+## Definição total (*total definition*)
+
+A função passa a ser definida para **todas** as entradas: no caso excepcional ela devolve
+um valor especial.
+
+```java
+public class List {
+    Node top;
+
+    int pop() {
+        if (top == null) {
+            return 0;
+        } else {
+            int i = top.data;
+            this.top = top.next;
+            return i;
+        }
+    }
+}
+```
+
+Qual o problema dessa abordagem? A função deve necessariamente retornar alguma coisa, e o
+valor especial (`0`) é indistinguível de um valor legítimo: quem chama não sabe se a pilha
+estava vazia ou se o topo era mesmo `0`. É a desvantagem pedida na Questão 1(a) da Lista 18
+(o `getSalary` que devolve `0.0` para empregado inexistente).
+
+É a abordagem adotada pela função `atoi` de C:
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(int argc, char** argv) {
+    int i = atoi(argv[1]);
+    printf("%d\n", i);
+    return 0;
+}
+```
+
+Esse programa, por exemplo, se eu inserir `345`, retorna `345`; mas se eu inserir `10abc`
+ele retorna `10`, e `abc23` retorna `0`. Nunca dá erro: qualquer string vira algum inteiro.
+
+Outra opção que temos é a de lançar exceções, mas em C, por exemplo, não temos isso.
+
+## Erro fatal (*fatal error*)
+
+Podemos usar a abordagem do "para tudo":
+
+```java
+public class List {
+    Node top;
+
+    int pop() {
+        if (top == null) {
+            System.out.println("Popping an empty stack!");
+            System.exit(-1);
+        }
+        int i = top.data;
+        this.top = top.next;
+        return i;
+    }
+}
+```
+
+O problema dessa abordagem é que o programa literalmente para: quem chamou não tem chance
+nenhuma de se recuperar do erro.
+
+## Guardas (*guards*)
+
+O código cliente testa antes de chamar:
+
+```java
+if (L.empty())
+    ...
+else
+    L.pop();
+```
+
+O problema é que a linguagem não força o programador a escrever esse teste. Quem esquecer o
+`if` cai no erro do mesmo jeito.
+
+## Sinalização de erro (*error flagging*)
+
+Em C, por exemplo, tem um jeito muito comum de tratar erros: a função marca o erro numa
+variável global (`errno`) e o chamador consulta essa variável.
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
+void check_args(int argc, char** argv) {
+    if (argc < 2) {
+        errno = 1;
+    }
+}
+
+int main(int argc, char** argv) {
+    check_args(argc, argv);
+    if (errno == 1) {
+        fprintf(stderr, "Faltou argumento\n");
+    } else {
+        int i = atoi(argv[1]);
+        printf("%d\n", i);
+    }
+    return 0;
+}
+```
+
+De novo, a linguagem não força ninguém a usar esse tratamento de erros: nada obriga o
+chamador a olhar o `errno`.
+
+## Pré e pós-condições: Eiffel
+
+Tem alguma linguagem que força isso? A linguagem **Eiffel**:
+
+```
+note description: "Simple bank accounts"
+
+class
+    ACCOUNT
+
+feature
+
+    balance: INTEGER -- Current balance
+
+    deposit (sum: INTEGER)
+            -- Add `sum` to account.
+        require
+            non_negative: sum >= 0
+        do
+            balance := balance + sum
+        ensure
+            -- one_more_deposit: deposit_count = old deposit_count + 1
+            updated: balance = old balance + sum
+        end
+
+end
+```
+
+Eiffel, na época, era uma linguagem competitiva com Java, fortemente tipada, assim como
+Pascal (o Object Pascal é chamado de Delphi, por conta da IDE). Eiffel tem sintaxe própria
+para evitar erros: **programação por contratos** (*design by contract*).
+
+- `require` é a **pré-condição**: um contrato que quem chama precisa cumprir (aqui,
+  `sum >= 0`).
+- `ensure` é a **pós-condição**: o que o método garante ao terminar. `old balance` é o valor
+  de `balance` antes da chamada.
+
+(A linha `one_more_deposit` fica comentada porque `deposit_count` não é um atributo da
+classe; com ela, o código não compilaria.)
+
+### Contratos e o princípio de Liskov
+
+O princípio da substituição de Liskov diz que um objeto da subclasse deve poder ser usado em
+qualquer lugar onde se espera um da superclasse. Uma linguagem estaticamente tipada garante
+a parte **sintática** disso: a subclasse tem os mesmos métodos, com assinaturas compatíveis.
+Mas ela **não** garante a parte **comportamental**, isto é, que a subclasse respeite o
+contrato da superclasse.
+
+Tem como quebrar? O problema dos círculos e elipses (ou do quadrado e do retângulo): um
+quadrado é um retângulo, mas se eu mudo o `width` de um retângulo, não necessariamente
+quero mudar a altura dele; já o quadrado precisa que os dois mudem ao mesmo tempo. Um
+cliente que faz `r.setWidth(5); r.setHeight(4);` e espera área `20` recebe `16` se `r` for
+um quadrado. O programa compila, os tipos batem, e mesmo assim a substituição falha. É esse
+tipo de garantia que os contratos de Eiffel tentam verificar.
+
+## Tipos `result` e mônadas
+
+```sml
+datatype 'a result = Ok of 'a | Error of string
+
+fun bind (Ok x, f) = f x
+  | bind (Error msg, _) = Error msg
+
+fun parseInt s =
+    (Ok (valOf (Int.fromString s)))
+    handle _ => Error ("Inteiro Invalido: " ^ s)
+
+fun divide (x, y) =
+    if y = 0 then Error "Divisao por zero"
+    else Ok (x div y)
+
+fun calculate (a, b) =
+    bind (parseInt a, fn x =>
+        bind (parseInt b, fn y =>
+            divide (x, y)))
+
+val x = calculate ("42", "2")      (* Ok 21 *)
+val y = calculate ("Pepinos", "2") (* Error "Inteiro Invalido: Pepinos" *)
+val z = calculate ("42", "0")      (* Error "Divisao por zero" *)
+```
+
+Em SML temos os `option` (`SOME v` / `NONE`), que são opcionais; o `result` acima é a mesma
+ideia, mas o caso de erro carrega uma mensagem. O erro vira um **valor de retorno**, e o
+tipo obriga o chamador a considerar os dois casos.
+
+O problema é encadear funções: não consigo fazer `divide (parseInt a, parseInt b)`, por conta
+do tipo que cada uma espera e retorna (`parseInt` devolve `int result`, `divide` espera
+`int * int`). Mas tem um jeito de fazer isso, definindo uma função chamada `bind`, que recebe
+um valor `result` e uma função: se o valor é `Ok x`, ela aplica a função a `x`; se é
+`Error`, ela passa o erro para frente sem chamar a função.
+
+```sml
+val bind = fn : 'a result * ('a -> 'b result) -> 'b result
+```
+
+Esse padrão é uma **mônada** (*monad*). Tem linguagens que são construídas nesse padrão:
+Rust (tipo `Result`, sem exceções) e Swift (`Optional` e `Result`), por exemplo.
+
+## Exceções
+
+O jeito mais comum é via exceções.
+
+```sml
+exception BadArgument of int
+
+fun fact n = if n = 0 then 1 else n * fact (n - 1)
+fun fact1 n = if n < 0 then raise BadArgument n else fact n
+
+fun use_fact1 n =
+    "Resposta = " ^ Int.toString (fact1 n)
+    handle BadArgument n => "Argumento mau! " ^ Int.toString n
+```
+
+(`fact` com argumento negativo nunca chega a `0` e entra em recursão infinita; `fact1`
+protege a entrada disparando a exceção.)
+
+Em geral, para usar exceções existem **3 partes** (o professor chama de um padrão de
+projeto, *design pattern*):
+
+1. **Declaração**: algum tipo de sintaxe para declarar a exceção. Em SML, a palavra
+   `exception`.
+2. **Disparo**: preciso ser capaz de lançar essa exceção. `raise` em SML.
+3. **Captura**: preciso ser capaz de capturar a exceção. Em SML, `handle`, com casamento de
+   padrões (*pattern matching*) sobre a exceção.
+
+| | Declarar | Disparar | Capturar | `finally` |
+|---|---|---|---|---|
+| SML | `exception E of int` | `raise E 3` | `e handle E n => ...` | não tem |
+| Python | `class E(Exception)` | `raise E("msg")` | `try` / `except E as e` | tem |
+| Java | `class E extends Exception` | `throw new E("msg")` | `try` / `catch (E e)` | tem |
+| C++ | `class E : public std::exception` | `throw E("msg")` | `try` / `catch (E& e)` | não tem (RAII) |
+| Prolog | qualquer termo | `throw(erro(x))` | `catch(Meta, Padrao, Recuperacao)` | não tem |
+| C | não tem | não tem | não tem | não tem |
+
+Em Python, preciso estender a classe `Exception`: `class X(Exception)`. Para lançar,
+`raise` também, e para capturar usa-se `try`/`except`. (Em Python 3, só se pode disparar
+instâncias de `BaseException`; a ementa diz que "não é necessário estender uma classe em
+particular" porque no Python 2 antigo isso era permitido.)
+
+Em Java é muito parecido: tenho uma classe `Exception`; para lançar usa-se `throw`, e para
+capturar usa-se `try`/`catch`. Java é muito parecido com C++ nesse ponto (em C++ dá para
+disparar qualquer valor, até um `int`).
+
+### Exemplo em Python: ler `n` e `d` e imprimir `n/d`
+
+Quais preocupações temos ao escrever uma aplicação robusta? O usuário pode digitar algo que
+não é número, e pode digitar `0` como divisor.
+
+```python
+class ArithmeticException(Exception):
+    def __init__(self, msg):
+        self.value = msg
+
+    def __str__(self):
+        return repr(self.value)
+
+def div(n, d):
+    if d == 0:
+        raise ArithmeticException("Attempt to divide " + str(n) + " by zero")
+    else:
+        return n / d
+
+while True:
+    try:
+        n = float(input("Please, enter the dividend: "))
+        d = float(input("Please, enter the divisor: "))
+        r = div(n, d)
+        print("Result =", r)
+    except ValueError:
+        print("Invalid number format. Please, try again")
+    except ArithmeticException as ae:
+        print(ae.value)
+        break
+```
+
+A exceção é uma classe comum, então pode ter atributos (`self.value`); é o que a Questão
+1(d) da Lista 18 pede (`NegativeSalary` com `name` e `salary`). O `try` dentro do `while`
+dá ao usuário uma nova chance depois de um erro, como pede a Questão 1(g).
+
+### Exemplo em Java
+
+```java
+public class T {
+    public static void main(String args[]) {
+        int i = Integer.parseInt(args[0]);
+        int j = Integer.parseInt(args[1]);
+        System.out.println(i / j);
+    }
+}
+```
+
+Podem dar errado algumas coisas nesse programa: pode ser que não sejam inteiros os números,
+pode faltar argumento, divisão por zero é outro tipo de erro.
+
+| Execução | Resultado |
+|---|---|
+| `java T 6 3` | imprime `2` |
+| `java T 6` | `ArrayIndexOutOfBoundsException` (não existe `args[1]`) |
+| `java T 6 0` | `ArithmeticException: / by zero` |
+| `java T 6 pepinos` | `NumberFormatException` |
+
+Quem imprime a mensagem de erro? Ninguém no programa trata a exceção, então ela chega à JVM,
+que imprime a pilha de chamadas (*stack trace*) e termina o programa.
+
+O tratamento de exceções tem a ver com a **pilha de chamadas**: o sistema de execução
+procura, na pilha, um método que tenha um bloco capaz de tratar a exceção (o *tratador*,
+*exception handler*). A busca começa no método onde o erro ocorreu e segue a pilha na ordem
+inversa das chamadas. Quando encontra um tratador adequado, passa a exceção para ele.
+
+Se eu quero lidar com isso:
+
+```java
+public class T {
+    public static void main(String args[]) {
+        try {
+            int i = Integer.parseInt(args[0]);
+            int j = Integer.parseInt(args[1]);
+            System.out.println(i / j);
+        } catch (Exception e) {
+            System.out.println("Oops, alguma coisa deu errado!");
+        }
+    }
+}
+```
+
+Funciona porque todas essas exceções são subclasses de `java.lang.Exception`. Nesse caso eu
+só não sei qual o tipo de erro que deu na hora de executar. Para distinguir:
+
+```java
+public class T {
+    public static void main(String args[]) {
+        try {
+            int i = Integer.parseInt(args[0]);
+            int j = Integer.parseInt(args[1]);
+            System.out.println(i / j);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println("Faltaram argumentos");
+        } catch (ArithmeticException e) {
+            System.out.println("O denominador eh zero");
+        } catch (NumberFormatException e) {
+            System.out.println("Formato invalido");
+        }
+    }
+}
+```
+
+Depois de executar o bloco `catch`, a execução continua **depois** do `try`/`catch`, e não
+no ponto onde a exceção foi disparada.
+
+### Ordem dos `catch`
+
+Os `catch` são testados **em ordem**, e executa o primeiro cujo tipo casa com a exceção.
+Por isso a ordem importa:
+
+```java
+try {
+    ...
+} catch (Exception e) {
+    System.out.println("Alguma coisa deu errado");
+} catch (ArithmeticException ae) {
+    System.out.println("Divisao por zero");
+}
+```
+
+Esse programa **não compila**: `ArithmeticException` é subclasse de `Exception`, então
+qualquer exceção que chegaria ao segundo `catch` já é capturada pelo primeiro, e o segundo
+bloco é inalcançável. O compilador verifica, para cada `catch`, se algum `catch` anterior
+captura um supertipo dele. Na ordem inversa (específico primeiro, `Exception` depois), o
+programa compila.
+
+## Exceções em Java: a hierarquia de `Throwable`
+
+Java tem uma particularidade no jeito que lida com exceções: comentei que é preciso estender
+uma classe de exceção. Uma exceção em Java é um objeto que herda de `Throwable` (uma
+**classe**, não uma interface), que tem 2 subclasses principais: `Error` e `Exception` (que
+tem uma subclasse `RuntimeException`).
+
+```
+         Object
+            |
+        Throwable
+        /       \
+     Error     Exception
+                  |
+           RuntimeException
+```
+
+- `Error`: em geral são disparados pela JVM, pelo código da máquina virtual. Erros graves,
+  dos quais não se espera recuperação (ex.: `OutOfMemoryError`, `StackOverflowError`).
+- `Exception`: em geral é a classe que os usuários de Java usam. Erros que o programador
+  pode querer capturar e dos quais pode se recuperar (ex.: `FileNotFoundException`).
+- `RuntimeException`: erros gerais que podem acontecer durante a execução de quase qualquer
+  código (ex.: `NullPointerException`, `ArithmeticException`, `ClassCastException`).
+
+### Exceções verificadas e não verificadas (*checked* e *unchecked*)
+
+Mas por que existe essa distinção? Compare:
+
+```java
+public class MyException extends Error {}
+
+public class MyTest {
+    public static void m() {
+        throw new MyException();
+    }
+    public static void main(String args[]) {
+        m();
+    }
+}
+```
+
+Nesse caso dispara uma exceção do tipo `MyException`, mas ele **compila**: subclasses de
+`Error` não precisam ser declaradas nem tratadas.
+
+```java
+public class MyException extends Exception {}
+
+public class MyTest {
+    public static void m() {
+        throw new MyException();
+    }
+    public static void main(String args[]) {
+        m();
+    }
+}
+```
+
+Nesse último caso ele **não compila mais**: em Java, qualquer método que dispara uma
+instância de `Exception` (que não seja `RuntimeException`) deve tratá-la. Um método que
+pode receber uma exceção verificada não pode ignorá-la; ele tem duas opções:
+
+**1. Passar a exceção para frente**, declarando-a com `throws`:
+
+```java
+public class MyTest {
+    public static void m() throws MyException {
+        throw new MyException();
+    }
+    public static void main(String args[]) throws MyException {
+        m();
+    }
+}
+```
+
+Nesse caso agora passou para a JVM: ele compila e executa (e a JVM imprime o *stack trace*).
+
+**2. De fato tratar a exceção**, com `try`/`catch`:
+
+```java
+public class MyTest {
+    public static void m() throws MyException {
+        throw new MyException();
+    }
+    public static void main(String args[]) {
+        try {
+            m();
+        } catch (MyException e) {
+            System.out.println("Erro");
+        }
+    }
+}
+```
+
+Note que `m` continua precisando do `throws MyException`: ela dispara a exceção e não a
+trata.
+
+Posso adicionar à exceção um construtor com uma mensagem; `super(msg)` chama o construtor da
+superclasse (`Exception(String)`), que guarda a mensagem devolvida por `getMessage()`:
+
+```java
+public class MyException extends Exception {
+    public MyException() {
+    }
+    public MyException(String msg) {
+        super(msg);
+    }
+}
+```
+
+Resumindo:
+
+| | Classes | Compilador obriga tratar/declarar? |
+|---|---|---|
+| Verificadas (*checked*) | `Exception` e subclasses, exceto `RuntimeException` | sim |
+| Não verificadas (*unchecked*) | `Error`, `RuntimeException` e subclasses | não |
+
+### Por que Java faz isso?
+
+Java é a única linguagem popular que obriga a tratar as exceções (o programa não deixa nem
+compilar). Mas por quê? Exceções verificadas funcionam como uma forma de **documentação que o
+compilador verifica**: uma documentação verificável. Quem lê a assinatura
+`void m() throws MyException` sabe o que pode dar errado, e o compilador garante que isso é
+verdade.
+
+Outras formas de documentação verificada pelo compilador:
+
+- **Tipos** também são uma forma de documentação que o compilador verifica.
+- `private`, `protected`: esses qualificadores também são documentação.
+- `@Override` também: o compilador verifica se de fato está sobrescrevendo, isto é, se
+  naquela hierarquia existe um método virtual com a mesma assinatura.
+- Exceções também.
+
+Porém, só Java faz isso. Linguagens que vieram depois (C#, Kotlin, Scala) têm exceções, mas
+nenhuma delas força o programador a verificá-las; Go nem tem exceções (devolve o erro como
+valor de retorno). A desvantagem é que é **verboso demais**: muito código extra, que entope
+o programa com `try`/`catch` e `throws`.
+
+E por isso Java tem a classe `RuntimeException`, que não é verificada em tempo de
+compilação, só em tempo de execução. São erros que podem acontecer em praticamente qualquer
+linha (todo acesso a objeto pode dar `NullPointerException`, toda divisão pode dar
+`ArithmeticException`, toda coerção pode dar `ClassCastException`); se fossem verificados,
+todo método precisaria de `throws` ou `try`/`catch`, e o programa ficaria ilegível. (Esta
+seção é o assunto da Questão 3 da Lista 18.)
+
+## O bloco `finally`
+
+O bloco `finally` executa **sempre**, tenha ou não havido exceção, e tenha ou não a exceção
+sido capturada. Serve para liberar recursos (fechar arquivo, conexão) em qualquer caminho de
+saída.
+
+```java
+public class MT1 {
+    public static void main(String args[]) {
+        System.out.println("1");
+        try {
+            System.out.println("2");
+            if (true) throw new Exception();
+            // if (true) throw new Error();
+            System.out.println("3");
+        } catch (Exception e) {
+            System.out.println("4");
+        } finally {
+            System.out.println("5");
+        }
+        System.out.println("6");
+    }
+}
+```
+
+Imprime `1 2 4 5 6`. Com `throw new Error()` no lugar: imprime `1 2 5`, e o `Error` (que
+não é `Exception`, então o `catch` não o captura) sobe até a JVM; o `6` não é impresso.
+(O `if (true)` existe para o compilador não reclamar que o `println("3")` é inalcançável.)
+
+```java
+public class MT2 {
+    public static int f(boolean t) {
+        try {
+            if (t) throw new Exception();
+            return 1;
+        } catch (Exception e) {
+            System.out.println("2");
+        } finally {
+            System.out.println("3");
+        }
+        System.out.println("4");
+        return 2;
+    }
+    public static void main(String args[]) {
+        System.out.println(f(false));
+    }
+}
+```
+
+`f(false)` imprime `3` e depois `1`: o `return 1` é executado, mas o `finally` roda antes de
+o método de fato retornar. (`f(true)` imprimiria `2 3 4 2`.)
+
+Se o próprio `finally` tiver um `return 3`, ele **sobrescreve** o `return 1`: o programa
+imprime `3 3`. E as linhas depois do `finally` (`println("4")`, `return 2`) precisam ser
+removidas, porque passam a ser inalcançáveis (o `finally` sempre retorna) e o compilador
+recusa código inalcançável.
+
+```java
+public class Finally {
+    public static int foo(boolean p) {
+        int r = 0;
+        try {
+            if (p) throw new Exception();
+            r = 1;
+            return r;
+        } catch (Exception e) {
+            r = 2;
+        } finally {
+            return 3;
+        }
+    }
+    public static void main(String args[]) {
+        System.out.println(foo(Boolean.valueOf(args[0])));
+    }
+}
+```
+
+Imprime `3` tanto para `true` quanto para `false`: o `return 3` do `finally` sempre vence.
+
+```java
+public class MT1 {
+    static class R {
+        int x;
+    }
+    public static R foo(boolean p) {
+        R r = new R();
+        r.x = 0;
+        try {
+            if (p) throw new Exception();
+            r.x = 1;
+            return r;
+        } catch (Exception e) {
+            r.x = 2;
+        } finally {
+            r.x = 3;
+        }
+    }
+    public static void main(String args[]) {
+        System.out.println(foo(Boolean.valueOf(args[0])).x);
+    }
+}
+```
+
+Esse **não compila**: pelo caminho do `catch`, o método chega ao fim sem `return`
+(*missing return statement*). Acrescentando `return r;` depois do `finally`, imprime `3`
+nos dois casos: o `finally` altera o **objeto** apontado por `r`, que é o mesmo objeto
+devolvido. (Compare com `int r`: alterar uma variável local no `finally` depois do
+`return r` não mudaria o valor já devolvido.)
+
+### Linguagens sem `finally`: RAII
+
+Como programar com segurança em linguagens que não têm `finally`, como C++? Em linguagens
+que possuem destrutores surge naturalmente o **RAII** (*Resource Acquisition Is
+Initialization*): o recurso é adquirido no construtor de um objeto local e liberado no
+destrutor. Quando uma exceção atravessa a função, a pilha é desempilhada e os destrutores
+dos objetos locais são chamados, então o recurso é liberado em qualquer caminho de saída.
+
+## Exceções e tipagem forte
+
+Qual o papel das exceções em garantir a tipagem forte de linguagens como Python, Java e
+SML? Quando uma verificação em tempo de execução falha, a linguagem precisa fazer
+**alguma coisa** que não seja continuar com a memória corrompida. A exceção é essa coisa:
+
+| Situação | C / C++ | Java | Python | SML |
+|---|---|---|---|---|
+| Acesso fora dos limites do arranjo | comportamento indefinido | `ArrayIndexOutOfBoundsException` | `IndexError` | `Subscript` |
+| Referência/ponteiro nulo | comportamento indefinido | `NullPointerException` | `AttributeError` em `None` | não existe nulo |
+| Coerção inválida | aceita (reinterpreta a memória) | `ClassCastException` | `TypeError` | não compila |
+| Divisão inteira por zero | comportamento indefinido | `ArithmeticException` | `ZeroDivisionError` | `Div` |
+
+Sem exceções, a única alternativa segura seria o erro fatal. O preço são as verificações
+inseridas pelo compilador, que custam tempo de execução.
+
+<Callout title="Caiu na prova final 29, Q2" type="info">
+  Gráfico de desempenho do Ada em modo seguro (com verificações de limites, overflow,
+  ponteiro nulo e coerções) contra o modo inseguro. Perguntas: o que acontece ao chamar um
+  método sobre referência nula em Java (exceção, `NullPointerException`) e em C++
+  (comportamento indefinido), e se Python deixa acessar um vetor fora dos limites (não:
+  dispara exceção).
+</Callout>
