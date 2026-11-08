@@ -1,0 +1,696 @@
+---
+title: Aula 20 - Introdução à linguagem Prolog
+description: 04/11 — Lista 20
+---
+
+## O que é Prolog?
+
+Prolog é uma linguagem de **programação lógica** (*logic programming*). Um programa é um
+conjunto de **fatos** e **regras lógicas**, e a computação acontece **derivando outros
+fatos** a partir dessas regras. Não se diz *como* calcular; diz-se *o que é verdade*, e o
+interpretador procura uma prova.
+
+- **Origem:** França, 1971/72, por Alain Colmerauer e Philippe Roussel.
+- **Motivação:** processamento de linguagem natural.
+
+### Cláusulas de Horn
+
+A base de Prolog são as **cláusulas de Horn** (*Horn clauses*): uma implicação cujo lado
+esquerdo é uma conjunção e cujo lado direito é um único fato.
+
+```text
+(p and q and ... and t) -> u
+```
+
+é escrito, em Prolog, como:
+
+```prolog
+u :- p, q, ..., t.
+```
+
+Lê-se "`u` é verdade **se** `p`, `q`, ..., `t` forem verdade". O `:-` é o "se" (a seta
+invertida) e a vírgula é o "e".
+
+## Termos: a sintaxe inteira de Prolog
+
+Prolog tem uma sintaxe muito simples. O núcleo de Prolog é o **termo** (*term*), e só
+existem três tipos:
+
+- **Constantes:**
+  - números: `123`, `-123`, etc.;
+  - átomos (*atoms*), símbolos alfanuméricos: `fernando`, `*`, `.`, `=`, `[]`. Átomos
+    **começam com letra minúscula**.
+- **Variáveis:** nomes que começam com **letra maiúscula** ou com `_`: `X`, `Fernando`,
+  `_`. Cuidado: `Fernando` é uma variável, `fernando` é um átomo.
+- **Termos compostos** (*compound terms*): um átomo seguido de uma sequência de termos
+  entre parênteses: `x(Y, Z)`, `x(y, Z)`, `parent(kim, holly)`.
+
+Os nomes dos átomos **não têm significado nenhum** para o interpretador: `parent` poderia
+se chamar `p` ou `xyz`. Eles servem só para os humanos entenderem o programa.
+
+## Fatos
+
+Um programa Prolog **conhece fatos**. Um fato é um termo seguido de um ponto final:
+
+```prolog
+parent(kim, holly).
+```
+
+Um fato é como uma declaração, um **axioma**: algo que o interpretador aceita como verdade
+sem prova. Esta é a base que a aula toda (e as questões 1 a 6 da Lista 20) usa:
+
+```prolog
+parent(kim, holly).
+parent(margaret, kim).
+parent(margaret, kent).
+parent(esther, margaret).
+parent(herbert, margaret).
+parent(herbert, jean).
+```
+
+Lê-se `parent(X, Y)` como "`X` é pai/mãe de `Y`". A árvore genealógica:
+
+```text
+esther   herbert
+     \   /     \
+    margaret   jean
+     /    \
+   kim    kent
+    |
+  holly
+```
+
+### Carregando o programa
+
+Posso encher um arquivo com fatos (`par.pl`) e carregá-lo no interpretador com
+`consult`:
+
+```prolog
+?- consult(par).
+```
+
+ou, direto da linha de comando:
+
+```text
+$> swipl -g "consult(par)."
+```
+
+Lembra da diferença entre **interpretadores e compiladores** (Aula 04)? Prolog normalmente
+é usado num interpretador interativo: depois do `consult`, o interpretador "sabe" que os
+fatos são verdadeiros, e o usuário interage com ele por meio de **consultas** (*queries*).
+
+## Consultas
+
+Uma consulta pergunta ao interpretador se ele **consegue provar** alguma coisa. Qual o
+significado de digitar o seguinte no interpretador?
+
+```prolog
+?- parent(kim, holly).
+true.
+```
+
+"Kim é mãe/pai de Holly?" Está na base: `true`.
+
+```prolog
+?- parent(kim, X).
+X = holly.
+```
+
+"De quem Kim é pai/mãe?" O interpretador procura um valor para `X` que torne a consulta
+verdadeira.
+
+```prolog
+?- parent(X, Y).
+X = kim, Y = holly ;
+X = margaret, Y = kim ;
+X = margaret, Y = kent ;
+X = esther, Y = margaret ;
+X = herbert, Y = margaret ;
+X = herbert, Y = jean.
+```
+
+Todas as soluções, **na ordem em que os fatos aparecem no arquivo**. Digitar `;` pede a
+próxima resposta.
+
+```prolog
+?- parent(Y, esther).
+false.
+```
+
+Ninguém é pai/mãe de Esther **na base**. `false` não quer dizer "é falso no mundo"; quer
+dizer "não consegui provar" (é a **hipótese do mundo fechado**, *closed world
+assumption*).
+
+### Consultas com vários termos
+
+Uma consulta pode ser uma sequência de termos, separados por vírgula (o "e"). Qual o
+resultado?
+
+```prolog
+?- parent(margaret, X), parent(X, holly).
+X = kim.
+```
+
+"Existe `X` filho de Margaret que é pai/mãe de Holly?" Qual o **escopo** de `X`? A consulta
+inteira: o `X` do primeiro termo é **o mesmo** `X` do segundo. Quando o primeiro termo liga
+`X = kim`, o segundo já é testado com `kim`. (Se `X = kent` fosse tentado, o segundo termo
+falharia.)
+
+Como descobrir se Esther tem um bisneto?
+
+```prolog
+?- parent(esther, C), parent(C, GC), parent(GC, GGC).
+C = margaret, GC = kim, GGC = holly ;
+false.
+```
+
+O `false` final aparece porque, ao pedir mais respostas, o interpretador tenta
+`GC = kent`, e Kent não tem filhos.
+
+## Regras
+
+As linguagens de programação normalmente oferecem abstrações para juntar computação: Java
+dá o **método**, SML dá a **função**, C dá o **procedimento**. Essas abstrações são
+praticamente a mesma coisa. Prolog dá algo bem diferente: **regras de inferência**
+(*inference rules*).
+
+Uma **regra** é uma especificação de **como derivar fatos novos**:
+
+```prolog
+greatgrandparent(GGP, GGC) :-
+  parent(GGP, GP), parent(GP, P), parent(P, GGC).
+```
+
+O que essa regra diz? "`GGP` é bisavô/bisavó de `GGC` **se** `GGP` é pai/mãe de algum
+`GP`, que é pai/mãe de algum `P`, que é pai/mãe de `GGC`". As variáveis que só aparecem
+no corpo (`GP`, `P`) funcionam como "existe algum".
+
+```prolog
+?- greatgrandparent(esther, holly).
+true.
+?- greatgrandparent(X, holly).
+X = esther ;
+X = herbert.
+```
+
+Dá para definir uma regra `grandparent`?
+
+```prolog
+grandparent(GP, GC) :- parent(GP, P), parent(P, GC).
+```
+
+E dá para derivar `greatgrandparent` em termos de `grandparent`? Sim, regras podem usar
+outras regras:
+
+```prolog
+greatgrandparent(GGP, GGC) :- grandparent(GGP, P), parent(P, GGC).
+```
+
+### Regras recursivas
+
+Como definir a regra `ancestor` (ancestral)? Não dá para escrever uma regra para cada
+geração. Regras podem ser **recursivas**:
+
+```prolog
+ancestor(X, Y) :- parent(X, Y).
+ancestor(X, Y) :- parent(Z, Y), ancestor(X, Z).
+```
+
+Duas cláusulas com a mesma cabeça são um "**ou**": `X` é ancestral de `Y` se é pai/mãe de
+`Y` (caso base) **ou** se é ancestral de algum pai/mãe `Z` de `Y` (caso recursivo).
+
+```prolog
+?- ancestor(X, holly).
+X = kim ;
+X = margaret ;
+X = esther ;
+X = herbert ;
+false.
+```
+
+Na Lista 20, a questão 6 (`descendant`) é do mesmo tipo: a relação é "ancestral ao
+contrário", e o caso base e o recursivo seguem o mesmo molde.
+
+### Receita ou declaração?
+
+Como ler a regra abaixo?
+
+```prolog
+greatgrandparent(GGP, GGC) :- parent(GGP, GP), parent(GP, P), parent(P, GGC).
+```
+
+- Como **declaração** (lógica): a ordem **não importa**. "e" é comutativo; a regra só diz o
+  que é verdade.
+- Como **receita** (procedimento): a ordem **importa**. O interpretador prova os termos do
+  corpo **da esquerda para a direita** e tenta as cláusulas **de cima para baixo**,
+  voltando atrás (*backtracking*) quando algo falha.
+
+As duas leituras dão as mesmas respostas, mas não necessariamente o mesmo **comportamento**:
+a ordem muda a **ordem das respostas**, a eficiência e até se o programa **termina**. Se o
+caso recursivo de `ancestor` fosse escrito como `ancestor(X, Y) :- ancestor(X, Z),
+parent(Z, Y).`, a primeira coisa que ele faria seria chamar `ancestor` de novo, sem ter
+avançado nada: recursão infinita.
+
+Qual o resultado desta consulta?
+
+```prolog
+?- X.
+```
+
+Um **erro de instanciação**: `X` é uma variável sem valor, e o interpretador não tem o que
+provar ("*Arguments are not sufficiently instantiated*"). Uma consulta precisa ser um
+termo que diga **o que** provar.
+
+<Callout title="Cai em prova: 25% (finais 23 e 28)" type="warn">
+  Formato: a prova dá uma base de fatos e pede regras sobre ela, em geral uma por item, com
+  cada item podendo usar o anterior. Exemplo: Final 28, Q3 (base `compromisso(Hora, Desc)`:
+  `tem_compromisso(H)`, `descricao(Hora, Desc)`, até um predicado que junta tudo). Na Final
+  23, Q1, a base é um grafo `edge(V1, V2)` e se pede `path(L)` e `cycle(L)`. Pegadinha: o
+  enunciado mostra as respostas da consulta com `;` (inclusive repetidas), e elas saem na
+  ordem dos fatos e das cláusulas. Ainda não há compilado da pasta
+  `material/provas-antigas/2a-prova/`.
+</Callout>
+
+## Listas
+
+Assim como em ML, listas são estruturas importantes em Prolog. Uma lista se escreve entre
+colchetes, e os elementos podem ser termos quaisquer (de "tipos" diferentes: Prolog não tem
+tipagem estática):
+
+```prolog
+?- X = [1, fernando, true].
+X = [1, fernando, true].
+```
+
+(`true` aqui é só um átomo, um elemento como outro qualquer.)
+
+O padrão `[Cabeça | Cauda]` separa o começo da lista do resto, como o `x::xs` de SML:
+
+```prolog
+?- [1, 2 | X] = [1, 2, 3, 4, 5].
+X = [3, 4, 5].
+```
+
+Antes da barra podem vir **vários** elementos; depois dela vem **uma** lista (o resto). Esse
+padrão, sozinho, já resolve problemas: as questões 7 a 9 da Lista 20 dizem "pode ser
+expresso como um fato" justamente porque basta um padrão de lista na cabeça do fato, sem
+corpo nenhum.
+
+### `append`
+
+Como criar um predicado para concatenar duas listas? Em Prolog não se escreve uma
+**função** que devolve a lista; escreve-se uma **relação** entre as três listas:
+
+```prolog
+append([], L, L).
+append([Head|TailA], B, [Head|TailC]) :- append(TailA, B, TailC).
+```
+
+Lê-se: concatenar `[]` com `L` dá `L`; e `[Head|TailA]` concatenado com `B` dá uma lista
+que começa com `Head` e cuja cauda é `TailA` concatenado com `B`.
+
+```prolog
+?- append([1, 2, 3], [4, 5, 6], X).
+X = [1, 2, 3, 4, 5, 6].
+```
+
+E o que é isto?
+
+```prolog
+?- append(X, Y, [1, 2, 3]).
+X = [], Y = [1, 2, 3] ;
+X = [1], Y = [2, 3] ;
+X = [1, 2], Y = [3] ;
+X = [1, 2, 3], Y = [] ;
+false.
+```
+
+Como é uma **relação**, e não uma função, `append` funciona "ao contrário": dada a lista
+final, ele gera **todas as formas de dividi-la** em duas. Em SML, `@` só funciona numa
+direção. Esse truque (passar variáveis livres onde normalmente iria a entrada) é a chave da
+questão 14 da Lista 20 (`prefix`), que pede um predicado que funcione com `X` não
+instanciado.
+
+<Callout title="Caiu na prova final 25, Q1" type="info">
+  A prova deu `append` pronto e pediu para explicar, em até dez palavras, o que faz um
+  predicado "misterioso" que usa `append(Mid, [H], T)` (ou seja, `append` ao contrário,
+  para separar o último elemento), e depois completar listas que o tornam verdadeiro ou
+  falso.
+</Callout>
+
+### `member`
+
+Como construir um predicado `member`?
+
+```prolog
+member(X, [X|_]).
+member(X, [_|Y]) :- member(X, Y).
+```
+
+`X` é membro de uma lista se é a cabeça dela, **ou** se é membro da cauda. Repare que não
+há comparação explícita: a primeira cláusula usa a **mesma variável** `X` duas vezes, e a
+unificação obriga as duas posições a serem iguais.
+
+O que significa o `_`? É a **variável anônima** (*anonymous variable*): "aqui tem alguma
+coisa, mas não me importa o quê". Cada `_` é uma variável **diferente** (dois `_` não
+precisam ser iguais), e o interpretador não mostra o valor dela.
+
+```prolog
+?- member(2, [1, 2, 3]).
+true.
+?- member(2, [X, 2, 3]).
+X = 2 ;
+true.
+?- member(2, [1, X, 3]).
+X = 2.
+?- member(4, [1, 2, 3]).
+false.
+?- member(X, [1, 2, 3]).
+X = 1 ;
+X = 2 ;
+X = 3.
+?- member(1, X).
+X = [1|_] ;
+X = [_, 1|_] ;
+X = [_, _, 1|_] ;
+...
+```
+
+- `member(2, [X, 2, 3])` tem **duas** provas: `X = 2` (o 2 é a cabeça) ou o 2 que já está
+  na segunda posição (aí `X` fica livre, e a resposta é só `true`).
+- `member(1, X)` com a lista livre **gera** listas: infinitas respostas, cada uma com o 1
+  numa posição.
+
+Na Lista 20, as questões 15 a 20 proíbem usar `member` pronto: o `isMember` da questão 15
+precisa ser escrito do zero, e é este mesmo raciocínio.
+
+### `select`
+
+Como escrever um predicado `select`, de modo que `select(E, L1, L2)` seja verdade **se, e
+somente se**, `L2` for igual a `L1` sem **um** elemento `E`?
+
+```prolog
+select(X, [X|L], L).
+select(X, [H|L], [H|LR]) :- select(X, L, LR).
+```
+
+Ou o elemento retirado é a cabeça (e sobra a cauda), ou a cabeça fica e o elemento é
+retirado da cauda.
+
+```prolog
+?- select(2, [1, 2, 3], Z).
+Z = [1, 3].
+?- select(2, [1, 3], Z).
+false.
+?- select(X, [1, 2, 3], [2, 3]).
+X = 1.
+?- select(X, [1, 2, 3], Y).
+X = 1, Y = [2, 3] ;
+X = 2, Y = [1, 3] ;
+X = 3, Y = [1, 2].
+```
+
+### `reverse`
+
+Como escrever um predicado `reverse`?
+
+```prolog
+reverse([], []).
+reverse([H|T], X) :- reverse(T, XAux), append(XAux, [H], X).
+```
+
+```prolog
+?- reverse([1, 2, 3], L).
+L = [3, 2, 1].
+```
+
+O que acontece neste caso?
+
+```prolog
+?- reverse(L, [1, 2, 3]).
+L = [3, 2, 1] ;
+(não termina)
+```
+
+A primeira resposta sai certa. Mas, ao pedir outra, o interpretador volta atrás e a
+chamada `reverse(T, XAux)`, com `T` livre, passa a gerar listas cada vez maiores, que nunca
+servem: o programa **não termina**. A leitura declarativa diz que só existe uma resposta; a
+leitura procedimental (a receita) entra num laço. Nem todo predicado funciona nas duas
+direções; `append` funciona, este `reverse` não.
+
+## Negação como falha
+
+```prolog
+?- not(member(4, [1, 2, 3])).
+true.
+```
+
+`not(G)` é verdade quando o interpretador **não consegue provar** `G`. Isso é a **negação
+como falha** (*negation as failure*), e ela só faz sentido sob a hipótese do mundo fechado:
+o que não está na base (nem se deriva dela) é considerado falso. Em SWI-Prolog também se
+escreve `\+ G`.
+
+### O predicado `sibling`
+
+Como escrever uma relação `sibling(X, Y)`, verdadeira se, e somente se, `X` e `Y` forem
+irmãos na base `parent`?
+
+```prolog
+sibling(X, Y) :- parent(P, X), parent(P, Y).
+```
+
+```prolog
+?- sibling(kim, kent).
+true.
+?- sibling(kent, Z).
+Z = kim ;
+Z = kent.
+```
+
+Kent não é irmão de Kent! Nada na regra impede `X` e `Y` de serem a mesma pessoa. Como
+consertar?
+
+```prolog
+sibling(X, Y) :- not(X = Y), parent(P, X), parent(P, Y).
+```
+
+```prolog
+?- sibling(kim, kent).
+true.
+?- sibling(kent, Z).
+false.
+```
+
+Agora quebrou o contrário. Na segunda consulta, quando `not(kent = Z)` é testado, `Z` ainda
+está **livre**; `kent = Z` **consegue** ser provado (basta ligar `Z = kent`), então o `not`
+**falha**, e a consulta inteira dá `false`. A negação como falha **não liga variáveis**:
+ela só funciona como esperado quando os termos já estão instanciados.
+
+Como consertar de vez? Colocando o `not` **no fim**, depois que `parent` já deu valor às
+variáveis:
+
+```prolog
+sibling(X, Y) :- parent(P, X), parent(P, Y), not(X = Y).
+```
+
+```prolog
+?- sibling(kim, kent).
+true.
+?- sibling(kent, Z).
+Z = kim.
+```
+
+Na leitura declarativa, as três versões com `not` são iguais; na receita, a posição da
+negação muda a resposta. As questões 3 e 5 da Lista 20 ("ninguém pode ser sua própria
+irmã", "irmãos não são primos") dependem exatamente disso.
+
+## Mais predicados sobre listas
+
+### Sublistas: `subset`
+
+Como codificar o predicado `subset`, tal que `subset(S1, S2)` seja verdade se `S2` for um
+subconjunto de `S1`?
+
+```prolog
+subset([], []).
+subset([H|T], [H|L]) :- subset(T, L).
+subset([_|T], L) :- subset(T, L).
+```
+
+Para cada elemento de `S1`, há duas escolhas: **fica** (segunda cláusula) ou **sai**
+(terceira). Com `S1` dado e `S2` livre, ele gera todos os subconjuntos, na ordem original
+dos elementos:
+
+```prolog
+?- subset([1, 2], X).
+X = [1, 2] ;
+X = [1] ;
+X = [2] ;
+X = [].
+```
+
+A ordem das cláusulas decide a ordem das respostas: trocando a segunda pela terceira, os
+subconjuntos saem do menor para o maior.
+
+<Callout title="Cai em prova: 25% (finais 26 e 27)" type="warn">
+  Formato: implementar o predicado de sublista (com esse nome ou `subtext`) como primeiro
+  item de uma questão que depois o combina com `perm`. Exemplo: Final 27, Q2a
+  (`sublist([a, b, c], L)` deve gerar as 8 sublistas). Pegadinha: o enunciado mostra a
+  ordem exata das respostas, e ela depende da ordem das cláusulas "fica" e "sai" (na Final
+  26, Q1a, a lista começa com `[]`, ou seja, a cláusula "sai" vem antes).
+</Callout>
+
+### Interseção não vazia: `intersec`
+
+Como codificar o predicado `intersec`, tal que `intersec(L1, L2)` seja verdade se a
+interseção entre `L1` e `L2` for não vazia?
+
+```prolog
+intersec([H|_], L2) :- member(H, L2).
+intersec([_|L1], L2) :- intersec(L1, L2).
+```
+
+Dá para simplesmente escrever como você diria em português? Sim: "existe um `E` que é
+membro de `L1` e membro de `L2`":
+
+```prolog
+intersect(L1, L2) :- member(E, L1), member(E, L2).
+```
+
+É o estilo que Prolog favorece: descrever a relação e deixar a busca por conta do
+interpretador.
+
+### Permutações: `perm`
+
+Como codificar um predicado `perm`, tal que `perm(T, L)` seja verdade se `L` for uma
+permutação da lista `T`?
+
+```prolog
+perm([], []).
+perm(T, [H|LL]) :- select(H, T, L1), perm(L1, LL).
+```
+
+Uma permutação de `T` começa com **algum** elemento `H` de `T` (o `select` escolhe qual), e
+o resto é uma permutação do que sobrou.
+
+```prolog
+?- perm([1, 2, 3], P).
+P = [1, 2, 3] ;
+P = [1, 3, 2] ;
+P = [2, 1, 3] ;
+P = [2, 3, 1] ;
+P = [3, 1, 2] ;
+P = [3, 2, 1] ;
+false.
+```
+
+Dá para inverter `select` e `perm`?
+
+```prolog
+nperm([], []).
+nperm([H|T], L) :- nperm(T, Lx), select(H, L, Lx).
+```
+
+Agora a recursão vem primeiro: faz uma permutação `Lx` da cauda, e depois **insere** `H` em
+alguma posição de `Lx`. É o `select` usado ao contrário: `select(H, L, Lx)` com `L` livre
+quer dizer "`L` é `Lx` com `H` enfiado em algum lugar". Gera as mesmas 6 permutações, em
+outra ordem.
+
+<Callout title="Cai em prova: 37,5% (finais 26, 27 e 29)" type="warn">
+  Formato: implementar `perm` (a prova costuma oferecer o `select`), às vezes depois de
+  implementar o próprio `select`, e então usá-lo num predicado maior (anagrama, quebra-cabeça
+  `SEND + MORE = MONEY`). Exemplo: Final 29, Q3a e Q3b (`select` e depois `perm`). As duas
+  versões, `perm` e `nperm`, aparecem no gabarito das finais 27 e 29. Pegadinha: o anagrama da Final 27 é
+  só `anagram(L, A) :- sublist(L, S), perm(S, A).`; a prova recompensa compor predicados
+  prontos em vez de escrever um do zero.
+</Callout>
+
+## Busca: o homem, o lobo, a cabra e o repolho
+
+Um homem precisa atravessar um rio com um lobo, uma cabra e um repolho. O barco só leva o
+homem e mais uma coisa. Sozinhos, o lobo come a cabra, e a cabra come o repolho. Como
+resolver em Prolog?
+
+O estado é uma lista `[Homem, Lobo, Cabra, Repolho]`, cada um numa das margens, `o` ou `l`.
+
+```prolog
+change(o, l).
+change(l, o).
+
+move([X, X, Goat, Cabbage], wolf, [Y, Y, Goat, Cabbage]) :- change(X, Y).
+move([X, Wolf, X, Cabbage], goat, [Y, Wolf, Y, Cabbage]) :- change(X, Y).
+move([X, Wolf, Goat, X], cabbage, [Y, Wolf, Goat, Y]) :- change(X, Y).
+move([X, Wolf, Goat, Cabbage], nothing, [Y, Wolf, Goat, Cabbage]) :- change(X, Y).
+
+oneEq(X, X, _).
+oneEq(X, _, X).
+
+safe([Man, Wolf, Goat, Cabbage]) :-
+  oneEq(Man, Wolf, Goat),
+  oneEq(Man, Goat, Cabbage).
+
+solution([l, l, l, l], []).
+solution(Config, [Move|Rest]) :-
+  move(Config, Move, NextConfig),
+  safe(NextConfig),
+  solution(NextConfig, Rest).
+```
+
+- `move`: o homem só leva algo que está **na mesma margem** que ele (o `X` repetido
+  garante isso), e os dois trocam de margem.
+- `oneEq(A, B, C)`: `A` é igual a `B` **ou** a `C`.
+- `safe`: o homem está com o lobo ou com a cabra (senão o lobo come a cabra), **e** está
+  com a cabra ou com o repolho (senão a cabra come o repolho).
+- `solution(Config, Moves)`: a lista de movimentos leva de `Config` até todos em `l`.
+
+Não há algoritmo de busca escrito em lugar nenhum: o *backtracking* do interpretador faz a
+busca.
+
+O que acontece com a consulta abaixo?
+
+```prolog
+?- solution([o, o, o, o], X).
+```
+
+**Não termina.** O interpretador busca **em profundidade** e tenta os movimentos na ordem
+das cláusulas. O primeiro movimento seguro é levar a cabra; do outro lado, o primeiro
+movimento seguro é... trazer a cabra de volta. E o estado volta ao início, para sempre.
+
+Como consertar? Fixando o tamanho da resposta:
+
+```prolog
+?- length(X, 7), solution([o, o, o, o], X).
+X = [goat, nothing, wolf, goat, cabbage, nothing, goat].
+```
+
+Com `X` de tamanho fixo, a busca tem profundidade limitada e não fica presa num ciclo. Se
+não soubermos o tamanho, `length(X, _)` com o tamanho livre gera listas de tamanho 0, 1, 2,
+..., e a primeira solução encontrada é a mais curta.
+
+## Nas cinco linguagens
+
+| | Prolog | SML | Python | Java | C |
+|---|---|---|---|---|---|
+| Paradigma | lógico, declarativo | funcional | multiparadigma | orientado a objetos | imperativo |
+| Abstração de computação | regra (relação) | função | função / método | método | procedimento |
+| "Chamada" | prova de um objetivo, com *backtracking* | aplicação de função | chamada | chamada | chamada |
+| Funciona "ao contrário"? | sim, muitas vezes (`append(X, Y, [1,2,3])`) | não | não | não | não |
+| Variável | ligada uma vez, por unificação | ligada uma vez (`val`) | atribuível | atribuível | atribuível |
+| Padrão de lista | `[H\|T]` | `x::xs` | `h, *t = l` | — | — |
+| Negação | como falha (mundo fechado) | `not` booleano | `not` booleano | `!` booleano | `!` sobre inteiros |
+| Tipagem | dinâmica | estática, inferida | dinâmica | estática | estática, fraca |
+
+Prolog é boa para problemas descritos por **relações e busca**: consultas a bases de
+conhecimento, quebra-cabeças, processamento de linguagem natural, sistemas especialistas.
+A vantagem das linguagens declarativas é dizer **o que** se quer e deixar a busca para o
+interpretador; a desvantagem é que a ordem de execução, que a leitura declarativa esconde,
+continua decidindo a eficiência e a terminação.
+
+<Callout title="Cai em prova: 100% (todas as finais, 22 a 29)" type="warn">
+  Formato: toda segunda prova tem uma questão de implementar predicados Prolog curtos sobre
+  listas, em dois ou três itens encadeados (o último usa os anteriores, e a prova deixa usar
+  o anterior mesmo que você não tenha feito). Exemplo: Final 26, Q1 (`subtext`, depois
+  `perm`, depois `anagram`). Pegadinha: os exemplos mostram **todas** as respostas com `;`,
+  inclusive repetidas e o `false` final; o seu predicado precisa gerar as mesmas, então a
+  ordem das cláusulas importa. Sintaxe correta conta pontos.
+</Callout>

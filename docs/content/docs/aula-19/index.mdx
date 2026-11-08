@@ -1,0 +1,761 @@
+---
+title: Aula 19 - Passagem de parâmetros
+description: 28/10 — Lista 19
+---
+
+## Parâmetros formais × parâmetros reais
+
+Na declaração de uma função:
+
+```python
+def f(a):
+    return a + 1
+```
+
+o `a` é o **parâmetro formal** (*formal parameter*): é o nome que aparece no corpo da
+função. Quando chamamos a função:
+
+```python
+f(2 + 3)
+```
+
+o `2 + 3` é o **parâmetro real** (*actual parameter*, ou argumento): é a expressão que está
+no ponto de chamada.
+
+Toda linguagem precisa responder duas perguntas: **qual parâmetro real vai para qual
+formal** (casamento) e **como o valor chega lá** (a política de passagem). E as linguagens
+de programação têm maneiras diferentes de fazer as duas coisas.
+
+## Casamento de parâmetros: posição e nome
+
+Como funciona o casamento de padrões para parâmetros? O jeito mais comum é pela
+**posição**: casamento posicional (*positional matching*).
+
+```python
+def f(a, b):
+    return a + b
+
+f(2 + 3, x)
+```
+
+Aqui sabe-se que `2 + 3` é o primeiro argumento (vai para `a`) e `x` o segundo (vai para
+`b`).
+
+A outra forma é pelo **nome**: casamento nominal (*keyword matching*). Em Ada se escreve
+`DIV(DIVIDEND => X, DIVISOR => Y)`. Em Python:
+
+```python
+def div(dividend=1.0, divisor=1.0):
+    r = dividend / divisor
+    print("Result = ", r)
+```
+
+```python
+>>> div()
+Result =  1.0
+>>> div(dividend=3.2, divisor=2.3)
+Result =  1.391304347826087
+>>> div(3.0, 1.5)
+Result =  2.0
+>>> div(3.0)
+Result =  3.0
+>>> div(1.5, divisor=3.0)
+Result =  0.5
+>>> div(divisor=32, dividend=2)
+Result =  0.0625
+```
+
+`div(divisor=32, dividend=2)` é casamento nominal: a ordem não importa, o nome decide.
+
+Misturar os dois é permitido, mas com regras, porque senão o programa fica **ambíguo**:
+
+```python
+>>> div(1.5, dividend=3.0)
+TypeError: div() got multiple values for argument 'dividend'
+>>> div(dividend=3.0, 1.5)
+SyntaxError: positional argument follows keyword argument
+```
+
+- No primeiro, `1.5` já casou com `dividend` pela posição, e depois o nome tenta casar
+  `dividend` de novo: dois valores para o mesmo formal.
+- No segundo, depois de um argumento nomeado não dá mais para saber a que posição se refere
+  um argumento posicional, então Python proíbe na **sintaxe**.
+
+Em Python os valores entre `=` na definição são **parâmetros opcionais** (com valor
+padrão). Além disso, Python tem só **duas formas de receber argumentos extras**: uma
+**lista (tupla) de parâmetros posicionais**, `*args`, e um **dicionário de parâmetros
+nomeados**, `**kwargs`:
+
+```python
+def g(*args, **kwargs):
+    print(args, kwargs)
+
+g(1, 2, x=3)   # imprime (1, 2) {'x': 3}
+```
+
+## Parâmetros opcionais em C++
+
+```cpp
+#include <iostream>
+
+int multiply(int a = 1, int b = 2, int c = 3) {
+  return a * b * c;
+}
+
+int main() {
+  std::cout << multiply(4, 5, 6) << std::endl;
+  std::cout << multiply(4, 5) << std::endl;
+  std::cout << multiply(5) << std::endl;
+  std::cout << multiply() << std::endl;
+}
+```
+
+O primeiro imprime **120** (4·5·6), depois **60** (4·5·3), depois **30** (5·2·3) e
+depois **6** (1·2·3). Os valores padrão preenchem **da direita para a esquerda**: não
+existe jeito de passar só `c`.
+
+C++ "duplica" o valor padrão: existe **uma única** função `multiply`, e o compilador
+**copia o valor padrão para cada ponto de chamada**. `multiply(5)` vira, no código
+compilado, `multiply(5, 2, 3)`. Ou seja, o valor padrão é avaliado **a cada chamada**, no
+lugar da chamada.
+
+Qual a vantagem de copiar o valor para o ponto de chamada? Os argumentos ficam todos
+**constantes conhecidos em tempo de compilação**, e o compilador pode agir como um
+**avaliador parcial** (*partial evaluator*): ao expandir `multiply(4, 5, 6)` em linha, ele
+calcula `120` sem nem fazer a chamada. A mesma filosofia de duplicar para especializar
+aparece no **polimorfismo paramétrico** de C++ (os *templates* geram uma cópia do código
+para cada tipo). É o charme de C++: código duplicado e especializado pode ser mais
+personalizável e mais rápido, e há programas em C++ que conseguem ser mais rápidos que o
+equivalente em C.
+
+## Valores padrão em Python: avaliados uma vez só
+
+Python, por exemplo, **não duplica** o código: o valor padrão é avaliado **uma única vez**,
+quando o `def` é executado, e fica guardado no objeto da função. Qual o significado da
+função abaixo?
+
+```python
+def f(a, L=[]):
+    L.append(a)
+    return L
+```
+
+```python
+>>> x = [2, 3, 4]
+>>> f(1, x)
+[2, 3, 4, 1]
+>>> f(1)
+[1]
+>>> f(2)
+[1, 2]
+```
+
+A lista padrão é **a mesma** em todas as chamadas, então ela vai acumulando. No fim das
+contas, em Python **tudo é dicionário**: o valor padrão é só um atributo do objeto
+função.
+
+```python
+>>> f.__defaults__
+([1, 2],)
+```
+
+Para começar sempre com uma lista nova, o ideal mesmo é:
+
+```python
+def f(a, L=None):
+    if L is None:
+        L = []
+    L.append(a)
+    return L
+```
+
+## Número variável de parâmetros: funções variádicas em C
+
+Tem outras linguagens que permitem quantidade variável de parâmetros; Python é uma delas
+(`*args`). Em C:
+
+```c
+#include <stdio.h>
+#include <stdarg.h>
+
+int foo(size_t nargs, ...) {
+  int a = 0, b = 0, c = 0, d = 0;
+  int *arr[4];
+  va_list ap;     // 3.2 What is ap?
+  size_t i;
+  arr[0] = &a;
+  arr[1] = &b;
+  arr[2] = &c;
+  arr[3] = &d;
+  va_start(ap, nargs);  // 3.3 What does va_start do?
+  for(i = 0; i < nargs; i++) {
+    *arr[i] = va_arg(ap, int); // 3.4 What does va_arg do?
+  }
+  va_end(ap);     // 3.5 And va_end?
+                  // 3.6 What happens if I forget to call va_end?
+  return a + b + c + d;
+}
+int main() {
+  printf("%d\n", foo(0));
+  printf("%d\n", foo(1, 5));
+  printf("%d\n", foo(2, 5, 7));
+  printf("%d\n", foo(3, 5, 7, 3));
+}
+```
+
+Imprime `0`, `5`, `12` e `15`: `foo` soma os `nargs` argumentos extras (no máximo 4).
+
+Repare no `...` do programa. O `...` (reticências, *ellipsis*) declara que a função é
+**variádica**: depois dos parâmetros fixos, ela aceita qualquer quantidade de argumentos
+extras, de qualquer tipo. É o mesmo mecanismo do `printf`, cuja assinatura é
+`int printf(const char *fmt, ...)`.
+
+```c
+foo(0);           // nenhum argumento extra
+foo(1, 5);        // um extra: 5
+foo(3, 5, 7, 3);  // três extras
+```
+
+- **`ap`** (`va_list`): um "cursor" que percorre os argumentos extras no registro de
+  ativação.
+- **`va_start(ap, nargs)`**: inicializa o cursor logo depois do último parâmetro fixo
+  (`nargs`).
+- **`va_arg(ap, int)`**: lê o próximo argumento como `int` e avança o cursor. É uma
+  **macro**: por isso dá para passar o tipo `int` como "parâmetro", coisa que uma função
+  não aceitaria.
+- **`va_end(ap)`**: encerra a leitura. `va_start` e `va_end` marcam o início e o fim da
+  leitura dos argumentos variádicos; funcionam como abrir e fechar um arquivo. Esquecer o
+  `va_end` é comportamento indefinido pelo padrão: em muitas plataformas nada acontece, mas
+  em outras o cursor guarda recursos que precisam ser liberados.
+
+A função **não sabe quantos** argumentos recebeu: alguém precisa dizer. Em `foo`, é o
+`nargs`. No `printf`, para descobrir o número de parâmetros deve-se fazer *parsing* da
+string de formato; desse é fácil, pois é só procurar os `%`.
+
+### C verifica os tipos dos argumentos variádicos?
+
+**Não.** Depois do `...` não há tipo declarado, então o compilador não tem o que conferir
+(no máximo emite um *warning* para o `printf`, que ele conhece):
+
+```c
+#include "stdio.h"
+int main(int argc, char **argv) {
+  printf("%s\n", argc);
+}
+```
+
+`%s` manda o `printf` tratar `argc` (um `int`) como ponteiro para `char` e ler a memória
+nesse endereço: provável falha de segmentação.
+
+## Linguagens estritas × não estritas (preguiçosas)
+
+Existem essencialmente duas famílias de passagem de parâmetros: a das linguagens
+**estritas** (*strict*, ou ansiosas, *eager*) e a das **não estritas** (*lazy*,
+preguiçosas; Haskell, por exemplo).
+
+Mas qual é a diferença? Na estrita, **todo parâmetro real é avaliado antes da chamada**,
+precise a função dele ou não. Na não estrita, o parâmetro só é avaliado **se e quando** for
+usado.
+
+```python
+>>> 2 < 3 or 2 // 0 == 0
+True
+>>> def my_or(a, b):
+...     return a or b
+...
+>>> my_or(2 < 3, 2 // 0 == 0)
+ZeroDivisionError: integer division or modulo by zero
+```
+
+Isso ocorre porque Python é uma linguagem estrita. O primeiro exemplo é preguiçoso, mas
+porque o **operador** `or` é de curto-circuito (*short-circuit*) e nunca avalia o lado
+direito; quando o mesmo `or` vira uma **função**, os argumentos são avaliados antes da
+chamada, e a divisão por zero estoura.
+
+As políticas de passagem (passagem **por**...):
+
+| Estritas | Não estritas (preguiçosas) |
+|---|---|
+| valor (*value*) | expansão de macros (*macro expansion*) |
+| resultado (*result*) | nome (*name*) |
+| valor-resultado (*value-result*) | necessidade (*need*), a avaliação tardia |
+| referência (*reference*) | |
+
+As mais conhecidas das estritas são **por valor** e **por referência**.
+
+<Callout title="Cai em prova: 25% (finais 24 e 27)" type="warn">
+  Formato: dar o mesmo programa com e sem avaliação preguiçosa e pedir para explicar a
+  diferença, citar uma linguagem estrita e uma preguiçosa, e dizer se efeitos colaterais
+  mudam a semântica com avaliação preguiçosa. Exemplo: Final 24, Q3 (`greetThePlanet(lazy
+  int n)` em D com `divBy(0)`: a versão estrita estoura, a preguiçosa imprime "Hello,
+  world!" porque `n` nunca é usado). Na Final 27, Q3 cai como ligação de colunas: "R,
+  Haskell, C macros" ↔ "Avaliação não estrita". Pegadinha: macros de C contam como não
+  estritas, mas SML **não** (é estrita, como C, Java e Python). Ainda não há compilado da
+  pasta `material/provas-antigas/2a-prova/`.
+</Callout>
+
+## Passagem por valor
+
+O parâmetro formal é uma **variável nova**, inicializada com uma **cópia** do valor do
+parâmetro real. A analogia é a da **fotocópia**: o que a função recebe é a xerox; rabiscar
+a xerox não altera o original.
+
+Qual o problema do programa abaixo?
+
+```c
+#include "stdio.h"
+void swap(int x, int y) {
+  int aux = x;
+  x = y;
+  y = aux;
+}
+int main() {
+  int a = 2;
+  int b = 3;
+  printf("%d, %d\n", a, b);
+  swap(a, b);
+  printf("%d, %d\n", a, b);
+}
+```
+
+Imprime `2, 3` duas vezes: `swap` trocou as cópias, não `a` e `b`.
+
+Passagem de parâmetros em C é **sempre por valor**. O que isso quer dizer? A gente faz
+cópias. Para trocar dois inteiros em C, passamos **ponteiros**:
+
+```c
+#include "stdio.h"
+void swap(int *x, int *y) {
+  int aux = *x;
+  *x = *y;
+  *y = aux;
+}
+int main() {
+  int a = 2;
+  int b = 3;
+  printf("%d, %d\n", a, b);
+  swap(&a, &b);
+  printf("%d, %d\n", a, b);
+}
+```
+
+Mas a passagem por ponteiros **também é por valor**: quando se passa por ponteiros, o que
+estamos passando é uma **cópia dos ponteiros**. A função não muda `x` nem `y`; muda o que
+está no endereço para o qual eles apontam.
+
+### Swap sem variável auxiliar
+
+Podemos trocar sem usar o `aux`, com ou-exclusivo:
+
+```c
+void swap(int *x, int *y) {
+  *x = *x ^ *y;
+  *y = *x ^ *y;
+  *x = *x ^ *y;
+}
+```
+
+Existe um problema em fazer swap assim se for trocar uma coisa **com ela mesma**:
+`swap(&a, &a)`. Como `x` e `y` apontam para o mesmo lugar, a primeira linha faz
+`*x = a ^ a = 0`, e o valor se perde: `a` termina **zerado**.
+
+## Passagem por resultado e por valor-resultado
+
+- **Por resultado** (*result*): o parâmetro formal começa **não inicializado**; a função
+  preenche, e o valor é **copiado de volta** para o parâmetro real quando a função
+  retorna. Serve para parâmetros de saída.
+- **Por valor-resultado** (*value-result*): igual ao resultado, mas o formal é
+  **inicializado** com o valor do real (cópia na entrada **e** cópia na saída). Durante a
+  execução, a função trabalha numa cópia local; o real só muda no retorno.
+
+## Passagem por referência
+
+O parâmetro formal **é** o parâmetro real: um **apelido** (*alias*) para a mesma posição de
+memória. O que é uma variável, de fato? Um **nome** ligado a um **endereço** onde fica um
+valor. Na passagem por referência, o formal é outro nome para o mesmo endereço.
+
+Qual linguagem tem passagem por referência? **C++**, com `&` no tipo:
+
+```cpp
+#include <stdio.h>
+void swap(int &x, int &y) {
+  x = x ^ y;
+  y = x ^ y;
+  x = x ^ y;
+}
+int main() {
+  int a = 2;
+  int b = 3;
+  printf("%d, %d\n", a, b);
+  swap(a, b);
+  printf("%d, %d\n", a, b);
+}
+```
+
+Imprime `2, 3` e depois `3, 2`, sem `&a` nem `*x`.
+
+Se olharmos o *assembly* do swap com ponteiro e do swap com referência, dá algo diferente
+ou fica igual? Podemos fazer o teste com `-S` (compilando os dois em C++). Swap por
+referência, `swap_r(int&, int&)`:
+
+```asm
+_Z6swap_rRiS_:                  ; @_Z6swap_rRiS_
+    .cfi_startproc
+; %bb.0:
+    sub sp, sp, #32             ; =32
+    .cfi_def_cfa_offset 32
+    str x0, [sp, #24]
+    str x1, [sp, #16]
+    ldr x8, [sp, #24]
+    ldr w9, [x8]
+    str w9, [sp, #12]
+    ldr x8, [sp, #16]
+    ldr w9, [x8]
+    ldr x8, [sp, #24]
+    str w9, [x8]
+    ldr w9, [sp, #12]
+    ldr x8, [sp, #16]
+```
+
+Swap por ponteiro, `swap_p(int*, int*)`:
+
+```asm
+_Z6swap_pPiS_:                  ; @_Z6swap_pPiS_
+    .cfi_startproc
+; %bb.0:
+    sub sp, sp, #32             ; =32
+    .cfi_def_cfa_offset 32
+    str x0, [sp, #24]
+    str x1, [sp, #16]
+    ldr x8, [sp, #24]
+    ldr w9, [x8]
+    str w9, [sp, #12]
+    ldr x8, [sp, #16]
+    ldr w9, [x8]
+    ldr x8, [sp, #24]
+    str w9, [x8]
+    ldr w9, [sp, #12]
+    ldr x8, [sp, #16]
+```
+
+**Idênticos**: por baixo, a referência é implementada como um ponteiro (o `R` e o `P` no
+nome mutilado, *mangled*, são a única diferença). A diferença está na **linguagem**:
+referências são muito mais seguras que ponteiros, pois não podem ser nulas, não podem ser
+redirecionadas para outro endereço e não admitem aritmética.
+
+### Vantagem e problema
+
+A vantagem: a função pode **modificar** o real (parâmetros de saída) e não há **cópia**
+(barato para estruturas grandes).
+
+O problema é o **apelidamento** (*aliasing*): dois formais podem ser o mesmo real. É o
+`swap(a, a)` do XOR, que zera `a`. Outro exemplo:
+
+```cpp
+#include <stdio.h>
+void sigsum(int& n, int& ans) {
+  ans = 0;
+  int i = 1;
+  while (i <= n)
+    ans += i++;
+}
+int main() {
+  int x = 10;
+  int y;
+  sigsum(x, y);
+  printf("x = %d, y = %d\n", x, y);
+  x = 10;
+  sigsum(x, x);
+  printf("x = %d, y = %d\n", x, x);
+  return 0;
+}
+```
+
+- `sigsum(x, y)` soma de 1 a 10: imprime `x = 10, y = 55`.
+- `sigsum(x, x)`: `n` e `ans` são o mesmo `x`. O `ans = 0` zera também `n`, o laço
+  `1 <= 0` nem executa, e imprime `x = 0, y = 0`.
+
+### Quem passa por referência, afinal?
+
+Quase todas as linguagens são por valor; das mais famosas, a única que oferece passagem
+por referência é **C++** (e mesmo nela o padrão é por valor; referência só com `&`).
+
+**Como provar que Java usa por valor?**
+
+```java
+public class Ref {
+  public static void main(String args[]) {
+    Object x = null;
+    giveMeAString(x);
+    System.out.println(x);
+  }
+  public static void giveMeAString(Object y) {
+    y = "This is a string";
+  }
+}
+```
+
+Imprime `null`. Em Java, variáveis de objeto guardam **referências**, mas a referência é
+**passada por valor**: `y` é uma cópia de `x`; reatribuir `y` não muda `x`. Já
+`y.campo = ...` muda o objeto, porque `x` e `y` apontam para o mesmo objeto. Tipos
+primitivos, por valor; objetos, por valor da referência.
+
+**E em C++, como mostrar a diferença?**
+
+```cpp
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+static void giveMeAStringByRef(char*& s) {
+  s = (char*)malloc(5 * sizeof(char));
+  strcpy(s, "Oi!\n");
+}
+static void giveMeAStringByValue(char* s) {
+  s = (char*)malloc(5 * sizeof(char));
+  strcpy(s, "Oi!\n");
+}
+int main() {
+  char* s1 = NULL;
+  char* s2 = NULL;
+  giveMeAStringByRef(s1);
+  printf("%s", s1);
+  giveMeAStringByValue(s2);
+  printf("%s", s2);
+}
+```
+
+`s1` passa a apontar para `"Oi!\n"`; `s2` continua `NULL` (e imprimir `NULL` com `%s` é
+comportamento indefinido; a glibc imprime `(null)`).
+
+**E Python?** Também é por valor:
+
+```python
+>>> def null_string(str):
+...     str = None
+...
+>>> x = "oi"
+>>> null_string(x)
+>>> x
+'oi'
+```
+
+O `str` é uma **cópia** do `x`, não é o `x`. Como em Java, o que se copia é a referência ao
+objeto: mutar o objeto (`L.append`) aparece fora, reatribuir o formal não.
+
+## Expansão de macros
+
+O parâmetro é avaliado **toda vez que é usado**: o pré-processador substitui o texto do
+parâmetro real dentro do corpo, antes da compilação.
+
+```c
+#include <stdio.h>
+#define MAX(X, Y) ((X) >= (Y) ? (X) : (Y))
+int main() {
+  int a = 2, b = 3;
+  int c = MAX(a, b);
+  printf("a = %d, b = %d, c = %d\n", a, b, c);
+}
+```
+
+As macros são curiosas: a gente só avalia o parâmetro **se a gente precisar dele**, mas
+avalia **sempre que precisar** dele. É uma forma preguiçosa (*lazy*) de avaliar os
+parâmetros.
+
+### Como provar que o parâmetro é avaliado toda vez que é usado?
+
+Com um parâmetro que tem efeito colateral, `MAX(++a, b)`:
+
+```c
+#include <stdio.h>
+#define MAX(X, Y) ((X) >= (Y) ? (X) : (Y))
+int main() {
+  int a = 2, b = 3;
+  int c = MAX(++a, b);
+  printf("a = %d, b = %d, c = %d\n", a, b, c);
+}
+```
+
+Expande para `((++a) >= (b) ? (++a) : (b))`: `++a` dá 3, `3 >= 3`, e o ramo escolhido
+incrementa **de novo**. Imprime `a = 4, b = 3, c = 4`. Se `MAX` fosse uma função, seria
+`a = 3, c = 3`.
+
+- **Vantagem:** não há chamada de função (nem registro de ativação), e a macro funciona
+  para qualquer tipo.
+- **Problema:** avaliação múltipla (como acima) e **captura de variáveis**.
+
+### Swap com macro e a captura de variáveis
+
+```c
+#include "stdio.h"
+#define SWAP(X,Y) {int temp=X; X=Y; Y=temp;}
+int main() {
+  int a = 2;
+  int b = 3;
+  printf("%d, %d\n", a, b);
+  SWAP(a, b);
+  printf("%d, %d\n", a, b);
+}
+```
+
+Funciona: imprime `2, 3` e `3, 2`. Mas qual é o outro problema?
+
+```c
+#include "stdio.h"
+#define SWAP(X,Y) {int temp=X; X=Y; Y=temp;}
+int main() {
+  int a = 2;
+  int temp = 17;
+  printf("%d, temp = %d\n", a, temp);
+  SWAP(a, temp);
+  printf("%d, temp = %d\n", a, temp);
+}
+```
+
+Depois da expansão:
+
+```c
+int main() {
+  int a = 2;
+  int temp = 17;
+  printf("%d, temp = %d\n", a, temp);
+  {int temp=temp; temp=a; a=temp;};
+  printf("%d, temp = %d\n", a, temp);
+}
+```
+
+O `temp` declarado dentro da macro **captura** o `temp` do chamador: dentro do bloco, todo
+`temp` é o local (que nasce lido de si mesmo, lixo). O `temp` de fora nunca é tocado. Esse
+é o problema da **captura de variáveis** (*variable capture*): o nome do parâmetro real é
+interpretado no contexto da **função chamada**, não no do chamador.
+
+## Passagem por nome
+
+O parâmetro é avaliado **antes de cada uso**, como na macro, mas **no contexto do
+chamador**. Por isso não ocorre captura de variáveis. Foi lançada em **Algol** e usada em
+**Simula**, e acabou abandonada porque era difícil de implementar e complicava os
+programas.
+
+Qual o resultado de `g()`?
+
+```text
+void f(by-name int a, by-name int b) {
+  b = 5;
+  b = a;
+}
+int g() {
+  int i = 3;
+  f(i+1, i);
+  return i;
+}
+```
+
+`b` é o nome `i` e `a` é a expressão `i+1`. `b = 5` faz `i = 5`; `b = a` faz
+`i = i + 1 = 6`. `g()` retorna **6**.
+
+Como implementar? Cada parâmetro vira uma pequena função sem argumentos (um *thunk*) que
+carrega o ambiente do chamador, isto é, um *closure*; cada uso do formal chama o *thunk*.
+
+### As quatro políticas no mesmo programa
+
+O que é impresso em cada estratégia?
+
+```text
+def test(int x) {
+  a[1] = 6;
+  e = 2;
+  x += 3;
+}
+main() {
+  a[1] = 1; a[2] = 2; e = 1;
+  test(a[e]);
+  print(a[1], " ", a[2], " ", e);
+}
+```
+
+| Política | Saída | Por quê |
+|---|---|---|
+| valor | `6 2 2` | `x` é uma cópia de `a[1]`; `x += 3` não sai da função |
+| referência | `9 2 2` | `x` é `a[1]`: `a[1] = 6`, depois `+= 3` |
+| valor-resultado | `4 2 2` | `x = 1` (cópia), vira 4, e no retorno 4 é copiado para `a[1]`, sobrescrevendo o 6 |
+| nome | `6 5 2` | `x` é a expressão `a[e]`; quando `x += 3` roda, `e` já é 2, e quem muda é `a[2]` |
+
+## Passagem por necessidade (*call by need*)
+
+O parâmetro é avaliado **uma vez**, na primeira vez que é usado, e o resultado fica
+**guardado** (*cache*) para os usos seguintes. É a avaliação preguiçosa de **Haskell**.
+
+Qual o resultado de `f`?
+
+```haskell
+myAnd :: Bool -> Bool -> Bool
+myAnd a b = if not a then False else b
+
+loop :: Int -> Bool
+loop x = if loop x then True else False
+
+f :: Bool
+f = myAnd False (loop 0)
+```
+
+`f` é `False`: como `a` é falso, `b` nunca é necessário, e `loop 0` (que nunca termina)
+nunca é avaliado.
+
+Propriedades:
+
+- A expressão só é avaliada se o resultado for exigido pela função chamada (avaliação
+  atrasada, *delayed evaluation*).
+- A expressão só é avaliada **na medida** exigida pela função chamada (avaliação de
+  curto-circuito, *short-circuit evaluation*).
+- A expressão **nunca** é avaliada mais de uma vez.
+
+Exemplo: listas infinitas.
+
+```haskell
+fib m n = m : (fib n (m+n))
+
+get [] _ = 0
+get (x:xs) 1 = x
+get (x:xs) n = get xs (n-1)
+```
+
+`fib 1 1` é a lista **infinita** `[1, 1, 2, 3, 5, 8, ...]`; ela só existe porque cada cauda
+é construída quando alguém pede. Quanto vale `get (fib 0 1) 4`?
+
+```text
+get (fib 0 1) 4
+get (0 : fib 1 1) 4
+get (fib 1 1) 3
+get (1 : fib 1 2) 3
+get (fib 1 2) 2
+get (1 : fib 2 3) 2
+get (fib 2 3) 1
+get (2 : fib 3 5) 1 = 2
+```
+
+### Como distinguir nome de necessidade?
+
+Com **efeito colateral**: um parâmetro usado duas vezes cuja avaliação imprime algo (ou
+incrementa um contador). Por nome, imprime **duas** vezes; por necessidade, **uma**.
+
+## Efeito colateral e o teorema de Plotkin
+
+Lembra do conceito de efeito colateral? **Sem efeito colateral, a técnica de passagem de
+parâmetros é irrelevante.**
+
+> **Teorema (Plotkin).** Na ausência de efeitos colaterais, a avaliação preguiçosa é igual
+> à avaliação ansiosa, desde que a avaliação dos parâmetros termine.
+
+Todos os exemplos que distinguiram políticas nesta aula usaram efeito colateral
+(`++a`, `x += 3`, `e = 2`, atribuição a `b`) ou não terminação (`1/0`, `loop 0`).
+
+## Nas cinco linguagens
+
+| Linguagem | Como passa parâmetros |
+|---|---|
+| C | Sempre por valor. Referência é simulada passando ponteiros (por valor). Macros do pré-processador são expansão de macros. |
+| C++ | Por valor por padrão; por referência com `&`. Também herda as macros de C. |
+| Java | Sempre por valor: primitivos por valor, objetos pelo valor da referência. |
+| Python | Por valor (da referência ao objeto), estrita. Valores padrão avaliados uma vez, no `def`. |
+| SML | Estrita, por valor. Não existe atribuição a variáveis; mutação só via `ref`, que é um valor como outro qualquer. |
+| Prolog | Nenhuma das anteriores: argumentos são **unificados**. Uma variável não instanciada passada como argumento pode ser ligada pelo predicado, o que faz o papel de parâmetro de saída. |
