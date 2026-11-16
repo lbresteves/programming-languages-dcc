@@ -1,3 +1,14 @@
+
+third([_, _, Y | _], Y).
+
+firstPair([E, E | _]).
+
+del3([A, B, _ | TL], [A, B | TL]).
+
+dupList([], []).
+dupList([H|T], [H, H|DT]) :- 
+    dupList(T, DT).
+
 isDuped([]).
 isDuped([H, H | T]) :-
     isDuped(T).
