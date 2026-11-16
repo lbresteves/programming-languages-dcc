@@ -562,9 +562,10 @@ As macros são curiosas: a gente só avalia o parâmetro **se a gente precisar d
 avalia **sempre que precisar** dele. É uma forma preguiçosa (*lazy*) de avaliar os
 parâmetros.
 
-### Como provar que o parâmetro é avaliado toda vez que é usado?
+### Múltipla avaliação de parâmetros
 
-Com um parâmetro que tem efeito colateral, `MAX(++a, b)`:
+Como provar que o parâmetro é avaliado toda vez que é usado? Com um parâmetro que tem
+efeito colateral, `MAX(++a, b)`:
 
 ```c
 #include <stdio.h>
@@ -582,7 +583,7 @@ incrementa **de novo**. Imprime `a = 4, b = 3, c = 4`. Se `MAX` fosse uma funç�
 
 - **Vantagem:** não há chamada de função (nem registro de ativação), e a macro funciona
   para qualquer tipo.
-- **Problema:** avaliação múltipla (como acima) e **captura de variáveis**.
+- **Problema:** **múltipla avaliação de parâmetros** (como acima) e **captura de variáveis**.
 
 ### Swap com macro e a captura de variáveis
 
@@ -619,15 +620,21 @@ int main() {
   int a = 2;
   int temp = 17;
   printf("%d, temp = %d\n", a, temp);
-  {int temp=temp; temp=a; a=temp;};
+  {int temp=a; a=temp; temp=temp;};
   printf("%d, temp = %d\n", a, temp);
 }
 ```
 
+Rastreio do bloco: `int temp=a` cria um `temp` **local** valendo 2; `a=temp` copia o
+local de volta para `a` (continua 2); `temp=temp` atribui o local a ele mesmo. O programa
+imprime `2, temp = 17` **duas vezes**: a troca não aconteceu, e sem nenhum aviso do
+compilador.
+
 O `temp` declarado dentro da macro **captura** o `temp` do chamador: dentro do bloco, todo
-`temp` é o local (que nasce lido de si mesmo, lixo). O `temp` de fora nunca é tocado. Esse
-é o problema da **captura de variáveis** (*variable capture*): o nome do parâmetro real é
-interpretado no contexto da **função chamada**, não no do chamador.
+`temp` é o local. O `temp` de fora (17) nunca é tocado. Esse é o problema da **captura de
+variáveis** (*variable capture*): o nome do parâmetro real é interpretado no contexto da
+**função chamada**, não no do chamador. A passagem por nome resolve isso justamente porque
+avalia o parâmetro no contexto de quem chamou.
 
 ## Passagem por nome
 
@@ -759,3 +766,5 @@ Todos os exemplos que distinguiram políticas nesta aula usaram efeito colateral
 | Python | Por valor (da referência ao objeto), estrita. Valores padrão avaliados uma vez, no `def`. |
 | SML | Estrita, por valor. Não existe atribuição a variáveis; mutação só via `ref`, que é um valor como outro qualquer. |
 | Prolog | Nenhuma das anteriores: argumentos são **unificados**. Uma variável não instanciada passada como argumento pode ser ligada pelo predicado, o que faz o papel de parâmetro de saída. |
+
+**Resolução da lista:** [Lista 19 - Resolução](/docs/aula-19/lista-19)

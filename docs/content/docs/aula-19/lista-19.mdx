@@ -1,0 +1,375 @@
+---
+title: Lista 19 - Resolução
+description: Expansão de macros, passagem de parâmetros em Java, conjunto em Python, experimentos em SML e passagem por nome
+---
+
+Resolução completa da Lista 19. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Conceitos frágeis: macros e experimentos de passagem" type="warn">
+  A Questão 1 (b) e (c) está no learning-record `0006` como **frágil** (captura de variáveis
+  e múltipla avaliação de parâmetros). A Questão 4 está no `0007` como **não demonstrada**
+  (pedi a resolução sem tentar). Refaça as duas de cabeça antes de abrir.
+</Callout>
+
+## Questão 1 — Expansão de macros em C
+
+**Assunto:** passagem por expansão de macros: pré-processador, captura de variáveis e
+múltipla avaliação de parâmetros (Aula 19) · **Tipo:** rastreio e implementação
+
+> ```c
+> #define SUM(X, Y) (X) + (Y)
+>
+> int main(int argc, char** argv) {
+>   printf("sum = %d\n", SUM(argc, argv[0][0]));
+> }
+> ```
+>
+> (a) Escreva o programa depois do pré-processamento. (b) Ilustre a captura de variáveis com
+> um exemplo. (c) Escreva um exemplo em C que prove que os parâmetros de macros são
+> avaliados múltiplas vezes.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** A linha do `#define` some e a chamada vira o texto do corpo:
+
+```c
+int main(int argc, char** argv) {
+  printf("sum = %d\n", (argc) + (argv[0][0]));
+}
+```
+
+O pré-processador (*preprocessor*) só troca texto, antes da compilação: `X` vira `argc` e `Y`
+vira `argv[0][0]`. Ele não avalia nada e não confere tipos. Os parênteses vêm do próprio
+corpo da macro.
+
+Essa macro protege cada parâmetro, mas **não** o corpo inteiro: `SUM(a, b) * 2` vira
+`(a) + (b) * 2`, e a precedência quebra. O certo seria `((X) + (Y))`.
+
+**(b)** Captura de variáveis (*variable capture*):
+
+```c
+#include "stdio.h"
+#define SWAP(X,Y) {int temp=X; X=Y; Y=temp;}
+int main() {
+  int a = 2;
+  int temp = 17;
+  printf("%d, temp = %d\n", a, temp);
+  SWAP(a, temp);
+  printf("%d, temp = %d\n", a, temp);
+}
+```
+
+`SWAP(a, temp)` expande para `{int temp=a; a=temp; temp=temp;}`:
+
+| Passo | `a` | `temp` local | `temp` do `main` |
+|---|---|---|---|
+| `int temp=a;` | 2 | 2 | 17 (escondido) |
+| `a=temp;` | 2 | 2 | 17 |
+| `temp=temp;` | 2 | 2 | 17 |
+
+O programa imprime `2, temp = 17` duas vezes: a troca não acontece, e sem nenhum aviso.
+
+> ⚠️ **Meu erro** (sessão guiada): propus primeiro `SWAP(a, b)`, que **funciona** (imprime
+> `2, 3` e `3, 2`) e por isso não ilustra nada. A captura só aparece quando o argumento tem o
+> **mesmo nome** da variável local da macro.
+
+**(c)** Múltipla avaliação de parâmetros:
+
+```c
+#include <stdio.h>
+#define MAX(X, Y) ((X) >= (Y) ? (X) : (Y))
+int main() {
+  int a = 2, b = 3;
+  int c = MAX(++a, b);
+  printf("a = %d, b = %d, c = %d\n", a, b, c);
+}
+```
+
+Expande para `((++a) >= (b) ? (++a) : (b))` e imprime `a = 4, b = 3, c = 4`. Se `MAX` fosse
+uma função, `++a` rodaria uma vez só: `a = 3, c = 3`.
+
+Outra prova, com um contador:
+
+```c
+#include <stdio.h>
+#define DOBRO(X) ((X) + (X))
+int conta = 0;
+int f() {
+  conta++;
+  return 5;
+}
+int main() {
+  int d = DOBRO(f());
+  printf("d = %d, conta = %d\n", d, conta);
+}
+```
+
+Imprime `d = 10, conta = 2`. Como função, daria `conta = 1`.
+
+**Não use `DOBRO(++a)`:** `(++a) + (++a)` modifica `a` duas vezes sem ponto de sequência
+(*sequence point*). Isso é comportamento indefinido (*undefined behavior*), e por isso não
+prova nada. O `MAX` é seguro porque o `?:` tem ponto de sequência depois da condição.
+
+**Por quê:** a macro é passagem **não estrita**: o parâmetro só é avaliado se for usado, mas
+é avaliado **a cada uso**, e no contexto do corpo da macro, não no do chamador. Daí vêm os
+dois problemas: o efeito colateral se repete (c) e o nome do argumento pode ser capturado
+por uma variável da macro (b). A passagem por nome também avalia a cada uso, mas no
+contexto do chamador, por isso não tem captura. C, Java, Python e SML são estritas; as
+macros de C são a exceção não estrita dentro de C.
+
+</details>
+
+## Questão 2 — `swap` em Java
+
+**Assunto:** Java passa tudo por valor; objetos pelo valor da referência (Aula 19) ·
+**Tipo:** rastreio
+
+> ```java
+> class MyInt {
+>   int i;
+>   MyInt(int k) {i = k;}
+>   void swap1(MyInt j) { MyInt tmp = j; j = new MyInt(i); i = tmp.i; }
+>   void swap2(MyInt j) { MyInt tmp = j; j.i = i; i = tmp.i; }
+>   void swap3(int j)   { int tmp = j; j = i; i = tmp; }
+> }
+> ```
+>
+> Com `m1 = new MyInt(3)` e `m2 = new MyInt(4)`, quanto valem `m1.i` e `m2.i` depois de
+> (a) `m1.swap1(m2)`, (b) `m1.swap2(m2)`, (c) `m1.swap3(m2)`? Qual a política de Java para
+> (d) tipos primitivos e (e) objetos?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `m1.i = 4`, `m2.i = 4`.
+- `tmp = j`: `tmp` aponta para o objeto de `m2` (4).
+- `j = new MyInt(i)`: o **formal** `j` passa a apontar para um objeto novo (3). `m2` não muda.
+- `i = tmp.i`: `m1.i = 4`.
+
+**(b)** `m1.i = 3`, `m2.i = 3`.
+- `tmp = j`: `tmp` e `j` apontam para o **mesmo** objeto, o de `m2`.
+- `j.i = i`: muda o objeto, `m2.i = 3`.
+- `i = tmp.i`: `tmp` é o mesmo objeto, que já vale 3, então `m1.i = 3`.
+
+A troca falha porque `tmp` guardou a **referência**, não o número. Para dar certo, seria
+`int tmp = j.i;`.
+
+**(c)** `m1.swap3(m2)` **não compila**: `swap3` espera `int` e `m2` é `MyInt` (erro do
+enunciado). Se a chamada for `m1.swap3(m2.i)`: `tmp = 4`, `j = 3` só no formal, `i = 4`.
+Resultado: `m1.i = 4`, `m2.i = 4`. O `m2.i` não muda, porque `j` é uma cópia.
+
+**(d)** Por **valor**: o formal é uma cópia, e mudar o formal não muda o real.
+
+**(e)** Também por **valor**: o que se copia é a **referência** ao objeto. Não é passagem
+por referência: em (a), `j = new MyInt(i)` não muda o `m2` do chamador. Se fosse por
+referência, `m2` passaria a ser o objeto novo. Mutar o objeto (`j.i = ...`, em (b)) aparece
+fora; reatribuir o formal (`j = ...`, em (a)) não.
+
+**Por quê:** o projetista de Java quis um modelo simples e seguro, sem `&` como em C++ e sem
+ponteiros como em C. Python faz igual (passa o valor da referência ao objeto). Em C, a
+"referência" é simulada passando um ponteiro, também por valor. SML só tem passagem por
+valor e nem tem atribuição a variáveis.
+
+</details>
+
+## Questão 3 — `MySet` em Python
+
+**Assunto:** classes em Python, árvore binária de busca (Aula 19; árvore em SML na Aula 08)
+· **Tipo:** implementação
+
+> Implemente `MySet` como árvore binária de busca não balanceada: `MySet()` é o conjunto
+> vazio; `x.find(n)` devolve `True`/`False`; `x.add(n)` insere sem devolver nada (e não
+> duplica); `x.__str__()` devolve o conteúdo ordenado, como `"{1, 2, 5, 7}"`.
+
+<details>
+<summary>Resposta</summary>
+
+```python
+class Node:
+    def __init__(self, value):
+        self.value = value
+        self.left = None
+        self.right = None
+
+class MySet:
+    def __init__(self):
+        self.root = None
+
+    def find(self, n):
+        node = self.root
+        while node is not None:
+            if n == node.value:
+                return True
+            elif n < node.value:
+                node = node.left
+            else:
+                node = node.right
+        return False
+
+    def add(self, n):
+        self.root = self._add(self.root, n)
+
+    def _add(self, node, n):
+        if node is None:
+            return Node(n)
+        if n < node.value:
+            node.left = self._add(node.left, n)
+        elif n > node.value:
+            node.right = self._add(node.right, n)
+        return node
+
+    def _inorder(self, node):
+        if node is None:
+            return []
+        return self._inorder(node.left) + [node.value] + self._inorder(node.right)
+
+    def __str__(self):
+        return "{" + ", ".join([str(v) for v in self._inorder(self.root)]) + "}"
+```
+
+Testado: inserindo `1, 7, 2, 5, 7`, `print(x)` mostra `{1, 2, 5, 7}`; `x.find(5)` é `True`;
+`x.find(3)` é `False`; o conjunto vazio imprime `{}`.
+
+- `find`: desce para a esquerda se `n` for menor e para a direita se for maior. Por isso é
+  O(altura), e não O(n).
+- `add`: o `elif n > node.value` deixa o caso `n == node.value` sem fazer nada, e é isso que
+  impede a duplicata.
+- `__str__`: o percurso em ordem (*in-order*: esquerda, raiz, direita) de uma árvore de
+  busca sai ordenado.
+
+**Por quê:** em SML a árvore era um `datatype` imutável (`Empty | Node of ...`), e inserir
+**devolvia uma árvore nova**. Aqui o objeto é mutável e `add` age por **efeito colateral**:
+o `self.root = self._add(...)` reaproveita a mesma ideia recursiva, mas atualiza o objeto.
+O `None` faz o papel do construtor `Empty`.
+
+</details>
+
+## Questão 4 — Experimentos em SML
+
+**Assunto:** SML é estrita, por valor; distinguir políticas por experimento (Aula 19) ·
+**Tipo:** implementação
+
+> (a) Faça um experimento em ML que prove que a linguagem não usa passagem por nome.
+> (b) Escreva `f` e `g` (`f` chama só `g`; `g` não chama ninguém) que demonstrem que ML não
+> faz expansão de macros. Explique o que a macro daria e o que ML dá.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Uma função que não usa o segundo parâmetro, chamada com um argumento que explode. É o
+`myand` do professor, traduzido de Python para SML:
+
+```sml
+fun myand (a, b) = if a then b else false;
+myand (false, 1 div 0 = 0);
+```
+
+- **Se fosse por nome:** `b` só seria avaliado se usado. Como `a` é `false`, o resultado
+  seria `false`.
+- **SML:** `uncaught exception Div`. O `1 div 0` foi avaliado antes da chamada. Logo, SML
+  não passa por nome; passa por valor.
+
+**(b)** Captura de variáveis:
+
+```sml
+fun g x =
+  let val y = 10
+  in x + y
+  end;
+
+fun f y = g y;
+
+f 1;
+```
+
+- **Se fosse por macro:** `g y` dentro de `f` vira o corpo de `g`, com `x` trocado por `y`:
+  `let val y = 10 in y + y end`. O `y` local captura o `y` de `f`, e `f 1` daria `20`.
+- **SML:** `val it = 11 : int`. `x` recebe o **valor** 1 antes de entrar em `g`.
+- Por nome também daria 11, porque `y` seria avaliado no contexto de `f`. É isso que separa
+  nome de macro.
+
+**Por quê:** pelo **teorema de Plotkin**, sem efeitos colaterais, e se a avaliação dos
+parâmetros terminar, as políticas estritas e as preguiçosas dão o mesmo resultado. Por isso
+o experimento precisa de exceção, laço infinito, efeito colateral ou, no caso da macro,
+captura. Como `f` só pode chamar `g`, não dá para usar `print` para mostrar uma avaliação
+múltipla, e o que sobra é a captura.
+
+</details>
+
+## Questão 5 — `Sigma` em Simula (passagem por nome)
+
+**Assunto:** passagem por nome; o "*Jensen's device*" (Aula 19) · **Tipo:** rastreio
+
+> ```text
+> Real Procedure Sigma (k, m, n, u);
+>    Name k, u;
+>    Integer k, m, n; Real u;
+> Begin
+>    Real s:=0;
+>    k:= m;
+>    While k <= n Do Begin s:= s + u; k:= k + 1; End;
+>    Sigma:= s;
+> End;
+> ```
+>
+> (a) Quanto vale `Z` em `Z:= Sigma (i, 1, 4, i ** 2);`?
+> (b) O que calcula `Z := Sigma (i, 1, 100, 1 / (i + a) ** 2);`, com `a` lido do teclado?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** `Z = 30`.
+
+`k` e `u` são passados **por nome**: `k` **é** a variável `i` do chamador, e `u` é a
+expressão `i ** 2`, reavaliada a cada uso. `m = 1` e `n = 4` são passados por valor.
+
+| `i` (via `k`) | `u = i ** 2` | `s` |
+|---|---|---|
+| 1 | 1 | 1 |
+| 2 | 4 | 5 |
+| 3 | 9 | 14 |
+| 4 | 16 | 30 |
+
+`Sigma` calcula Σ i², para i de 1 a 4: 1 + 4 + 9 + 16 = 30.
+
+**(b)** Calcula o somatório Σ 1/(i + a)², para i de 1 a 100. O `a` é avaliado no contexto do
+**chamador**, onde ele foi lido, e por isso não há captura, mesmo que `Sigma` tivesse uma
+variável local chamada `a`.
+
+**Por quê:** a passagem por nome deixa escrever um somatório **genérico**: a expressão do
+termo é passada como argumento e reavaliada a cada volta, porque `k` muda o `i` do chamador.
+Por valor, `u` seria calculado uma vez, com o `i` de antes da chamada, e `Sigma` somaria o
+mesmo número várias vezes. Hoje se faz isso passando uma **função**: `fn i => i * i` em SML,
+`lambda i: i ** 2` em Python. Em C, com um ponteiro para função. Essa é justamente a
+implementação da passagem por nome: cada parâmetro vira um *thunk* (um *closure* sem
+argumentos).
+
+</details>
+
+## Questões de prova relacionadas
+
+As provas finais antigas ainda não estão resolvidas no site; a referência é o PDF em
+`material/provas-antigas/2a-prova/`.
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Avaliação preguiçosa × estrita: o mesmo programa estoura sem `lazy` e termina com `lazy`; efeito colateral muda a semântica? | Final 24, Q3 (linguagem D, `greetThePlanet(lazy int n)`) | o mesmo experimento da Questão 4(a), e o teorema de Plotkin |
+| "R, Haskell, C macros" ↔ "Avaliação não estrita" | Final 27, Q3 (ligar colunas) | classificar: macros de C são não estritas (Questão 1); SML é estrita (Questão 4) |
+| Árvore binária com inserção em Kotlin, OO × procedural | Final 22, Q2 | a mesma estrutura da Questão 3 |
+
+Nenhuma prova antiga pede um exemplo de captura de variáveis nem de múltipla avaliação
+(Questão 1 b, c), nem o `swap` em Java (Questão 2). Mesmo assim, elas são a base para
+classificar as políticas, que é o que cai.
+
+## Para treinar
+
+1. Com `#define QUAD(X) ((X) * (X))` e `int i = 3;`: expanda `QUAD(i++)`. Isso é seguro ou é
+   comportamento indefinido? Escreva uma chamada de `QUAD` que prove a múltipla avaliação sem
+   comportamento indefinido.
+2. Em SML, com `fun g x = let val z = 3 in x * z end;` e `fun f z = g (z + 1);`, quanto vale
+   `f 2`? E por macro, com e sem parênteses em volta de `x`?
+3. Refaça a Questão 4(a) trocando `1 div 0` por uma chamada a `fun loop x = loop x;`. O que
+   SML faz? E a passagem por nome?
+4. No `swap2` da Questão 2, troque `MyInt tmp = j;` por `int tmp = j.i;`. Quanto valem
+   `m1.i` e `m2.i` agora?

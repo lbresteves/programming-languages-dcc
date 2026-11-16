@@ -1,0 +1,269 @@
+---
+title: Aula 23 - Predicados numéricos em Prolog
+description: 11/11 — Lista 23
+---
+
+mylength em prolog
+
+```
+myLength([], 0).
+myLength([_|Tail], Len) :- myLength(Tail, TailLen), Len = TailLen + 1.
+```
+
+> myLenght([1, 2, 3], 3)
+
+> 1+1
+> o + é um simbolo, prolog nao sabe que isso significa adição, em principio é só um símbolo
+> se eu quiser representar com o valor aritmetrico eu uso o 'is', avalia o lado direito da expressao e verifica isso com o lado esquerdo da expressao
+
+> N= 2, N = 1 + 1.
+> false.
+
+> N = 2, N =2.
+> N = 2.
+
+> 1 + 1 = 2.
+> false.
+
+> 1 + 1 =:= 2.
+> true.
+
+Porém
+
+> X is 1 + 1.
+
+e
+
+> 1 + 1 is X.
+
+isso é erro (nao falso)
+
+prolog assume que o lado direito é definido
+
+O que já sabemos de prolog?
+é uma linguagem lógica, declarativa, faz backtracking com busca exaustiva, ordem dos objetos importa
+
+` 1 + 2 * 3`
+
+O = é unificação, basicamente.
+
+Ok. vimos 3 operadores
+
+> N= 2.
+> 2 = n
+> N is 1 + 1.
+
+o igual cortado faz avaliação dos 2 lados e unifica, o = normal avalia o lado direito antes de fazer verificação.
+
+> N =:= 1.
+
+é erro
+
+> N == 1 + 1.
+> false.
+
+é false nesse, não é erro, mas é quase igual A
+
+> 1 + 1 is N.
+> erro
+
+mas é quase igual, diferença é que ele lança erro
+
+imagine que queremos somar
+
+```
+sum([],0).
+sum([Head|Tail],X) :- sum(Tail,TailSum), X is Head + TailSum.
+```
+
+> sum([1,2,3], N)
+
+> N = 6.
+
+`sum([H|T], N) :- sum(T, NN), N is NN + H.`
+esse gera erro por conta da variavel nao definida.
+Esse nao é de cauda rasa. Pra transformar em cauda rasa:
+
+```
+sum_tl([], Acc, Acc).
+sum_tl([H|T], Acc, X) :- NovoAcc is Acc + H, sum_tl(T, NovoAcc, X).
+
+```
+
+sum_tl([1,2,3,4], 10, X)
+
+é de cauda rasa, pois a ultima coisa que ele faz é recursivo
+
+Agora quero fazer uma fatorial:
+
+```
+fact(0, 1).
+fact(1, 1).
+fact(N, F) :- integer(N), N > 1, N1 is N - 1, fact(N1, F1), F is F1 * N.
+- try also -
+factorial(X, 1) :- X =:= 1.
+factorial(X, Fact) :- X > 1, NewX is X - 1, factorial(NewX, NF), Fact is X * NF.
+```
+
+> fact(10, N).
+> funciona
+
+> fact(10azero, N).
+> nao funciona, da erro
+
+prolog é dinamicamente tipado
+
+Agora verificar se é primo
+
+```
+is_prime(2).
+is_prime(3).
+is_prime(P) :- integer(P), P > 3, P mod 2 =\= 0, \+ has_factor(P,3).
+
+```
+
+=\= é diferente
+
+> 1 =\= 2.
+> true
+
+mas
+
+> N =\= 3+ 1.
+
+Da erro
+
+E o simbolo \+ é o mesmo que not()
+
+```
+has_factor(N,L) :- N mod L =:= 0.
+has_factor(N,L) :- L * L < N, L2 is L + 2, has_factor(N,L2).
+
+```
+
+Agora uma lista de todos os inteiros
+
+```
+range(I,I,[I]).
+range(I,K,[I|L]) :- I < K, I1 is I + 1, range(I1,K,L).
+```
+
+range é predicado de caud rasa? Não... a concatenação [I|L] acontece depois do retorno do range...
+
+como faço pra achar a lista de primos de um certo range?
+
+exemplo
+Find all the prime numbers from 1 to 10:
+
+```
+
+?- findall(N, (range(1, 10, L), member(N, L), is_prime(N)), L).
+L = [2, 3, 5, 7].
+
+```
+
+é um jeito de extrair padrões e acumular padrões na estrutura de dados
+
+Agora quero calcular divisor em comum
+
+```
+gcd(X, Y, Z) :-
+  X =:= Y, Z is X.
+gcd(X, Y, Denom) :-
+  X > Y,
+  NewY is X - Y,
+  gcd(Y, NewY, Denom).
+gcd(X, Y, Denom) :-
+  X < Y,
+  gcd(Y, X, Denom).
+```
+
+algoritmo euclidiano:
+
+```
+gcd(N1, N2, GCD) :- N1 < N2, euclid(N2, N1, GCD).
+gcd(N1, N2, GCD) :- N2 > 0, N1 > N2, euclid(N1, N2, GCD).
+
+euclid(N, 0, N).
+euclid(N1, N2, GCD) :-
+  N2 > 0, Q is N1 // N2, R is N1 - (N2 * Q), euclid(N2, R, GCD).
+```
+
+algoritmo de subset novamente:
+
+```
+subSet([], []).
+subSet([H|T], [H|R]) :- subSet(T, R).
+subSet([_|T], R) :- subSet(T, R).
+```
+
+esse acima da 8 valores
+
+Progrma NP Completo: da pra resolver em tempo polinomial num maquina nao deterministica, e se resolve 1, resolve todos.
+
+um dos problemas mais famosos np-completo é o de subset sum.
+em prolog é simples de resolver:
+
+```
+subsum(L, N, S) :- subset(L, S), sum_tl(S, 0, N).
+```
+
+como pegar as permutações de uma lista?
+
+```
+perm([], []).
+perm(List, [H|Perm]) :- select(H, List, Rest), perm(Rest, Perm).
+```
+
+quadrado magico
+
+```
+magic_sq([A,B,C,D,E,F,G,H,I]) :-
+    L = [1,2,3,4,5,6,7,8,9],
+    perm(L, [A,B,C,D,E,F,G,H,I]),
+    sum_tl([A, B, C], S),
+    sum_tl([D, E, F], S),
+    sum_tl([G, H, I], S),
+    sum_tl([A, D, G], S),
+    sum_tl([B, E, H], S),
+    sum_tl([C, F, I], S),
+    sum_tl([A, E, I], S),
+    sum_tl([C, E, G], S).
+```
+
+Problema das 8 rainhas:
+
+```
+nocheck(_, []).
+nocheck(X/Y, [X1/Y1 | Rest]) :-
+  X =\= X1,
+  Y =\= Y1,
+  abs(Y1-Y) =\= abs(X1-X),
+  nocheck(X/Y, Rest).
+
+legal([]).
+legal([X/Y | Rest]) :-
+  legal(Rest),
+  member(X,[1,2,3,4,5,6,7,8]),
+  member(Y,[1,2,3,4,5,6,7,8]),
+  nocheck(X/Y, Rest).
+```
+
+é preciso fixar o X:
+
+```
+eightqueens(L) :-
+  L = [1/_,2/_,3/_,4/_,5/_,6/_,7/_,8/_],legal(L)
+```
+
+mas é possivel tornar o predicado mais eficiente:
+
+```
+legal([]).
+legal([X/Y | Rest]) :-
+  member(Y,[1,2,3,4,5,6,7,8]),
+  nocheck(X/Y, Rest),
+  legal(Rest).
+```
+
+**Resolução da lista:** [Lista 23 - Resolução](/docs/aula-23/lista-23)

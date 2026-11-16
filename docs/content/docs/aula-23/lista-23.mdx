@@ -1,0 +1,374 @@
+---
+title: Lista 23 - Resolução
+description: Predicados numéricos em Prolog (max, ordenação, mergesort) e busca exaustiva para problemas NP-completos (N rainhas, mochila, cobertura de conjuntos, clique)
+---
+
+Resolução completa da Lista 23. Tente cada questão no papel antes de abrir a resposta.
+
+Duas regras da aula resolvem metade da lista:
+
+- **`is`, `<`, `>`, `=<`, `>=`, `=:=` e `=\=` avaliam** a expressão aritmética, e por isso os
+  operandos precisam estar instanciados. Com variável livre é **erro**, não `false`.
+- **Gerar e testar:** um predicado gera candidatos (`member`, `subSet`, `perm`) e outro
+  testa. O retrocesso faz a busca exaustiva sozinho.
+
+## Questão 1 — `max`
+
+**Assunto:** comparação aritmética em Prolog (Aula 23) · **Tipo:** implementação
+
+> `max(X, Y, Z)`: unifica `Z` com o maior entre os números `X` e `Y`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+max(X, Y, X) :- X >= Y.
+max(X, Y, Y) :- X < Y.
+```
+
+**Por quê:** o resultado vai direto na **cabeça** da cláusula: "se `X >= Y`, a resposta é
+`X`". As duas condições são excludentes, e por isso `max(3, 3, Z)` dá uma resposta só (sem
+o `X < Y`, um `;` acharia `Z = 3` duas vezes). `>=` e `<` **avaliam** os dois lados:
+`max(1+2, 2, Z)` dá `Z = 1+2`, porque a cabeça unifica o termo sem avaliar, e o teste é que
+avalia. Em SML seria `fun max (x, y) = if x >= y then x else y;`. Lá é uma **função** que
+devolve valor; aqui é uma **relação** em que o "retorno" é um argumento a mais.
+
+</details>
+
+## Questão 2 — `maxList`
+
+**Assunto:** recursão em listas com aritmética (Aula 23) · **Tipo:** implementação
+
+> `maxList(L, M)`: `M` é o maior número de `L`. Deve falhar para a lista vazia.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+maxList([X], X).
+maxList([H|T], M) :- T = [_|_], maxList(T, MT), max(H, MT, M).
+```
+
+**Por quê:** o caso base é a lista **unitária**, não a vazia: o maior de `[X]` é `X`. Como não
+há cláusula para `[]`, `maxList([], M)` falha, que é exatamente o pedido. Em SML seria
+preciso lançar uma exceção ou devolver `option`, porque uma função tem de devolver *algo*. Em
+Prolog, "não existe resposta" é simplesmente falhar.
+
+O `T = [_|_]` impede que a 2ª cláusula também aceite a lista unitária: sem ele, `[5]` casaria
+com as duas, a 2ª chamaria `maxList([], …)` e falharia. A resposta sairia certa, mas com um
+ponto de escolha à toa.
+
+</details>
+
+## Questão 3 — `ordered`
+
+**Assunto:** padrões com dois elementos na cabeça da lista (Aula 23) · **Tipo:** implementação
+
+> `ordered(L)`: verdade se `L` estiver em ordem crescente.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+ordered([]).
+ordered([_]).
+ordered([A, B|T]) :- A =< B, ordered([B|T]).
+```
+
+**Por quê:** cada passo compara um par de **vizinhos** e anda **uma** posição, e por isso a
+chamada recursiva recebe `[B|T]`, não `T`. Com `T`, o par `B`–(primeiro de `T`) nunca seria
+comparado: `[1,5,2,3]` passaria. Usei `=<` (permite repetidos). Para ordem estritamente
+crescente, troque por `<`.
+
+</details>
+
+## Questão 4 — `mergesort`
+
+**Assunto:** recursão com divisão da lista e aritmética de comparação (Aula 23) ·
+**Tipo:** implementação
+
+> `mergesort(In, Out)`: `Out` é `In` ordenada, pelo algoritmo mergesort. Não use o nome
+> `merge` (já existe no SWI-Prolog).
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+mergesort([], []).
+mergesort([X], [X]).
+mergesort(L, S) :-
+   L = [_, _|_],
+   divide(L, L1, L2),
+   mergesort(L1, S1),
+   mergesort(L2, S2),
+   intercala(S1, S2, S).
+
+divide([], [], []).
+divide([X], [X], []).
+divide([X, Y|T], [X|T1], [Y|T2]) :- divide(T, T1, T2).
+
+intercala([], L, L).
+intercala([H|T], [], [H|T]).
+intercala([H1|T1], [H2|T2], [H1|R]) :- H1 =< H2, intercala(T1, [H2|T2], R).
+intercala([H1|T1], [H2|T2], [H2|R]) :- H1 > H2, intercala([H1|T1], T2, R).
+```
+
+**Por quê:** são as três etapas do mergesort, cada uma num predicado.
+
+- `divide` reparte os elementos alternadamente (posições ímpares para um lado, pares para o
+  outro), em O(n) e sem precisar do tamanho.
+- `mergesort` ordena as duas metades recursivamente.
+- `intercala` junta duas listas já ordenadas, escolhendo a menor cabeça.
+
+O `L = [_, _|_]` (pelo menos dois elementos) e as condições excludentes `=<`/`>` garantem uma
+única resposta. Sem elas, um `;` repetiria soluções ou entraria em laço:
+`mergesort([X], S)` também casaria com a 3ª cláusula, e `divide([X], [X], [])` geraria de
+novo uma lista de um elemento.
+
+A 2ª cláusula do `intercala` usa `[H|T]` e não `L` para não repetir a resposta quando as
+duas listas são vazias (a 1ª cláusula já cobre esse caso).
+
+</details>
+
+## Questão 5 — N rainhas
+
+**Assunto:** gerar e testar, aritmética com `=\=` e ordem das metas (Aula 23) ·
+**Tipo:** implementação
+
+> `nqueens(N, X)`: uma solução para N rainhas num tabuleiro N × N, generalizando o
+> `eightqueens` do livro.
+
+<details>
+<summary>Resposta</summary>
+
+Partindo do código da aula (`nocheck` e `legal`), basta trocar a lista fixa
+`[1,2,3,4,5,6,7,8]` por `1..N`:
+
+```prolog
+nqueens(N, X) :-
+   numlist(1, N, Ns),
+   posicoes(Ns, X),
+   legal(X, Ns).
+
+posicoes([], []).
+posicoes([C|Cs], [C/_|Q]) :- posicoes(Cs, Q).
+
+legal([], _).
+legal([X/Y|Rest], Ns) :-
+   legal(Rest, Ns),
+   member(Y, Ns),
+   nocheck(X/Y, Rest).
+
+nocheck(_, []).
+nocheck(X/Y, [X1/Y1|Rest]) :-
+   X =\= X1,
+   Y =\= Y1,
+   abs(Y1 - Y) =\= abs(X1 - X),
+   nocheck(X/Y, Rest).
+```
+
+```prolog
+?- nqueens(4, X).
+X = [1/3, 2/1, 3/4, 4/2] ;
+```
+
+`numlist(1, N, Ns)` é do SWI-Prolog. O `range(1, N, Ns)` da aula serve igual. `posicoes`
+monta `[1/_, 2/_, …, N/_]`: a coluna de cada rainha já fica fixa (é o "é preciso fixar o X"
+da aula), e só falta escolher a linha `Y`.
+
+**Por quê:** `nocheck` usa `=\=`, que **avalia** os dois lados. Por isso, quando
+`nocheck(X/Y, Rest)` roda, todos os `Y1` de `Rest` já precisam estar instanciados. É por isso
+que `legal(Rest, Ns)` vem **antes**: primeiro posiciona as rainhas do resto, depois escolhe
+`Y` e testa contra elas. Se você inverter (`member`, `nocheck`, `legal(Rest)`, como na
+"versão mais eficiente" anotada em aula), `nocheck` encontra `Y1` livre e dá **erro de
+instanciação**. Essa ordem só funciona se `Rest` já vier instanciado.
+
+</details>
+
+## Questão 6 — Mochila com repetição (`multiknap`)
+
+**Assunto:** otimização por busca exaustiva com `findall` (Aula 23) · **Tipo:** implementação
+
+> Como o `knapsackOptimization` do livro, mas podendo levar **várias cópias** do mesmo item.
+> `food(Nome, Peso, Calorias)`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+multiknap(Pantry, Capacity, Knapsack) :-
+   findall(K, cabe(Pantry, Capacity, K), Ks),
+   member(Knapsack, Ks),
+   calories(Knapsack, C),
+   \+ (member(K2, Ks), calories(K2, C2), C2 > C).
+
+cabe(_, _, []).
+cabe(Pantry, Cap, [F|Rest]) :-
+   append(_, [F|Tail], Pantry),
+   F = food(_, W, _),
+   W =< Cap,
+   Cap1 is Cap - W,
+   cabe([F|Tail], Cap1, Rest).
+
+calories([], 0).
+calories([food(_, _, C)|T], X) :- calories(T, CT), X is C + CT.
+```
+
+```prolog
+?- multiknap([food(bread,4,9200), food(pasta,2,4600),
+              food(peanutButter,1,6700), food(babyFood,3,6900)], 4, K).
+K = [food(peanutButter,1,6700), food(peanutButter,1,6700),
+     food(peanutButter,1,6700), food(peanutButter,1,6700)] ;
+false.
+```
+
+**Por quê:** a diferença para o livro está no gerador. O `subseq` do livro escolhe cada item
+**zero ou uma** vez. O `cabe` escolhe um item `F` com `append(_, [F|Tail], Pantry)` e chama a
+recursão com `[F|Tail]`, ou seja, **ainda incluindo `F`**. Por isso o mesmo item pode ser
+escolhido de novo. Como a recursão nunca volta para itens anteriores, cada combinação aparece
+uma vez só (`[pasta, bread]` não é gerada além de `[bread, pasta]`). O `Cap1 is Cap - W`
+corta o ramo assim que estoura a capacidade. Sem isso, com repetição, a busca seria infinita.
+
+A otimização é "gere todas e fique com a melhor". O `findall` junta as mochilas válidas, e a
+última linha mantém `Knapsack` só se **nenhuma** outra tiver mais calorias. Assim saem
+**todas** as ótimas no retrocesso, como no livro. É exponencial: é o problema da mochila,
+NP-completo.
+
+**Erro no enunciado:** `food(break, …)` na lista e `food(bread, …)` no texto; usei `bread`.
+Pesos precisam ser positivos, senão `cabe` não termina.
+
+</details>
+
+## Questão 7 — Cobertura de conjuntos
+
+**Assunto:** versão de decisão × versão de otimização de um problema NP-completo
+(Aula 23) · **Tipo:** implementação
+
+> `Set = [1,2,3,4,5]`, `Subsets = [[1,2],[2,4],[3,5],[1,3],[3,4,5]]`, cobertura mínima
+> `[[1,2],[3,4,5]]`. (a) `coverDecision(Set, Subsets, Goal, Cover)`: cobertura com no
+> máximo `Goal` listas, todas no retrocesso. (b) `coverOptimization(Set, Subsets, Cover)`:
+> todas as coberturas de tamanho mínimo.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```prolog
+coverDecision(Set, Subsets, Goal, Cover) :-
+   subSet(Subsets, Cover),
+   length(Cover, Len), Len =< Goal,
+   cobre(Set, Cover).
+
+cobre(Set, Cover) :- forall(member(X, Set), (member(S, Cover), member(X, S))).
+
+subSet([], []).
+subSet([H|T], [H|R]) :- subSet(T, R).
+subSet([_|T], R) :- subSet(T, R).
+```
+
+`subSet` é o da aula (e da Lista 22). `cobre` lê como a definição: "**para todo** `X` de
+`Set`, existe um `S` em `Cover` com `X` em `S`". `forall(C, A)` é do SWI-Prolog e equivale a
+`\+ (C, \+ A)`: "não existe `X` que não esteja coberto". Por ser uma negação, ele só testa e
+não deixa pontos de escolha, e por isso cada cobertura aparece uma vez. O teste de tamanho
+vem antes do `cobre`, porque é o mais barato e corta antes (cláusula mais restritiva
+primeiro, como no `grandfather` da aula).
+
+**(b)**
+
+```prolog
+coverOptimization(Set, Subsets, Cover) :-
+   length(Subsets, Max),
+   coverDecision(Set, Subsets, Max, Cover),
+   length(Cover, Len),
+   \+ (coverDecision(Set, Subsets, Max, C2), length(C2, L2), L2 < Len).
+```
+
+```prolog
+?- coverOptimization([1,2,3,4,5], [[1,2],[2,4],[3,5],[1,3],[3,4,5]], C).
+C = [[1, 2], [3, 4, 5]] ;
+false.
+```
+
+**Por quê:** é o padrão do livro para passar de decisão a otimização. Usa-se o problema de
+**decisão** como gerador (com `Goal` = todas as listas, ou seja, sem limite), e fica-se com
+uma cobertura só se **não existir** outra menor. Como é um teste e não um corte, todas as de
+tamanho mínimo saem no retrocesso, como o enunciado pede.
+
+**Erro no enunciado:** `CoverDecision`, com maiúscula, é uma **variável** em Prolog e não pode
+ser nome de predicado; usei `coverDecision`.
+
+</details>
+
+## Questão 8 — Clique
+
+**Assunto:** gerar e testar em grafos (Aula 23) · **Tipo:** implementação
+
+> Grafo: `edge(a,b). edge(a,c). edge(b,c). edge(a,d). edge(b,e). edge(d,e). edge(a,e).`
+> `cliqueN(N, G, L) :- sublist(G, L), length(L, N), clique(L).` Defina (a) `sublist(G, L)` e
+> (b) `clique(L)`.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** É o mesmo `subSet`, com outro nome:
+
+```prolog
+sublist([], []).
+sublist([H|T], [H|R]) :- sublist(T, R).
+sublist([_|T], R) :- sublist(T, R).
+```
+
+**(b)** Todo vértice tem de estar ligado a todos os que vêm depois dele:
+
+```prolog
+clique([]).
+clique([H|T]) :- ligado(H, T), clique(T).
+
+ligado(_, []).
+ligado(X, [Y|T]) :- conectado(X, Y), ligado(X, T).
+
+conectado(X, Y) :- edge(X, Y).
+conectado(X, Y) :- edge(Y, X).
+```
+
+```prolog
+?- cliqueN(3, [a, b, c, d, e], L).
+L = [a, b, c] ;
+L = [a, b, e] ;
+L = [a, d, e] ;
+false.
+```
+
+**Por quê:** o `sublist` mantém a ordem de `G` e gera "com o elemento" antes de "sem o
+elemento", e é isso que produz as respostas na mesma ordem do enunciado. O `clique` verifica
+cada par uma única vez: `H` contra o resto, depois o resto recursivamente. O `conectado`
+existe porque o grafo é **não dirigido**, mas cada aresta foi escrita numa direção só. Sem
+ele, `clique([b, a])` falharia, já que só existe `edge(a, b)`.
+
+</details>
+
+## Questões de prova relacionadas
+
+As provas finais antigas ainda não estão resolvidas no site; a referência é o PDF em
+`material/provas-antigas/2a-prova/`.
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Aritmética + gerar e testar: `is_triple(A,B,C)` (C² = A² + B²) e `solve_triple` com A, B, C em 1..10 | Final 24, Q2 | traduzir para Prolog um laço triplo de Python: `member` (ou `between`) gera, `=:=` testa (Questões 5–8) |
+| `rangelist(N, S)`, sublista e `multset(N, L, S)` | Final 22, Q1 | gerar listas com tamanho limitado e elementos de outra lista: o mesmo molde do `cabe` (Questão 6) e do `subSet` (Questões 7 e 8) |
+| Explicar programas Prolog com `append` (`mystery1`, `mystery2`) | Final 25, Q1 | ler predicados de lista, como o `divide`/`intercala` da Questão 4 |
+
+Nas finais, o Prolog cai como **implementação curta** de gerar e testar, com aritmética
+correta (`is` × `=` × `=:=`). Os NP-completos grandes (mochila, cobertura) não caíram
+inteiros, mas o padrão é o mesmo.
+
+## Para treinar
+
+1. Escreva `minList(L, M)` em cauda rasa (com acumulador), falhando para a lista vazia.
+2. Escreva `between2(I, K, X)`, que gere `X = I, I+1, …, K` no retrocesso, sem usar o
+   `between` do SWI-Prolog.
+3. Usando o `cliqueN`, escreva `maiorClique(G, L)`, que devolva as cliques de tamanho máximo.
+   Use o mesmo padrão do `coverOptimization`.
+4. O que acontece com `?- X is Y + 1.`, `?- 2 = 1 + 1.` e `?- 2 =:= 1 + 1.`? Erro, `false`
+   ou `true`, e por quê?

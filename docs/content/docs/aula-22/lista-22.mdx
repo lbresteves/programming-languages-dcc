@@ -1,0 +1,416 @@
+---
+title: Lista 22 - Resolução
+description: Recursão de cauda em Prolog, subconjunto de soma N, eficiência de predicados, compartilhamento de listas e localidade de arranjos em C
+---
+
+Resolução completa da Lista 22. Tente cada questão no papel antes de abrir a resposta.
+
+<Callout title="Conceito frágil: elemento × cauda" type="warn">
+  As versões de cauda rasa das Questões 1 e 5 montam o resultado com `[H|Acc]`, em que `H`
+  é um **elemento** e `Acc` é uma **lista**. É o mesmo ponto do learning-record `0002`
+  (frágil): `hd`/`::` em SML. Antes de abrir a resposta, diga o tipo de cada lado do `|`.
+</Callout>
+
+## Questão 1 — `sum` e `myreverse` em cauda rasa
+
+**Assunto:** recursão de cauda, ou cauda rasa (*tail recursion*), e acumuladores (Aula 22) ·
+**Tipo:** implementação e conceitual
+
+> Reescreva em cauda rasa:
+>
+> ```prolog
+> sum([], 0).
+> sum([H|T], X) :- sum(T, XAux), X is XAux + H.
+>
+> myappend([], L, L).
+> myappend([H|T], L, [H|LAux]) :- myappend(T, L, LAux).
+> myreverse([], []).
+> myreverse([H|T], R) :- myreverse(T, RT), myappend(RT, [H], R).
+> ```
+>
+> (c) Qual a vantagem de implementarmos funções de cauda rasa?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** A conta passa para um **acumulador**, que é feita *antes* da chamada recursiva:
+
+```prolog
+sum(L, S) :- sum_tl(L, 0, S).
+
+sum_tl([], Acc, Acc).
+sum_tl([H|T], Acc, S) :- NovoAcc is Acc + H, sum_tl(T, NovoAcc, S).
+```
+
+No original, depois de `sum(T, XAux)` ainda falta o `X is XAux + H`, e por isso o registro
+de ativação (*activation record*) precisa continuar vivo. No `sum_tl` a soma acontece antes,
+e a chamada recursiva é a última coisa da cláusula. É o "faça os cálculos nos parâmetros" da
+aula.
+
+**(b)** O mesmo truque. O acumulador guarda "o que já foi invertido até agora":
+
+```prolog
+myreverse(L, R) :- rev_aux(L, [], R).
+
+rev_aux([], Acc, Acc).
+rev_aux([H|T], Acc, R) :- rev_aux(T, [H|Acc], R).
+```
+
+Rastreio de `myreverse([1,2,3], R)`:
+
+| chamada | `Acc` |
+|---|---|
+| `rev_aux([1,2,3], [], R)` | `[]` |
+| `rev_aux([2,3], [1], R)` | `[1]` |
+| `rev_aux([3], [2,1], R)` | `[2,1]` |
+| `rev_aux([], [3,2,1], R)` | `R = [3,2,1]` |
+
+Além de ser de cauda rasa, isto muda o **custo**. O `myreverse` original chama `myappend` a
+cada elemento, e `myappend(RT, [H], R)` percorre `RT` inteira: 0 + 1 + … + (n−1) passos,
+O(n²). O `rev_aux` coloca cada elemento na **cabeça** do acumulador, uma operação O(1), e
+fica O(n). É o `rev0` × `rev1` da aula.
+
+**(c)** Numa chamada de cauda, o registro de ativação de quem chama não serve mais para nada
+depois que a chamada é feita: não há conta pendente nem variável para ler na volta. O
+compilador **reaproveita o registro** e troca a chamada por um desvio (*goto*) para o início
+da função. A recursão vira um laço `while`:
+
+- espaço de pilha **O(1)** em vez de O(n), e por isso não há estouro de pilha (*stack
+  overflow*) em listas grandes;
+- e menos trabalho por chamada: não se empilha nem desempilha nada.
+
+Em Prolog há um porém: só vale se a cláusula for **determinística** na hora da última
+chamada. Se sobrou um ponto de escolha (*choice point*) para o retrocesso (*backtracking*),
+o registro precisa ficar, porque o Prolog pode voltar a ele (o `p(X) :- q(X), …, p(Z)` da
+aula).
+
+| Linguagem | Otimiza a chamada de cauda? |
+|---|---|
+| SML | Sim, sempre: laço em linguagem funcional *é* recursão de cauda. |
+| Prolog | Sim (*last call optimization*), se não houver ponto de escolha pendente. |
+| C | O `gcc -O2` costuma fazer, mas o padrão não garante. |
+| Java | Não. A JVM mantém a pilha inteira, que o tratamento de exceções e o *stack trace* usam. |
+| Python | Não, por decisão de projeto: o *traceback* mostraria a pilha inteira. |
+
+**Por quê:** cauda rasa não deixa o algoritmo assintoticamente mais rápido em tempo (o `sum`
+continua O(n)). O que ela muda é o **espaço**: O(n) registros de ativação viram 1. No
+`reverse`, o ganho de tempo vem do acumulador, que elimina o `append`. Não vem da cauda rasa
+em si.
+
+</details>
+
+## Questão 2 — Subconjunto de soma N
+
+**Assunto:** problemas NP-completos e busca exaustiva em Prolog (Aulas 22 e 23) ·
+**Tipo:** implementação
+
+> Dado um conjunto `U` de inteiros e um inteiro `N`, encontre um subconjunto `S` de `U` cuja
+> soma seja `N`. Ex.: `U = [1,2,3,4,5]`, `N = 6` dá `[1,2,3]`, `[1,5]` e `[2,4]`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+subsetSum(U, N, S) :- subSet(U, S), sum(S, N).
+
+subSet([], []).
+subSet([H|T], [H|R]) :- subSet(T, R).
+subSet([_|T], R) :- subSet(T, R).
+```
+
+O `sum` é o da Questão 1. O padrão é **gerar e testar**: `subSet` gera um subconjunto e
+`sum` testa se a soma é `N`. Se o teste falhar, o retrocesso pede ao `subSet` o próximo
+subconjunto.
+
+```prolog
+?- subsetSum([1,2,3,4,5], 6, S).
+S = [1, 2, 3] ;
+S = [1, 5] ;
+S = [2, 4] ;
+false.
+```
+
+**Por quê:** a 2ª cláusula do `subSet` põe o elemento no subconjunto e a 3ª o deixa de fora:
+são duas escolhas por elemento, e a árvore de busca tem **2ⁿ** folhas. É exponencial, como
+o enunciado avisa, mas em Prolog a busca exaustiva já vem pronta no motor. Em C, Java ou
+Python seria preciso escrever a enumeração na mão: um laço sobre as máscaras de bits de 0 a
+2ⁿ − 1, ou uma recursão com dois ramos. Por isso Prolog é a linguagem "boa para formular
+problemas NP-completos" da ementa: o programa é praticamente a definição do problema.
+
+O `sum` precisa vir **depois** do `subSet`: o `is` exige que a lista já esteja instanciada.
+
+</details>
+
+## Questão 3 — `riddle`
+
+**Assunto:** custo de `length` e casamento de padrões em Prolog (Aula 22) ·
+**Tipo:** conceitual e implementação
+
+> ```prolog
+> riddle(X,_) :- length(X, XL), XL = 0.
+> riddle(_,Y) :- length(Y,YL) YL = 0.
+> ```
+>
+> O que faz? Implemente de modo mais eficiente.
+
+<details>
+<summary>Resposta</summary>
+
+`riddle(X, Y)` é verdade quando **`X` ou `Y` é a lista vazia**.
+
+```prolog
+riddle([], _).
+riddle(_, []).
+```
+
+**Por quê:** o original mede a lista **inteira** só para comparar o tamanho com 0. Isso
+custa O(n), enquanto o casamento de padrões com `[]` decide em O(1), olhando só a primeira
+célula. Há um problema pior: se `X` não estiver instanciada, `length(X, XL)` **gera** listas
+de tamanho 0, 1, 2… Ao retroceder depois de `XL = 0` falhar, ele nunca para. A versão com
+padrões não tem esse laço infinito.
+
+Em SML seria o mesmo raciocínio: `fun riddle (nil, _) = true | riddle (_, nil) = true |
+riddle _ = false;` em vez de comparar `length x = 0`.
+
+**Erro no enunciado:** falta a vírgula depois de `length(Y,YL)`. Do jeito que está, o
+arquivo nem compila.
+
+</details>
+
+## Questão 4 — `enigma`
+
+**Assunto:** custo de `append` e ordem da busca em Prolog (Aula 22) ·
+**Tipo:** conceitual e implementação
+
+> ```prolog
+> enigma(List1, N, List2) :-
+>    length(Dummy, N),
+>    append(List2, Dummy, List1).
+> ```
+
+<details>
+<summary>Resposta</summary>
+
+`enigma(L1, N, L2)` é verdade quando **`L2` é `L1` sem os seus `N` últimos elementos**.
+`Dummy` é uma lista de `N` variáveis novas, e `append(L2, Dummy, L1)` diz que `L1` = `L2`
+seguida de `N` elementos quaisquer.
+
+```prolog
+?- enigma([a,b,c,d,e], 2, L).
+L = [a, b, c].
+```
+
+Versão mais eficiente: calcular **antes** o tamanho do prefixo.
+
+```prolog
+enigma(L1, N, L2) :-
+   length(L1, Len), K is Len - N, K >= 0,
+   length(L2, K), append(L2, _, L1).
+```
+
+**Por quê:** no original, `append(List2, Dummy, List1)` tem só `List1` instanciada, e por isso
+tenta **cada ponto de corte** de `List1`: `List2 = []`, `[a]`, `[a,b]`… Em cada tentativa,
+ele unifica o resto com `Dummy` e só descobre no fim que o tamanho não bate. São n tentativas
+de até N passos, até O(n·N), e ainda sobra um ponto de escolha depois da resposta. Na versão
+nova, `L2` já é uma lista de `K` variáveis, e o `append` tem um **único caminho**: O(n) no
+total. É a regra da aula: em Prolog a ordem das metas e o que já está instanciado decidem o
+tamanho da árvore de busca.
+
+</details>
+
+## Questão 5 — `xfactorial` em cauda rasa
+
+**Assunto:** recursão de cauda com acumulador (Aulas 22 e 23) · **Tipo:** implementação
+
+> ```prolog
+> xfactorial(1, 1).
+> xfactorial(N, FN) :-
+>    NextN is N-1,
+>    xfactorial(NextN, FNestN),
+>    FN is FNextN * N.
+> ```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+xfactorial(N, F) :- fact_tl(N, 1, F).
+
+fact_tl(1, Acc, Acc).
+fact_tl(N, Acc, F) :-
+   N > 1,
+   NovoAcc is Acc * N,
+   NextN is N - 1,
+   fact_tl(NextN, NovoAcc, F).
+```
+
+Rastreio de `xfactorial(4, F)`: `fact_tl(4,1)` → `fact_tl(3,4)` → `fact_tl(2,12)` →
+`fact_tl(1,24)` → `F = 24`.
+
+**Por quê:** é o mesmo molde do `sum_tl`. A multiplicação que ficava pendente **depois** da
+chamada (`FN is FNextN * N`) passa para **antes** e vai no acumulador. A última meta da
+cláusula vira a chamada recursiva.
+
+O `N > 1` não é enfeite. Sem ele, depois de achar a resposta, um `;` faz o Prolog tentar a
+2ª cláusula com `N = 1` e descer para 0, −1, −2… sem fim. O original tem o mesmo defeito. A
+condição também deixa a cláusula determinística, que é o que permite à otimização de última
+chamada valer (Questão 1c).
+
+**Erro no enunciado:** `FNestN` e `FNextN` são variáveis **diferentes**, e por isso
+`FN is FNextN * N` daria erro de instanciação. A intenção é usar o mesmo nome nas duas.
+
+</details>
+
+## Questão 6 — Reaproveitamento de listas
+
+**Assunto:** modelo de custo de listas, compartilhamento (*sharing*) e efeitos colaterais
+(Aula 22) · **Tipo:** conceitual
+
+> `D = [2,3]`, `E = [1|D]`: a cauda de `E` são as próprias células de `D`. (a) Numa linguagem
+> com efeitos colaterais, como Java, como saber se a implementação reaproveita partes de
+> estruturas? (b) E numa sem efeitos colaterais, como o SML que vimos?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Com efeitos colaterais, o compartilhamento é **observável**. Há dois jeitos de ver:
+
+- **Alterar** uma estrutura e ver se a outra muda junto. É o exemplo de Python da aula:
+  `D[:0] = [1]` mudou o que `E` enxergava.
+- Comparar **identidade**, não conteúdo: em Java, `==` em objetos compara referências.
+
+```java
+String a = "hello";
+String b = "hello";
+System.out.println(a == b);       // true: a JVM reaproveita o mesmo objeto (interning)
+
+Integer x = 127, y = 127;
+System.out.println(x == y);       // true: Integer.valueOf usa um cache de -128 a 127
+Integer p = 128, q = 128;
+System.out.println(p == q);       // false: fora do cache, objetos diferentes
+```
+
+Ninguém pediu esse reaproveitamento no código. Foi a implementação que decidiu, e o `==`
+deixa ver.
+
+**(b)** Sem efeitos colaterais, o compartilhamento é **invisível à semântica**: nada no
+programa muda de valor, e reaproveitar ou copiar dá o mesmo resultado. Também não há como
+comparar identidade. O `=` de SML em listas compara **conteúdo**, e o `=` de Prolog é
+unificação: a "comparação profunda" da aula. O único jeito de descobrir é pelo **custo**:
+medir tempo ou memória.
+
+- Se `1 :: d` leva o mesmo tempo para uma `d` de 10 e de 5 milhões de elementos, a cauda está
+  sendo **compartilhada** (O(1)). Se cresce com o tamanho, está sendo copiada (O(n)).
+- É o experimento da aula em Prolog: `append([a], L, LL)` com `L` de 5 milhões levou 0 s,
+  porque `LL` é uma célula nova apontando para `L`. Já `append(L, [a], LL)` levou 0,036 s,
+  porque teve de copiar `L` inteira.
+
+**Por quê:** compartilhar é seguro **justamente porque** os dados são imutáveis. Ninguém pode
+alterar `D` por baixo de `E`. Em Java ou Python, compartilhar sem avisar quebraria programas,
+por isso as estruturas mutáveis não são reaproveitadas às escondidas (só as imutáveis, como
+`String` e `Integer`). C é o caso extremo: compartilhar é só copiar um ponteiro, e é
+responsabilidade do programador.
+
+</details>
+
+## Questão 7 — Multiplicação de matrizes e localidade
+
+**Assunto:** arranjos em memória, *row major* × *column major* e hierarquia de memória
+(cache) (Aula 22) · **Tipo:** implementação, experimento e conceitual
+
+> `mult1` faz `Z[i][j] += X[i][k] * Y[k][j]` e `mult2` faz `Z[i][k] += X[i][j] * Y[j][k]`,
+> ambos com os laços `i`, `j`, `k` nessa ordem e `N = 600`. (a) Implemente `init` (aleatório)
+> e `zero`. (b) Meça com `time` três vezes cada. (c) Explique a diferença.
+
+<details>
+<summary>Resposta</summary>
+
+**(a)**
+
+```c
+#include <stdlib.h>
+
+const int N = 600;
+
+void init(int M[N][N]) {
+   int i, j;
+   for (i = 0; i < N; i++)
+      for (j = 0; j < N; j++)
+         M[i][j] = rand() % 100;
+}
+
+void zero(int M[N][N]) {
+   int i, j;
+   for (i = 0; i < N; i++)
+      for (j = 0; j < N; j++)
+         M[i][j] = 0;
+}
+```
+
+As duas precisam vir **antes** do `main` (ou ter protótipo). O enunciado diz "de tipo
+`int**`", mas o programa passa `int X[N][N]`, que é um bloco **contíguo** de N·N inteiros, e
+não um vetor de ponteiros. Usei o tipo que o `main` passa. Com `int**` seria preciso um
+`malloc` por linha, como o `a2` da aula, e as assinaturas de `mult1`/`mult2` mudariam.
+
+Atenção: três matrizes de 600 × 600 `int` são cerca de 4,3 MB na pilha. No Linux (pilha de
+8 MB) cabe; no Windows (1 MB) estoura. Se acontecer, declare as matrizes como `static` ou
+globais.
+
+**(b)** `gcc -O0 mult.c -o mult && time ./mult`, três vezes com `mult2` e três com `mult1`.
+Não pude medir aqui (não há compilador C nesta máquina). O resultado esperado é que
+**`mult2` seja mais rápido**, por um fator que depende da máquina e costuma ser de algumas
+vezes. Com `-O2` a diferença pode diminuir, porque o compilador às vezes troca a ordem dos
+laços. Anote os seus números.
+
+**(c)** As duas funções fazem as mesmas N³ multiplicações. A diferença está na **ordem em que
+a memória é visitada**. C guarda as matrizes por linha (*row major*): `M[i][j]` fica no
+endereço `base + (i·N + j)·4`. Vale olhar o laço mais interno, o `k`:
+
+| | `mult1` (`k` mais interno) | `mult2` (`k` mais interno) |
+|---|---|---|
+| `Z` | `Z[i][j]`: fixo | `Z[i][k]`: anda na **linha** (vizinhos) |
+| `X` | `X[i][k]`: anda na linha | `X[i][j]`: fixo |
+| `Y` | `Y[k][j]`: anda na **coluna**, pula N·4 = 2400 bytes | `Y[j][k]`: anda na linha |
+
+O acesso a `a[i][j]` é O(1) em teoria, mas o computador tem **cache**: uma memória pequena e
+rápida que traz da RAM um bloco de bytes vizinhos (uma linha de cache, tipicamente 64 bytes)
+de cada vez. Andando na linha, cada viagem à RAM serve 16 `int` seguidos: um *miss* e quinze
+*hits*. Andando na coluna, como o `Y[k][j]` do `mult1`, cada acesso cai num bloco diferente:
+quase todo acesso é um *miss*. É o exemplo da soma de matrizes da aula, em que percorrer por
+coluna demorava muito mais.
+
+**Por quê:** o modelo de custo "acesso a arranjo é O(1)" é verdadeiro e incompleto. A
+constante depende da localidade. Em Fortran, que guarda **por coluna** (*column major*), a
+conclusão se inverte: o `mult1` ficaria melhor. Em Java, `int[][]` é um arranjo de arranjos
+(cada linha é um objeto separado), e por isso andar na linha continua sendo o bom caminho. Em
+Python, a lista de listas guarda ponteiros para objetos `int`, e a localidade se perde de
+qualquer jeito. Em SML e Prolog não há arranjo primitivo: com listas, ler o i-ésimo elemento
+já custa O(i), e o problema é outro.
+
+</details>
+
+## Questões de prova relacionadas
+
+As provas finais antigas ainda não estão resolvidas no site; a referência é o PDF em
+`material/provas-antigas/2a-prova/`.
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| `sum` e `myreverse` em cauda rasa + vantagem da cauda rasa | Final 26, Q3 | **idêntica** à Questão 1 (3 + 3 + 4 pontos) |
+| Arranjos em O(1), como `int**` fica na memória, qual de dois programas é mais eficiente | Final 27, Q1 | a mesma ideia da Questão 7: endereço base + deslocamento, row major e cache |
+| "Funções de cauda rasa" ↔ linguagens | Final 27, Q3 (ligar colunas) | saber quais linguagens otimizam a chamada de cauda (tabela da Questão 1c) |
+| Explicar programas Prolog que usam `append` (`mystery1`) | Final 25, Q1 | o mesmo exercício da Questão 4: descobrir o que o `append` com argumentos livres faz |
+
+A Questão 1 caiu **literalmente igual** numa final. Ela precisa sair de cabeça.
+
+## Para treinar
+
+1. Reescreva em cauda rasa o `myLength` da aula:
+   `myLength([], 0). myLength([_|T], N) :- myLength(T, NT), N is NT + 1.`
+   Depois faça o mesmo em SML (`fun len …`).
+2. Escreva `prod(L, P)` (produto dos elementos) já em cauda rasa, e rastreie `prod([2,3,4], P)`
+   mostrando o acumulador a cada chamada.
+3. Descubra o que faz `misterio(L, X) :- append(_, [X], L).`. Qual é o custo? Escreva uma
+   versão que não deixe ponto de escolha pendente.
+4. No `mult1` da Questão 7, qual ordem de laços (entre as 6 permutações de `i`, `j`, `k`)
+   deixa os três acessos andando por linha ou fixos? E em Fortran?

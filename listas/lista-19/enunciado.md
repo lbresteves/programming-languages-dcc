@@ -1,6 +1,6 @@
 # Lista de Linguagens de Programação – 19
 
-Nome: ______________________ Matrícula: __________
+Nome: **********\_\_********** Matrícula: ****\_\_****
 
 ## 1.
 
@@ -15,10 +15,10 @@ int main(int argc, char** argv) {
 }
 ```
 
-(a) Macros são expandidas por um componente do compilador chamado *pré-processador*.
+(a) Macros são expandidas por um componente do compilador chamado _pré-processador_.
 Escreva o código do programa acima, após o pré-processamento.
 
-(b) Um dos problemas com expansão de macros é a chamada *captura de variáveis*.
+(b) Um dos problemas com expansão de macros é a chamada _captura de variáveis_.
 Ilustre este problema com um exemplo.
 
 (c) Um outro problema é a múltipla avaliação de parâmetros, isto é, o fato de
@@ -28,7 +28,7 @@ parâmetros de macros são avaliados múltiplas vezes.
 
 ## 2.
 
-Consider a classe abaixo, implementada em Java:
+Considere a classe abaixo, implementada em Java:
 
 ```java
 class MyInt {
@@ -91,7 +91,7 @@ componentes:
 - Um método `add`, de tal forma que `x.add(n)` não retorne nenhum valor, mas tenha o
   efeito colateral de inserir `n` no conjunto `x`. Se `n` já estiver em `x`, então nada
   deve ser modificado.
-- Um método `__str__()`, tal que `x.__str__()` retorne uma *string* representando o
+- Um método `__str__()`, tal que `x.__str__()` retorne uma _string_ representando o
   conteúdo ordenado do conjunto `x`. Por exemplo, caso `x` represente o conjunto
   {1, 7, 2, 5}, então `x.__str__()` deveria imprimir "{1, 2, 5, 7}".
 
@@ -103,9 +103,9 @@ parâmetros adotados em SML/NJ. Para isto, responda as duas questões abaixo:
 (a) Faça um experimento em ML que prove que esta linguagem não usa passagem de
 parâmetros por nome.
 
-(b) Escreva duas funções ML, *f* e *g*, que demonstrem que ML não faz passagem de
-parâmetros por expansão de macros. A função *f* deve chamar apenas a função *g*, e a
-função *g* não deve chamar nenhuma outra função. Explique os resultados que a chamada
+(b) Escreva duas funções ML, _f_ e _g_, que demonstrem que ML não faz passagem de
+parâmetros por expansão de macros. A função _f_ deve chamar apenas a função _g_, e a
+função _g_ não deve chamar nenhuma outra função. Explique os resultados que a chamada
 por expansão de macros produziria, e mostre os resultados que ML efetivamente produz.
 
 ## 5.

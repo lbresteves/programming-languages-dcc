@@ -1,231 +1,273 @@
-4) May 27 - Unification
+25) June 1 - Cost Models
 ================================================================================
 
-* The heart of Prolog is an algorithm called 'Unification'.
- - Input: two terms to be unified: left and right.
- - Challenge: to find a binding for variables in these terms so that they are
-   the same.
-
-1) How do I unify the following terms?
-a = b.
-f(X, b) = f(a, Y).
-f(X, b) = g(X, b).
-a(X, X, b) = a(b, X, X).
-a(X, X, b) = a(c, X, X).
-a(X, f) = a(X, f).
-
-pai(X, Y) = pai(ana, Y).
-1.1) Which one is better? {X->ana, Y->maria}, ou {X->ana}?
-
-* MGU = The most general unifier
- \sigma is the MGU of T1=T2 iff, for any \sigma' that unifies T1=T2, then
- \sigma' is an instance of \sigma.
-
-* Unification fills many roles:
-2) What is role of unification below:
-?- reverse([1,2,3], X).
-X = [3, 2, 1].
-
-?- X = 0.
-X = 0.
-
-?- [1,2,3] = [X|Y].
-X = 1,
-Y = [2, 3].
-
-3) What is the result of ?- X = f(X)? Or append([], X, [a|X])?
-- Some implementations of prolog disallow unification with the same variable
-  appearing on the right and on the left side (the occurs check).
-
-4) How to translate the following program to java?
-p :- q, r.           boolean p() {return q() && r();}
-q :- s.              boolean q() {return s();}
-r :- s.              boolean r() {return s();}
-s.                   boolean s() {return true;}
-
-4.1) What about p :- p. ?        boolean p() {return p();}
-
-5) What about this program?
-p :- q, r.           boolean p() {return q() && r();}
-q :- s.              boolean q() {return s() || true;}
-q.
-r.                   boolean r() {return true;}
-s :- 0 = 1.          boolean s() {return 0 == 1;}
-
-* It is not always that simple: we may need substitutions...
-
-6) How to prove p(X) given the program below:
-p(f(Y)) :- q(Y), r(Y).
-q(g(Z)).
-q(h(Z)).
-r(h(a)).
-
-* Let's build an interpreter for prolog, using pseudo-code:
-
-fun resolution(clause, goals)
-  let
-    val substitution = MGU(hd(clause), hd(goals))
-  in
-    substitution(tl(clause) @ tl(goals))
-  end
-
-6) What is resolution([p(f(Y)), q(Y), r(Y)], [p(X), s(X)])?
-- [q(Y), r(Y), s(f(Y))]
-
-fun solve(goals)
-  if goals = [] then true
-  else foreach (clause c : program)    # visit clauses in order
-    if hd(c) unifies with hd(goals)
-       then solve(resolution(c, goals))
-       else do nothing
-
-7) What is solve([p(X)])?
-
-                           sol([p(X)])
-                               |
-            sol(res([p(f(Y)), q(Y), r(Y)], [p(X)]))
-                           {X = f(Y)}
-                               |
-                        sol([q(Y), r(Y)])
-                      /                  \
-sol(res([q(g(Z))], [q(Y), r(Y)]))        sol(res([q(h(Z))], [q(Y), r(Y)]))
-               {Y = g(Z)}                           {Y = h(Z)}
-                  |                                    |
-           sol([r(g(Z))])                        sol([r(h(Z))])
-                                                       |
-                                          sol(res([r(h(a))], [r(h(Z))]))
-                                                    {Z = a}
-                                                       |
-                                                    sol([])
-                                                       |
-                                                      true
-
-* Proof trees:
- - two kinds of nodes: nothing's and solve's.
- - nothing nodes are leaves.
- - solve nodes are branches.
- - the root is a solve node containing the list of queries.
-
-8) How to build the tree for solve[p(X)]?
-
-                      {X->f(Y)}[q(Y), r(Y)]
-                        /               \
-{X->f(Y)}{Y->g(Z)}[r(g(Z))]     {X->f(Y)}{Y->h(Z)}[r(h(Z))]
-                                         |
-                                     {Z->a}[]
-
-9) What is the result of consulting p in:
-p :- p.
-p.
-
-9.1) What about:
-p.
-p :- p.
-
-9.2) How is the proof tree of each of these programs?
-
-* Sometimes variables must be substituted, to guarantee prolog's scope.
-
-10) Do you remember how the "append" predicate was implemented?
+1) Let's remember how was the implementation of append in Prolog?
 @([], L, L).
-@([H|TA], B, [H|TC]) :- @(TA, B, TC).
+@([H|T], L, [H|Tt]) :- @(T, L, Tt).
 
-11) How is the proof tree of solve(@(X, Y, [1, 2])).
+1.1) Which one is faster?
+$> swipl
+?- length(L, 5000000), time(append([a], L, LL)).
+?- length(L, 5000000), time(append(L, [a], LL)).
 
-                      @(X0, Y0, [1, 2])
-                   /                    \
-    {X0=[], Y0=L0, [1,2]=L0}        {X0=[H0|TA0], Y0=B0, [H0|TC0]=[1,2]}
-                                    @(TA0, B0, [2])
-                                 /                 \
-          {TA0=[], B0=L1, [2]=L1}       {TA0=[H1|TA1], B0=B1, [H1|TC1]=[2]}
-                                        @(TA1, B1, [])
-                                              |
-                                   {TA1=[], B1=L2, []=L2}
+2) How do you think lists are implemented in SML or Prolog?
 
-12) Do you remmeber how reverse was defined?
-myReverse([], []).
-myReverse([H|T], X) :- myReverse(T, XAux), myAppend(XAux, [H], X).
+3) Represent it graphically:
+?- D = [2, 3], E = [1|D], E = [F|G], D = [2, 3].
 
-12) How is the proof tree of solve([myReverse([1,2], X)])
+4) How do we know if SML and Prolog share list structures?
 
-myReverse([1, 2], X).
+4.1) Python has an append operator '+':
+>>> l = [1,2,3]
+>>> a = l + [4]
+>>> l
+[1, 2, 3]
+>>> a
+[1, 2, 3, 4]
+How do we know if '+' reuses the elements of both or some of the lists, or
+copies them again?
 
-= myReverse([2], XAux1), @(XAux1, [1], X).
+5) How was the implementation of length in SML?
+fun length nil = 0
+    length (head::tail) = 1 + length tail;
+5.1) What's its complexity?
 
-= myReverse([], XAux2), @(XAux2, [2], XAux1), @(XAux1, [1], X).
+6) How was the implementation of append in SML?
+fun app nil L = L
+  | app (h::t) L = h :: app t L
 
-= myReverse([], []){XAux2->[]}, @(XAux2, [2], XAux1), @(XAux1, [1], X).
+6.1) What's its complexity?
 
-= @([], [2], XAux1){XAux1->[2]}, @(XAux1, [1], X).
+6.2) Represent it graphically:
+val h = [1,2];
+val i = [3,4];
+val j = app h i;
 
-= @([2], [1], X), {X->[2, 1]}.
+7) What is the complexity of unifying lists?
+?- K = [1,2],
+|    M = K,
+|    M = [1,2].
 
-12.1) What about solve([reverse(X, [1,2])])?
+7.1) Represent this program graphically.
 
-* We can use write to debug:
+7.2) Implement the predicate xequal(X, Y), that is true when X and Y represent
+the same list:
+&=([], []).
+&=([H|Tl], [H|Tr]) :- &=(Tl, Tr).
 
-reverse([], []).
-reverse([H|T], X)
-  :- reverse(T, XAux),
-  write(H), write('|'), write(T), write(' '), write(XAux), write('\n'),
-  append(XAux, [H], X).
+7.3) Which one is faster: to unify two lists, or to compute the length of
+two lists?
 
-* We can cut the search once we find a valid unification:
+7.4) Any optimization?
 
-myReverse([], []).
-myReverse([H|T], X) :- myReverse(T, XAux), append(XAux, [H], X), !.
+* Cons-Cell Sumarry:
+- Consing takes constant time.
+- Extracting head or tail takes constant time.
+- Computing the length of a list takes time proportional to the length.
+- Computing the result of appending two lists takes time proportional to
+  the length of the first list.
+- Comparing two lists, in the worst case, takes time proportional to
+  their size.
 
-12.2) What is the semantics of the cut (!) operator?
+8) What's the complexity of reverse?
 
-myReverse([H1|T1], [2, 1]) =
+rev0([],[]).
+rev0([Head|Tail],Rev) :-  rev0(Tail,TailRev),  append(TailRev,[Head],Rev).
 
-  myReverse(T1, XAux1), append(XAux1, [H1], [2, 1]), !. =
+8.1) How to do it better?
 
-  {T1 = [H2|T2]}, myreverse(T2, XAux2), append(XAux2, [H2], XAux1), append(XAux1, [H1], [2, 1]), !. =
+rev1(X,Y) :- rev_aux(X,[],Y).
 
-  {T2 = []}, myReverse([], []) => XAux2 = []
+rev_aux([],Sofar,Sofar).
+rev_aux([Head|Tail],Sofar,Rev) :- rev_aux(Tail,[Head|Sofar],Rev).
 
-  append([], [H2], XAux1), append(XAux1, [H1], [2, 1]), !. => XAux1 = [H2]
+8.2) How to create a list of 10,000 elements in Prolog?
+- Try it: length(X, 10000), rev0(X, Y).
+- Try it: length(X, 10000), rev1(X, Y).
 
-  append([H2], [H1], [2, 1]), !. => {H2 = 2, H1 = 1}
+8.3) What about in SML?
+- fun rev [] acc = acc
+=   | rev (h::t) acc = rev t (h::acc);
+- fun reverse l = rev l [];
 
-In Prolog:
-* A variable which is uninstantiated, i.e. no previous unifications were
-  performed on it, can be unified with an atom, a term, or another
-  uninstantiated variable, thus effectively becoming its alias. In many
-  modern Prolog dialects and in first-order logic, a variable cannot be
-  unified with a term that contains it; this is the so called occurs check.
-* Two atoms can only be unified if they are identical.
-* Similarly, a term can be unified with another term if the top function
-  symbols and arities of the terms are identical and if the parameters can
-  be unified simultaneously. Note that this is a recursive behavior.
+8.4) Draw the activation records of reverse [1,2]
 
-In type theory, the analogous statements are:
-* Any type variable unifies with any type expression, and is instantiated
-  to that expression. A specific theory might restrict this rule with an
-  occurs check.
-* Two type constants unify only if they are the same type.
-* Two type constructors unify only if they are applications of the same
-  type constructor and all of their component types recursively unify.
+rev -> head: 1
+       tail: [2]
+       sofar: nil
+       ret addr
+       P.A.R.
+       Res: ?
 
-Reflection
-==========
-/*
- Use this program by feeding the following clauses to the runtime system:
- ?- assert(connect(a, b)).
- ?- assert(connect(b, c)).
- ?- assert(connect(c, d)).
- ?- assert(connect(d, a)).
- ?- assert(at(a)).
-*/
-report :- write('You are at '), at(You), write(You), nl.
+8.5) Which optimizations are possible in this sequence of calls?
 
-step(Dest) :-
-  at(You),
-  connect(You, Dest),
-  retract(at(You)),
-  assert(at(Dest)),
-  write('You just left '), write(You), nl,
-  write('Now you are at '), write(Dest), nl.
+9) Which implementation is more efficient:
+- fun sum [] = 0 
+=   | sum (a::l) = sum l + a;
+- or -
+- fun sum [] acc = acc 
+=   | sum (a::l) acc = sum l (a + acc);
 
-main :- write('\nNext move - '), read(Move), step(Move).
+* When a function makes a tail call, it no longer needs its activation record
+
+10) Is it tail call?
+fun sum [] = 0
+  | sum (h::t) = h + sum t
+10.1) How to convert to a tail call function?
+
+11) How to convert length below to tail call?
+fun length nil = 0
+  | length (head::tail) = 1 + length tail;
+
+fun length thelist =
+    let
+      fun len (nil,sofar) = sofar
+      |   len (head::tail,sofar) = len (tail,sofar+1);
+    in
+      len (thelist,0)
+    end;
+
+12) Is p a tail call in the predicate below?
+
+p(X) :- q(X), Z is X - 1, p(Z).
+- Not necessarily, due to backtracking.
+
+13) Why is the predicate below inefficient?
+grandfather(X,Y) :- parent(X,Z), parent(Z,Y), male(X).
+
+e.g:
+parent(d, a).      parent(d,a) -> parent(a,b) -> male(d) -> V
+parent(f, e).      parent(f,e) -> parent(e,b) -> male(f) -> X
+parent(a, b).      parent(f,e) -> parent(e,b) -> male(f) -> X
+parent(e, b).      parent(a,b) -> X
+parent(e, c).      parent(e,b) -> X
+male(d).           parent(e,c) -> X
+male(a).
+
+13.1) How to improve it?
+grandfather(X,Y) :- male(X), parent(X,Z), parent(Z,Y).
+
+e.g:
+parent(d, a).      male(d) -> parent(d,a) -> parent(a, b) -> V
+parent(f, e).      male(a) -> parent(a,b) -> X
+parent(a, b).      
+parent(e, b).      
+parent(e, c).      
+male(d).           
+
+13.2) What is a general guideline to code efficient Prolog searches?
+
+14) How are arrays stored in memory?
+
+15) What is the result of the matrix.c program?
+
+* There are two main allocation schemes for arrays:
+- row-major order: C, C++.
+- column-major order: Fortran
+
+16) Does a C program still work if the allocation scheme changes?
+
+17) How to index data in a m*n bi-dimensional array allocated in row major
+order?
+A[i, j] = base + (i * n * size) + (j * size)
+
+17.1) What if the m*n array is column major?
+A[i, j] = base + (i * size) + (j * m * size)
+
+17.2) Can you find the bug in the program below?
+
+#include <stdio.h>
+#include <stdlib.h>
+
+void swap(int x[3][2], int i0, int j0, int i1, int j1) {
+  printf("x[%d][%d] = %d\n", i0, j0, x[i0][j0]);
+  printf("x[%d][%d] = %d\n", i1, j1, x[i1][j1]);
+  int tmp = x[i0][j0];
+  x[i0][j0] = x[i1][j1];
+  x[i1][j1] = tmp;
+}
+
+int main() {
+  int a0[3][2] = {{0, 1}, {2, 3}, {4, 5}};
+  int a1[4][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}};
+  int** a2 = (int**)malloc(3 * sizeof(int*));
+  for (int i = 0; i < 2; ++i) {
+    a2[i] = (int*)malloc(2 * sizeof(int));
+    for (int j = 0; j < 2; ++j) {
+      a2[i][j] = 2*i + j;
+    }
+  }
+  swap(a0, 0, 0, 1, 1);
+  swap(a1, 0, 0, 1, 1);
+  swap(a2, 0, 0, 1, 1);
+}
+
+18) Which way to sum up the elements in the matrix is faster?
+#include <time.h>
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+  const int M = 4000;
+  const int N = 2000;
+  char m[M][N];
+  int i, j, k;
+  int sum = 0;
+  clock_t start, end;
+  double time;
+
+  // Initializes the array:
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
+      m[i][j] = (i + j) & 7;
+    }
+  }
+
+  start = clock();
+  printf("argc = %d\n", argc);
+  if (argc % 2) {
+    printf("argc is even: summing row major:\n");
+    // Sums up the matrix elements, row major:
+    for (i = 0; i < M; i++) {
+      for (j = 0; j < N; j++) {
+        sum += m[i][j];
+      }
+    }
+  } else {
+    printf("argc is odd: summing column major:\n");
+    // Sums up the matrix of elements, column major:
+    for (j = 0; j < N; j++) {
+      for (i = 0; i < M; i++) {
+        sum += m[i][j];
+      }
+    }
+  }
+  end = clock();
+  time = ((double) (end - start)) / CLOCKS_PER_SEC;
+
+  printf("Sum: %d, Time: %lf\n", sum, time);
+}
+
+19) How are arrays organized in Java?
+
+20) How to speed up the program below?
+// user   0m0.853s
+#include "stdio.h"
+
+int max(int i, int j) {
+  return i > j ? i : j;
+}
+
+int main() {
+  int i, j;
+  double sum = 0.0;
+  for (i = 0; i < 10000; i++) {
+    for (j = 0; j < 10000; j++) {
+      sum += max(i, j);
+    }
+  }
+  printf("%d\n", sum);
+}
+
+21) Is inlining a case for macros over functions, after all?
+
+22) How to code efficient programs, after all?
