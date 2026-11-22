@@ -1,0 +1,246 @@
+---
+title: Aula 24 - História das Linguagens de Programação
+description: 18/11 — Lista 25
+---
+
+O professor alterou a ementa: o índice chama esta aula de "Aula 25" (lesson28), e os exercícios
+dela são os da **Lista 25** (`listas/lista-25/enunciado.md`). A Lista 24 é a de Semântica Formal.
+
+## O que é uma linguagem de programação?
+
+Uma **sintaxe para conversar com máquinas computacionais**.
+
+Uma propriedade central: linguagens de programação **não são ambíguas**. Isso está muito ligado
+à noção de **análise sintática** (*parsing*).
+
+- *Parsing*: o ato de reconhecer se uma *string* (o programa) pertence à linguagem de uma
+  **gramática livre de contexto** e, ao mesmo tempo, construir uma estrutura de dados para ela.
+- Estruturas de dados que aparecem aqui: grafos e árvores.
+
+**Por que a estrutura de dados produzida é uma árvore?** Porque o problema mais importante que o
+*parsing* resolve é saber **quando algo abre e quando fecha** (parênteses, `begin`/`end`,
+chaves). Isso é exatamente o que as linguagens livres de contexto conseguem descrever, e o
+aninhamento "abre/fecha" é hierárquico: vira uma árvore de sintaxe.
+
+Há vários algoritmos que decidem se a entrada pertence à linguagem e produzem a árvore. Por isso
+o *parsing* é o *trade-off* entre engenharia e teoria: a teoria já está resolvida, e o que sobra
+é um problema muito mais de **engenharia** do que de teoria.
+
+Mas um programa não vive de árvore: depois do *parsing* ela acaba virando outras estruturas de
+dados (grafos de fluxo de controle, código intermediário etc.).
+
+## Algoritmos x linguagens de programação: qual veio primeiro?
+
+**Algoritmos**, muito antes dos transístores. O crivo de Eratóstenes (números primos) e o
+algoritmo de Euclides (MDC) são da Grécia antiga, mas eram descritos com figuras, sem uma
+descrição formal bem definida — os livros eram quase "livros de desenho".
+
+### Um algoritmo programável: Ada Lovelace
+
+- Muitos dizem que **Ada Lovelace** escreveu o primeiro algoritmo programável.
+- Ela trabalhava com **Charles Babbage**, cuja ideia era construir um computador mecânico, a
+  **Máquina Analítica** (*Analytical Engine*).
+- Ada escreveu um algoritmo para calcular os **números de Bernoulli** supondo que a máquina
+  existisse.
+- A Máquina Analítica nunca foi construída. Uma máquina anterior de Babbage (a Máquina
+  Diferencial nº 2) só foi montada muito depois, no fim dos anos 80/início dos 90, pelo Museu de
+  Ciências de Londres. E o algoritmo de Ada tinha um **bug**.
+- Já havia máquinas programáveis na época: o **tear de Jacquard**, programado por **cartões
+  perfurados**. Não era Turing-completo, mas funcionava.
+
+## A primeira linguagem de programação
+
+**Qual a primeira com muitos usuários?** **Fortran**, que já funcionava em 1957.
+
+Mas antes de Fortran já havia linguagem de programação: **Konrad Zuse**, que construiu os
+computadores Z1, Z2, Z3 e Z4, criou o **Plankalkül** (1942–1945).
+
+- O Plankalkül existia mais no papel: nunca funcionou na época.
+- É impressionantemente parecido com uma linguagem de hoje (parece muito um arranjo).
+- Porém **não influenciou nenhuma linguagem atual**: só foi publicado nos anos 70. Existia desde
+  os anos 40, mas ninguém o conhecia.
+- A primeira linguagem que de fato funcionou e foi usada foi Fortran.
+
+## Anos 50: a primeira geração
+
+### Fortran (John Backus, IBM)
+
+- Trouxe **laços** (*loop*), **`if-then-else`** e **variáveis**: dar **nome** a posições de
+  memória em vez de usar o número do endereço.
+- Trouxe também o **primeiro compilador** (otimizador) de uso real.
+- É o início das linguagens **imperativas**.
+
+### Lisp (John McCarthy, MIT)
+
+- É o início das linguagens **funcionais**.
+- Trouxe a **coleta de lixo** (*garbage collection*).
+- Toda linguagem funcional tem algo que Lisp tem: **listas encadeadas**, com cabeça e cauda
+  (`car`/`cdr` em Lisp, `hd`/`tl` em SML, também em Haskell e OCaml). Ler a cabeça é O(1); ler o
+  **último** elemento é O(n) — um problema "infernal" (ver [Aula 22](/docs/aula-22)).
+- Todas as linguagens funcionais herdaram esse "DNA" de Lisp.
+- O escopo de Lisp nessa época era **dinâmico**, e não havia escopo de bloco.
+
+### Algol 60 (fim dos anos 50)
+
+- Trouxe o **escopo de bloco**: `begin` e `end` abrem e fecham um bloco, que é empilhado e
+  desempilhado (pilha de registros de ativação).
+
+### COBOL
+
+- Linguagem de negócios; nos anos 60 se tornou uma linguagem importante.
+
+Com Fortran e Lisp houve a primeira grande divisão das linguagens: **Fortran → imperativas**,
+**Lisp → funcionais**.
+
+<Callout title="Caiu na prova 22, Q4 (12,5%)" type="info">
+  Formato: a partir do discurso de Backus no Prêmio Turing (1978), citar três linguagens da
+  primeira geração além de Fortran (Lisp, Algol, COBOL), dizer o paradigma de Fortran
+  (imperativo), os outros dois paradigmas (funcional e lógico) e uma desvantagem do imperativo
+  (estado mutável e efeitos colaterais presos ao modelo de von Neumann: difícil de raciocinar
+  sobre o programa e de paralelizar).
+</Callout>
+
+## Anos 60: orientação a objetos
+
+A orientação a objetos surge na Noruega. A primeira linguagem orientada a objetos foi o
+**Simula 67** (1967), feita por dois noruegueses, Ole-Johan Dahl e Kristen Nygaard, que ganharam
+o Prêmio Turing em 2001 (morreram ambos em 2002, logo depois).
+
+Trouxe coisas que as linguagens têm até hoje:
+
+- classes;
+- subtipagem e herança;
+- palavras reservadas de visibilidade, como `private`;
+- **invocação dinâmica de métodos** (*dynamic dispatch*), a mais importante: o que o objeto sabe
+  fazer depende do seu **tipo dinâmico**.
+
+<Callout title="Caiu na prova 28, Q1e (12,5%)" type="info">
+  Formato: depois de perguntar o que é `virtual` em C++, a prova pergunta qual linguagem
+  introduziu as chamadas virtuais, nos anos 60. Resposta: Simula 67.
+</Callout>
+
+## Anos 70: linguagens de sistema
+
+- **C** é do início dos anos 70.
+- Discussão sobre o **`goto`** (Dijkstra, *"Go To Statement Considered Harmful"*, 1968): códigos
+  mais legíveis, programação estruturada.
+- Os anos 70 foram os anos das linguagens de sistema e das linguagens estruturadas, como C e
+  Pascal: programar sistemas operacionais e bancos de dados.
+- Também são dos anos 70 o **ML** (Robin Milner, 1973), com **inferência de tipos** e
+  polimorfismo paramétrico, e o **Prolog** (Colmerauer, 1972), programação lógica.
+- No início dos anos 70 surge o **microprocessador** (circuito integrado num único chip), que
+  permitiu surgir o computador pessoal.
+
+## Anos 80: computadores pessoais e programas grandes
+
+- Ascensão dos **computadores pessoais**.
+- Surge o **C++**, que tomou o lugar de C e de Fortran em sistemas.
+- Os programas começaram a crescer muito: pararam de falar de `goto` e começaram a falar de
+  **modularização** e boas práticas. Ganharam força a **compilação separada** e os **ligadores**
+  (*linkers*).
+- Surgem ambientes gráficos (sistemas de janelas); Smalltalk-80 popularizou a orientação a
+  objetos nesse contexto. MATLAB também é dessa década.
+- Padronização: ANSI C, GCC.
+
+<Callout title="Cai em prova: 25% (provas 23 e 28)" type="warn">
+  Formato: "por quê" histórico. Prova 23, Q4b: como o crescimento dos programas (Word, Excel,
+  Lotus 1-2-3) influenciou o projeto das linguagens? Resposta: modularização, compilação separada
+  e ligadores, orientação a objetos, encapsulamento. Prova 28, Q2b pergunta a mesma coisa pelo
+  avesso: por que Python não substitui Java em sistemas corporativos grandes (muitos módulos,
+  equipes extensas)? Pegadinha: a resposta passa pela **tipagem estática** de Java, que pega erros
+  antes da execução e documenta as interfaces entre módulos e equipes.
+</Callout>
+
+## Anos 90: internet e máquinas virtuais
+
+- Linguagens: PHP, Java, Ruby, Delphi, Python, JavaScript.
+- Python não era famoso quando surgiu; decolou mesmo com o Python 3.
+- Também foi a década dos videogames.
+- Surgem a **internet** e a **web**.
+
+A web é uma rede em que uma máquina conversa com outra por meio de alguns protocolos (HTTP). O
+**HTML** também surgiu nessa época e permitia aos computadores disponibilizar conteúdos para
+outros computadores.
+
+O problema: **um programa que funcione em vários computadores diferentes**. Duas saídas:
+
+1. Distribuir compiladores para cada computador. Não foi a forma adotada: é pouco prático e muito
+   mais caro. Fazer um compilador exige transformar o programa em código binário de cada máquina,
+   dá muito trabalho.
+2. **Máquinas virtuais**. Foi a solução que os engenheiros adotaram. Uma máquina virtual é,
+   basicamente, um `while` com um `switch` dentro.
+
+A mais famosa delas é a **JVM**. Todo navegador também passou a implementar uma máquina virtual
+para rodar **JavaScript**, que foi feito para funcionar num navegador, o Netscape. Muitas
+linguagens foram virtualizadas: PHP e JS, por exemplo.
+
+PHP e JS fazem coisas diferentes, apesar de ambas terem a ver com HTML:
+
+- **PHP** executa **remotamente**: o navegador manda uma requisição, o servidor produz a página
+  HTML, e o código PHP nunca vem até a nossa máquina.
+- **JS** executa **na nossa máquina**, dentro do navegador.
+
+<Callout title="Cai em prova: 37,5% (provas 22, 23 e 27)" type="warn">
+  Formato: "por quê" sobre o modo de execução. Exemplo: prova 22, Q3c — por que Java é compilado
+  para *bytecodes* e interpretado pela JVM, em vez de compilado como C ou interpretado como bash?
+  (Portabilidade: o mesmo *bytecode* roda em qualquer máquina que tenha a JVM, e mais rápido que
+  interpretar a árvore.) Prova 23, Q4a pergunta como a internet influenciou as linguagens, e a
+  prova 27, Q3 cobra "execução virtualizada" numa tabela de ligar linguagens a características
+  (o grupo certo é Python, Java, JavaScript. Pegadinha: o grupo Java, Python, C++ não serve,
+  porque C++ é compilado; esse grupo casa com "invocação dinâmica").
+</Callout>
+
+## Anos 2000
+
+- Código aberto.
+- Bolha da internet (*internet bubble*); o Yahoo é dessa época e competia com o Google.
+- C# com .NET.
+- Guerra dos navegadores: quando o Netscape morreu, quem o matou foi o Internet Explorer; a
+  Microsoft consumiu tudo, foi uma grande carnificina.
+- Década da orientação a objetos: Java competia muito forte com C#, e Java saía na frente por ser
+  aberto e multiplataforma.
+- *Clean code*, programação ágil, SOLID, TDD: tudo dessa época.
+- As pessoas começaram a programar com mouse e IDEs, como o Visual Studio.
+
+## Anos 2010
+
+- **LAMP** (Linux, Apache, MySQL, PHP): a alternativa de código aberto à Microsoft. De certa forma
+  acabou com o domínio da Microsoft.
+- Infraestrutura de **nuvem**.
+- Go (já existia em 2008/2009), Rust e Kotlin são linguagens mais ou menos dessa época; Scala é
+  um pouco anterior (2004).
+- Foi a década de Python, com bibliotecas famosas como o pandas.
+- Década da ascensão do **telefone celular**:
+  - Swift (antes se usava Objective-C);
+  - Android com Java (provavelmente Java perderia muito espaço se não fosse o mobile);
+  - Flutter.
+- Surge o **WebAssembly**: um "assembly sem `goto`" (fluxo de controle estruturado), que roda no
+  navegador.
+
+<Callout title="Caiu na prova 28, Q2a (12,5%)" type="info">
+  Formato: por que uma linguagem popular não tomou o lugar de outra. Por que Java não desbancou C++
+  como linguagem de sistemas (kernels, servidores, jogos, navegadores) nos anos 2000? Razões: coleta
+  de lixo com pausas imprevisíveis, falta de controle manual sobre a memória, custo da máquina
+  virtual.
+</Callout>
+
+## Tamanho de uma linguagem (Lista 25, Q2–Q3)
+
+Algumas linguagens são pequenas (SML, Prolog), outras grandes (C++, Perl). O tamanho pode ser
+"medido" pelo número de construções sintáticas, palavras reservadas e regras da especificação.
+
+- **Linguagem grande** (tudo na sintaxe básica): o programador tem os recursos à mão, todos
+  escrevem as mesmas coisas do mesmo jeito, e o compilador conhece e otimiza cada construção.
+- **Linguagem pequena que cresce conforme a necessidade**: é mais fácil de aprender, de
+  especificar e de implementar, e só cresce no que os usuários de fato precisam.
+- **Como crescer**: com bibliotecas, funções/predicados definidos pelo usuário, tipos definidos
+  pelo usuário (`datatype` em SML), macros, sobrecarga de operadores.
+- **Java é um compromisso**: grande parte das funcionalidades fica em bibliotecas (arranjos têm
+  tamanho fixo, mas `Vector` cresce). Vantagem: a linguagem continua simples e a biblioteca evolui
+  sem mudar o compilador. Desvantagem: a funcionalidade da biblioteca não tem sintaxe própria e é
+  mais verbosa, e o compilador não a conhece para checar e otimizar.
+
+A Lista 25 traz ainda duas questões de revisão fora de história: anagramas com entrada e saída em
+Prolog (Q4) e a mediana em O(n) em SML (Q5).
+
+Resolução: [Lista 25](/docs/aula-24/lista-25).

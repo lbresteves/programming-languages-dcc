@@ -1,0 +1,275 @@
+---
+title: Lista 25 - Resolução
+description: História das linguagens, tamanho de uma linguagem, entrada e saída em Prolog e mediana em O(n) em SML
+---
+
+A ementa foi alterada: a lista da aula de História das Linguagens é a **Lista 25**. Enunciado
+completo em `listas/lista-25/enunciado.md`. Tente cada questão no papel antes de abrir a
+resposta.
+
+## Questão 1 — Inovações das linguagens pioneiras
+
+**Assunto:** história das linguagens ([Aula 24](/docs/aula-24)) · **Tipo:** conceitual
+
+> Cite uma inovação que cada linguagem trouxe: (a) Fortran (Backus, IBM, 1954); (b) Lisp
+> (McCarthy, MIT, 1957); (c) Simula 67 (Nygaard e Dahl, Noruega, 1967); (d) ML (Milner,
+> Escócia, 1974).
+
+<details>
+<summary>Resposta</summary>
+
+Basta **uma** por linguagem; as outras servem de reserva.
+
+| Linguagem | Inovação (uma basta) |
+|---|---|
+| **(a) Fortran** | o primeiro **compilador** de uso real (e otimizador); **variáveis com nome** em vez de endereços; expressões aritméticas na notação da matemática (*FORmula TRANslation*); laços (`DO`) e `IF` |
+| **(b) Lisp** | **coleta de lixo** (*garbage collection*); **listas encadeadas** com `car`/`cdr` como estrutura central; **funções como valores** (funções de alta ordem) e recursão; programas representados como dados (listas) |
+| **(c) Simula 67** | **classes e objetos**; **herança** e subtipagem; **invocação dinâmica de métodos** (o método executado depende do tipo dinâmico do objeto) |
+| **(d) ML** | **inferência de tipos** (Hindley-Milner): tipagem estática sem anotar tipos; **polimorfismo paramétrico** (`'a list`); casamento de padrões sobre tipos algébricos (`datatype`) |
+
+**Por quê:** cada uma dessas ideias, "óbvia" hoje, foi decisão de projeto na época:
+
+- **Fortran** convenceu os programadores de que um compilador gerava código quase tão bom quanto
+  o assembly escrito à mão. Sem isso, ninguém abandonaria o assembly.
+- **Lisp** precisava de coleta de lixo porque listas são criadas o tempo todo e o programador não
+  as libera. É o mesmo motivo por que SML, Prolog, Java e Python têm coleta de lixo e C não tem.
+- **Simula** é a origem do `virtual` de C++ e de todo método de Java (que é virtual por padrão).
+  Em Python todo método também é despachado dinamicamente, mas por busca no dicionário do objeto.
+- **ML** mostrou que dá para ter a segurança da tipagem estática (como Java) sem escrever tipos
+  (como Python). É o `val f = fn : 'a list -> int` que o SML/NJ responde.
+
+</details>
+
+## Questão 2 — Linguagens grandes e pequenas
+
+**Assunto:** projeto de linguagens ([Aula 24](/docs/aula-24)) · **Tipo:** conceitual (opinião)
+
+> SML e Prolog são pequenas; C++ e Perl são grandes. (a) Como se mede o tamanho de uma
+> linguagem? (b) Vantagem de prover tantos recursos quanto possível na sintaxe básica?
+> (c) Vantagens de nascer pequena e crescer com os usuários? (d) Como se "cresce" uma
+> linguagem?
+
+<details>
+<summary>Resposta</summary>
+
+**(a)** Pelo que é preciso aprender para dominar a linguagem: número de construções sintáticas
+e palavras reservadas, número de regras da gramática, tamanho da especificação (o padrão de C++
+tem mais de mil páginas; a definição de SML cabe num livro fino), número de casos especiais na
+semântica.
+
+**(b)** O recurso já vem pronto e padronizado: todos escrevem a mesma coisa do mesmo jeito, o
+compilador **conhece** a construção e pode checá-la e otimizá-la, e o programador não precisa
+reinventá-la nem escolher entre bibliotecas.
+
+**(c)** Uma linguagem pequena é mais fácil de **aprender**, de **especificar** formalmente e de
+**implementar** corretamente (há menos interações entre recursos). E ela só cresce no que os
+usuários de fato precisaram, em vez de carregar recursos que ninguém usa.
+
+**(d)** Dando ao programador meios de **definir coisas que parecem nativas**:
+
+- funções e predicados definidos pelo usuário (e funções de alta ordem);
+- **tipos definidos pelo usuário**: `datatype` em SML, classes em Java e Python;
+- **bibliotecas** (a biblioteca padrão de Java, os módulos de Python);
+- sobrecarga de operadores (C++, Python) e macros (C, Lisp);
+- operadores definidos pelo usuário (`op` em Prolog, `infix` em SML).
+
+**Critério de uma boa resposta:** em (b) e (c), uma vantagem concreta; em (d), um mecanismo
+com exemplo de linguagem.
+
+</details>
+
+## Questão 3 — Crescer via bibliotecas (Java)
+
+**Assunto:** projeto de linguagens ([Aula 24](/docs/aula-24)) · **Tipo:** conceitual
+
+> Java deixa boa parte das funcionalidades em bibliotecas (arranjos têm tamanho fixo, mas
+> `Vector` cresce). Cite uma vantagem e uma desvantagem de crescer uma linguagem via bibliotecas.
+
+<details>
+<summary>Resposta</summary>
+
+**Vantagem:** a linguagem continua pequena e simples, e a biblioteca evolui **sem mudar o
+compilador nem a especificação**. Dá para acrescentar, corrigir ou substituir uma classe
+(`Vector` → `ArrayList`) sem quebrar a linguagem; e o próprio programador pode escrever a sua
+versão.
+
+**Desvantagem:** o recurso da biblioteca é um "cidadão de segunda classe": não tem sintaxe
+própria (`v.get(i)` em vez de `v[i]`, `v.add(x)` em vez de um literal), fica mais verboso, e o
+compilador não o conhece para checar e otimizar como faz com os recursos nativos. Além disso, a
+biblioteca padrão cresce muito e vira ela mesma uma coisa grande para aprender.
+
+**Por quê:** é o compromisso do enunciado. O arranjo `int[]` é nativo (tem sintaxe `a[i]`, o
+compilador sabe o tipo dos elementos), enquanto `Vector` é uma classe comum. Contraste: em
+Python a lista que cresce é **nativa** (`[1, 2]`, `l.append(3)`); em C, nem isso: crescer um
+arranjo é `realloc` manual.
+
+</details>
+
+## Questão 4 — `findAnagram` com entrada e saída em Prolog
+
+**Assunto:** listas e retrocesso em Prolog ([Aula 20](/docs/aula-20)), entrada e saída ·
+**Tipo:** implementação
+
+> Escreva `file2list(FILE, LIST)`, que lê um arquivo com uma palavra por linha (cada uma
+> terminada em ponto) e devolve a lista das palavras, e `findAnagram(Dic, A, S)`, verdadeiro se
+> a *string* `A` é anagrama de alguma palavra `S` do arquivo `Dic`.
+> `?- findAnagram('file.txt', "roas", S).` dá `S = rosa`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+:- set_prolog_flag(double_quotes, codes).
+
+file2list(File, List) :-
+    see(File),
+    readWords(List),
+    seen.
+
+readWords(List) :-
+    read(W),
+    readWords(W, List).
+
+readWords(end_of_file, []).
+readWords(W, [W|Rest]) :-
+    W \== end_of_file,
+    readWords(Rest).
+
+findAnagram(Dic, A, S) :-
+    file2list(Dic, Words),
+    member(S, Words),
+    atom_codes(S, Codes),
+    permutation(A, Codes).
+```
+
+```prolog
+?- file2list('file.txt', L).
+L = [baronesa, rosa, bena, fernando].
+
+?- findAnagram('file.txt', "roas", S).
+S = rosa ;
+false.
+```
+
+**Por quê:**
+
+- **`see` / `read` / `seen`:** `see(File)` redireciona a entrada padrão para o arquivo, `read(W)`
+  lê o próximo **termo** (por isso cada linha termina em ponto: `rosa.` é um termo, o átomo
+  `rosa`), e `seen` fecha o arquivo. No fim do arquivo, `read` devolve o átomo `end_of_file`. Não
+  é preciso o `inquire` da dica.
+- **`readWords/2`** recebe o termo já lido e decide pelo **casamento de padrões**: se for
+  `end_of_file`, a lista acabou; senão, ele entra na lista e lemos o próximo. O
+  `W \== end_of_file` impede que, no retrocesso, a segunda cláusula aceite o `end_of_file` como
+  palavra.
+- **`findAnagram`** é **gerar e testar**: `member` gera cada palavra do dicionário, e
+  `permutation` testa se os códigos de `A` são uma permutação dos códigos da palavra.
+- **`"roas"`:** com a *flag* `double_quotes` em `codes`, `"roas"` é a lista de códigos
+  `[114, 111, 97, 115]` (é o padrão do GNU Prolog). O `atom_codes(S, Codes)` põe a palavra lida
+  no mesmo formato, e aí as duas listas podem ser comparadas.
+
+Leitura do arquivo é efeito colateral (*side effect*): fazer `findAnagram` de novo relê o arquivo,
+e `read` não "volta" no retrocesso. Por isso o arquivo é lido **inteiro** numa lista antes de
+começar a busca.
+
+Não foi possível executar aqui (não há Prolog instalado). Os predicados usados (`see`, `read`,
+`seen`, `atom_codes`, `permutation`, `member`) existem no SWI-Prolog e no GNU Prolog.
+
+</details>
+
+## Questão 5 — Mediana em O(n) em SML
+
+**Assunto:** listas e casamento de padrões em SML ([Aula 06](/docs/aula-06)), modelos de custo
+([Aula 22](/docs/aula-22)) · **Tipo:** implementação
+
+> A mediana é o valor no índice ⌈|L|/2⌉ da lista ordenada. Ordenar custa O(n log n); ache a
+> mediana em O(n).
+
+<Callout title="Conceito frágil: elemento × cauda" type="warn">
+  `learning-records/0002`: em `pivot :: rest`, `pivot` é **elemento** e `rest` é **lista**. O
+  `select` devolve um elemento (`int`), nunca uma lista.
+</Callout>
+
+<details>
+<summary>Resposta</summary>
+
+É o algoritmo de **seleção** (*quickselect*): o mesmo da prova 26, Q3, com índices começando
+em 0.
+
+```sml
+fun split (lst, pivot) =
+  (List.filter (fn x => x < pivot) lst,
+   List.filter (fn x => x >= pivot) lst);
+
+fun select (_, [x]) = x
+  | select (k, pivot :: rest) =
+      let
+        val (small, large) = split (rest, pivot)
+        val sLen = length small
+      in
+        if k = sLen then pivot
+        else if k < sLen then select (k, small)
+        else select (k - sLen - 1, large)
+      end;
+
+fun median lst = select ((length lst - 1) div 2, lst);
+```
+
+Tipos: `split : int list * int -> int list * int list`, `select : int * int list -> int`,
+`median : int list -> int`. O `<` sobrecarregado, sem outra informação, fica com `int`.
+
+Rastreio de `median [5, 1, 4, 2, 3]` (n = 5, índice `(5 - 1) div 2 = 2`):
+
+| Chamada | `pivot` | `small` | `large` | `sLen` | Decisão |
+|---|---|---|---|---|---|
+| `select (2, [5,1,4,2,3])` | 5 | `[1,4,2,3]` | `[]` | 4 | 2 < 4: recorre em `small` |
+| `select (2, [1,4,2,3])` | 1 | `[]` | `[4,2,3]` | 0 | 2 > 0: `select (2 - 0 - 1, large)` |
+| `select (1, [4,2,3])` | 4 | `[2,3]` | `[]` | 2 | 1 < 2: recorre em `small` |
+| `select (1, [2,3])` | 2 | `[]` | `[3]` | 0 | 1 > 0: `select (1 - 0 - 1, large)` |
+| `select (0, [3])` | — | — | — | — | lista unitária: **3** |
+
+**Por quê:**
+
+- **O índice:** ⌈n/2⌉ começando em 1 é `(n - 1) div 2` começando em 0. Para n = 5, o 3º
+  elemento (índice 2); para n = 4, o 2º (índice 1).
+- **O custo:** cada chamada percorre a lista atual uma vez (o `split`) e recorre em **um** lado
+  só, nunca nos dois como o *quicksort*. Se o pivô divide a lista mais ou menos ao meio, o total
+  é n + n/2 + n/4 + … ≤ 2n, ou seja, **O(n)**. O *quicksort* recorre nos dois lados, e por isso
+  fica em O(n log n).
+- **O pior caso** (pivô sempre o menor ou o maior, como numa lista já ordenada) é O(n²). O O(n) é
+  o caso **médio**. Garantir O(n) no pior caso exige escolher o pivô pela "mediana das medianas",
+  longo demais para escrever à mão; o enunciado e a prova 26 aceitam esta versão.
+- **`>=` em vez de `>`:** com `>`, elementos iguais ao pivô somem, e `median [2, 2, 2]` quebraria.
+  Com `>=` eles vão para `large`.
+- O padrão `[x]` sem uma cláusula para `[]` dá *warning* de casamento não exaustivo. Ele nunca é
+  alcançado: só recorremos em `large` quando `k > sLen`, e aí `large` tem pelo menos um elemento.
+
+</details>
+
+## Questões de prova relacionadas
+
+As provas finais antigas ainda não estão resolvidas no site; a referência é o PDF em
+`material/provas-antigas/2a-prova/`.
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Primeira geração e paradigmas | Final 22, Q4 | discurso de Backus: três linguagens dos anos 50 além de Fortran, o paradigma de Fortran, os outros dois e uma desvantagem do imperativo (Questão 1) |
+| Fatores históricos | Final 23, Q4 | como a internet e o crescimento dos programas influenciaram o projeto das linguagens (Questões 1–3) |
+| Uma linguagem tomar o lugar de outra | Final 28, Q2 | por que Java não desbancou C++ em sistemas, e por que Python não substitui Java em sistemas corporativos |
+| Simula e chamadas virtuais | Final 28, Q1e | qual linguagem introduziu as chamadas virtuais (Questão 1c) |
+| Execução virtualizada | Final 22, Q3c; Final 27, Q3 | por que Java é virtualizado; ligar linguagens a "execução virtualizada" numa tabela |
+| Anagrama em Prolog | Final 26, Q1; Final 27, Q2c | `anagram` como sublista + permutação: o mesmo gerar e testar da Questão 4, sem arquivo |
+| Mediana em O(n) | [Prova 26 (1ª), Q3](/docs/aula-revisao-01-12/prova-26) | traduzir `split`/`select`/`median` de Python para SML (Questão 5) |
+
+A história cai em 37,5% das finais (22, 23 e 28), sempre como **"por quê"**: por que tal
+linguagem surgiu ou perdeu espaço, nunca datas soltas.
+
+## Para treinar
+
+1. Cite uma inovação de Algol 60 e uma de Prolog, e diga qual linguagem que vimos no curso herdou
+   cada uma.
+2. Escreva `anagram(Pattern, Text)` da final 26: verdadeiro se alguma sublista de `Text` for
+   permutação de `Pattern`. Use `perm` com `select`, sem o `permutation` pronto.
+3. Escreva em SML `kth (k, lst)`, o k-ésimo **maior** elemento de `lst` em O(n) no caso médio,
+   reaproveitando `select`.
+4. Por que Python, sendo hoje mais popular que Java, não substituiu Java em sistemas corporativos
+   grandes? Responda em três linhas.
