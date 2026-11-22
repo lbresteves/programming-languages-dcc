@@ -1,0 +1,361 @@
+---
+title: Lista 24 - Resolução
+description: Semântica formal — equivalência let × fn em passo longo, as linguagens Four e Four com fun (interpretador Prolog e regras), e gcd em Prolog
+---
+
+Resolução completa da Lista 24. Tente cada questão no papel antes de abrir a resposta.
+
+As questões 1 a 3 usam os dois interpretadores da linguagem `Three` da página do curso
+(ver a [Aula 23](/docs/aula-23)):
+
+- `val3` (**escopo dinâmico**): `fn` vira `fval(Formal, Body)`, e o corpo roda no contexto de
+  quem chama.
+- `val4` (**escopo estático**): `fn` vira `fval(Formal, Body, Context)`, um closure, e o corpo
+  roda no contexto guardado (`Nesting`).
+
+O contexto é uma lista de `bind(Nome, Valor)`, e a notação das regras é `⟨E, C⟩ → v`.
+
+<Callout title="Erros no enunciado" type="warn">
+  Na gramática, `<mulexpr>` e `<mulexp>` são o mesmo não terminal, e o `→` de `fn <var> →
+  <exp>` é o `=>` de SML. No programa da Q2, `x * x fact(x-1)` deve ser `x * fact(x-1)`: do
+  jeito que está, `x fact` seria a aplicação de `x` a `fact`.
+</Callout>
+
+## Questão 1 — `let` × `fn`
+
+**Assunto:** semântica natural (passo longo) e prova de equivalência (Aula 23) · **Tipo:**
+conceitual (prova)
+
+> Mostre que `let val x = e1 in e2` e `(fn x => e2) e1` são equivalentes: as condições para
+> ⟨apply(fn(x, e₂), e₁), C⟩ → v são as mesmas de ⟨let(x, e₁, e₂), C⟩ → v. (a) com associação
+> dinâmica; (b) com associação estática.
+
+<details>
+<summary>Resposta</summary>
+
+**(a) Dinâmico (`val3`).** As regras que importam:
+
+```
+                ⟨E1, C⟩ → v1    ⟨E2, bind(x, v1) :: C⟩ → v2
+LET             ─────────────────────────────────────────────
+                         ⟨let(x, E1, E2), C⟩ → v2
+
+FN              ⟨fn(x, E), C⟩ → (x, E)
+
+                ⟨E1, C⟩ → (x, E3)    ⟨E2, C⟩ → v1    ⟨E3, bind(x, v1) :: C⟩ → v2
+APPLY           ─────────────────────────────────────────────────────────────────
+                                  ⟨apply(E1, E2), C⟩ → v2
+```
+
+Instanciando `APPLY` com `E1 = fn(x, e2)` e `E2 = e1`, as premissas de
+⟨apply(fn(x, e2), e1), C⟩ → v são:
+
+1. ⟨fn(x, e2), C⟩ → (x, e2): vale sempre, pelo axioma `FN`;
+2. ⟨e1, C⟩ → v1;
+3. ⟨e2, bind(x, v1) :: C⟩ → v.
+
+Tirando a 1, que é sempre verdadeira, sobram (2) e (3), que são **exatamente** as premissas
+de `LET` para ⟨let(x, e1, e2), C⟩ → v. As condições são as mesmas, então as duas expressões
+avaliam para o mesmo `v` (ou nenhuma das duas tem valor). ∎
+
+**(b) Estático (`val4`).** Mudam `FN` e `APPLY`:
+
+```
+FN              ⟨fn(x, E), C⟩ → (x, E, C)
+
+                ⟨E1, C⟩ → (x, E3, C')    ⟨E2, C⟩ → v1    ⟨E3, bind(x, v1) :: C'⟩ → v2
+APPLY           ─────────────────────────────────────────────────────────────────────
+                                    ⟨apply(E1, E2), C⟩ → v2
+```
+
+As premissas de ⟨apply(fn(x, e2), e1), C⟩ → v:
+
+1. ⟨fn(x, e2), C⟩ → (x, e2, C'): pelo axioma `FN`, **C' = C**, porque o `fn` foi avaliado no
+   próprio contexto `C`;
+2. ⟨e1, C⟩ → v1;
+3. ⟨e2, bind(x, v1) :: C'⟩ → v, que com C' = C é ⟨e2, bind(x, v1) :: C⟩ → v.
+
+De novo, são as premissas de `LET`. ∎
+
+**Por quê:** a equivalência vale nos dois escopos porque o `fn` é aplicado **no mesmo lugar
+em que é criado**. O contexto de criação e o de chamada são o mesmo `C`, e é exatamente aí
+que estático e dinâmico coincidem. Se o `fn` fosse guardado e chamado em outro lugar (como o
+`f` do exemplo `x = 1` / `x = 2` da aula), os dois escopos dariam resultados diferentes. Em
+SML, `let val x = e1 in e2 end` é definido justamente como açúcar sintático de
+`(fn x => e2) e1`.
+
+<Callout title="⚠️ Conceito frágil: link de aninhamento" type="warn">
+  O `C'` guardado no closure é o mesmo papel do link de aninhamento da Aula 13
+  (`learning-records/0005`, não demonstrado). Ponto-chave: ele aponta para o contexto **onde
+  a função foi criada**, nunca para o de quem chama.
+</Callout>
+
+</details>
+
+## Questão 2 — a linguagem `Four`
+
+**Assunto:** gramática sem ambiguidade (Aula 02), AST e interpretador Prolog com escopo
+dinâmico, semântica natural (Aula 23) · **Tipo:** implementação
+
+> Estender `Three` com `<`, `−` e `if-then-else`, de modo que rode o fatorial
+> `let val fact = fn x => if x < 2 then x else x * fact(x-1) in fact 5 end`. (a) gramática
+> sem ambiguidade; (b) três nós de AST e o interpretador (escopo dinâmico); (c) semântica
+> natural.
+
+<details>
+<summary>Resposta</summary>
+
+**(a) Gramática.** Um nível novo para o `<`, abaixo do `+`; o `−` no mesmo nível do `+`; e o
+`if` junto do `fn`, no nível mais alto:
+
+```
+<exp>     ::= fn <var> => <exp>
+            | if <exp> then <exp> else <exp>
+            | <compexp>
+<compexp> ::= <addexp> < <addexp>
+            | <addexp>
+<addexp>  ::= <addexp> + <mulexp>
+            | <addexp> - <mulexp>
+            | <mulexp>
+<mulexp>  ::= <mulexp> * <funexp>
+            | <funexp>
+<funexp>  ::= <funexp> <rootexp>
+            | <rootexp>
+<rootexp> ::= let val <var> = <exp> in <exp> end
+            | ( <exp> )
+            | <var>
+            | <const>
+```
+
+Por que não é ambígua:
+
+- **Precedência:** `<` está acima de `+`/`−`, que estão acima de `*`, que está acima da
+  aplicação. `x < y + 1` só pode ser `x < (y + 1)`.
+- **Associatividade:** `+` e `−` no mesmo não terminal, recursivo à esquerda: `a - b - c` só
+  pode ser `(a - b) - c`. O `<` não é recursivo (`<addexp> < <addexp>`), então `a < b < c` nem
+  é gerado: precisa de parênteses.
+- **`if`:** o `else` é obrigatório, então não há *dangling else*. O `if` só aparece em
+  `<exp>`, e nunca como operando de `+` ou `*` sem parênteses: em
+  `if c then a else b + 1`, o `+ 1` pertence ao `else` (o corpo vai o mais longe possível,
+  como o do `fn`).
+
+**(b) AST e interpretador.** Nós novos: `minus(X, Y)`, `less(X, Y)` e `if(Cond, Then, Else)`.
+O `<` produz os átomos `true` e `false`. Cláusulas acrescentadas ao `val3`:
+
+```prolog
+val3(minus(X, Y), Context, Value) :-
+  val3(X, Context, XValue),
+  val3(Y, Context, YValue),
+  Value is XValue - YValue.
+
+val3(less(X, Y), Context, true) :-
+  val3(X, Context, XValue),
+  val3(Y, Context, YValue),
+  XValue < YValue.
+
+val3(less(X, Y), Context, false) :-
+  val3(X, Context, XValue),
+  val3(Y, Context, YValue),
+  XValue >= YValue.
+
+val3(if(Cond, Then, _), Context, Value) :-
+  val3(Cond, Context, true),
+  val3(Then, Context, Value).
+
+val3(if(Cond, _, Else), Context, Value) :-
+  val3(Cond, Context, false),
+  val3(Else, Context, Value).
+```
+
+Teste, com o fatorial como AST:
+
+```prolog
+?- val3(let(fact,
+            fn(x, if(less(var(x), const(2)),
+                     var(x),
+                     times(var(x), apply(var(fact), minus(var(x), const(1)))))),
+            apply(var(fact), const(5))),
+        nil, V).
+V = 120
+```
+
+Por que funciona: o `let` põe `bind(fact, fval(x, Body))` no contexto e avalia
+`apply(var(fact), const(5))`. O corpo roda no contexto **de quem chama**,
+`[bind(x, 5), bind(fact, ...) | ...]`, e lá dentro o `var(fact)` acha a função. Cada chamada
+recursiva empilha um novo `bind(x, ...)` na frente, e o `lookup` pega sempre o mais recente.
+
+**(c) Semântica natural** (dinâmica). As regras de `Three` continuam (`const`, `var`, `plus`,
+`times`, `let`, `fn` e `apply` dinâmicos); acrescentam-se:
+
+```
+⟨E1, C⟩ → v1    ⟨E2, C⟩ → v2               ⟨E1, C⟩ → v1    ⟨E2, C⟩ → v2    v1 < v2
+──────────────────────────────              ────────────────────────────────────────
+⟨minus(E1, E2), C⟩ → v1 − v2                      ⟨less(E1, E2), C⟩ → true
+
+                                            ⟨E1, C⟩ → v1    ⟨E2, C⟩ → v2    v1 ≥ v2
+                                            ────────────────────────────────────────
+                                                  ⟨less(E1, E2), C⟩ → false
+
+⟨E1, C⟩ → true    ⟨E2, C⟩ → v               ⟨E1, C⟩ → false    ⟨E3, C⟩ → v
+────────────────────────────── IF_T         ─────────────────────────────── IF_F
+  ⟨if(E1, E2, E3), C⟩ → v                     ⟨if(E1, E2, E3), C⟩ → v
+```
+
+**Por quê:** cada regra é uma cláusula do interpretador, com as premissas no corpo. O `if`
+avalia **só um** dos ramos: é isso que deixa a recursão parar (no caso base, o
+`x * fact(x-1)` nunca é avaliado). Uma condição que não dá `true` nem `false` (por exemplo,
+`if 3 then ...`) não casa com nenhuma regra: não há derivação, e isso é o "erro de tipo" da
+semântica. O enunciado avisa que o programa **não é ML padrão**: em SML, `val fact = fn ...`
+não enxerga `fact` no próprio corpo. Ele só funciona aqui porque o escopo é dinâmico.
+
+</details>
+
+## Questão 3 — `fun` com escopo estático
+
+**Assunto:** escopo estático e recursão, closures (Aulas 11, 13 e 23) · **Tipo:**
+implementação
+
+> Estender `Four` com `let fun f x = e1 in e2 end`, usando escopo estático para `fun` e para
+> `val f = fn`, e de forma que funções com `fun` possam ser recursivas. (a) sintaxe; (b) AST
+> e interpretador (a dica é um termo que guarde o nome da função e uma cláusula nova para
+> `apply`); (c) semântica natural.
+
+<details>
+<summary>Resposta</summary>
+
+**(a) Sintaxe.** Uma alternativa nova em `<rootexp>`, ao lado do `let val`:
+
+```
+<rootexp> ::= let val <var> = <exp> in <exp> end
+            | let fun <var> <var> = <exp> in <exp> end
+            | ( <exp> )
+            | <var>
+            | <const>
+```
+
+O primeiro `<var>` é o nome da função; o segundo, o parâmetro.
+
+**(b) AST e interpretador.** Parto do `val4` (estático) com as cláusulas de `minus`, `less` e
+`if` da Questão 2, trocando `val3` por `val4`. Nó novo: `letfun(Name, Formal, Body, Exp)`.
+Valor novo: `recfval(Name, Formal, Body, Nesting)`, um closure que também guarda o **nome**.
+
+```prolog
+val4(letfun(Name, Formal, Body, Exp), Context, Value) :-
+  val4(Exp, [bind(Name, recfval(Name, Formal, Body, Context)) | Context], Value).
+
+val4(apply(Function, Actual), Context, Value) :-
+  val4(Function, Context, recfval(Name, Formal, Body, Nesting)),
+  val4(Actual, Context, ParamValue),
+  val4(Body,
+       [bind(Formal, ParamValue),
+        bind(Name, recfval(Name, Formal, Body, Nesting)) | Nesting],
+       Value).
+```
+
+A cláusula antiga de `apply` (com `fval(Formal, Body, Nesting)`) continua lá para os `fn`.
+Quando a função é um `recfval`, ela não casa com `fval`, falha, e o Prolog tenta a nova.
+
+Teste:
+
+```prolog
+?- val4(letfun(fact, x,
+               if(less(var(x), const(2)),
+                  var(x),
+                  times(var(x), apply(var(fact), minus(var(x), const(1))))),
+               apply(var(fact), const(5))),
+        nil, V).
+V = 120
+```
+
+**Por quê:** o `val f = fn ...` não pode ser recursivo no estático porque o `fn` é avaliado
+**antes** de `f` entrar no contexto, e o closure guarda um contexto sem `f`. O `recfval`
+resolve isso guardando o **nome**: a cada aplicação, o `apply` põe de volta no contexto do
+corpo não só o parâmetro, mas a **própria função** com o seu nome. O escopo continua
+estático (o resto do contexto é o `Nesting` da definição, e não o de quem chama). É
+exatamente a regra de SML: o escopo de `fun f` inclui o corpo de `f`; o de `val f = fn`, não.
+
+(Outra solução comum guarda no contexto um termo cíclico; a do `recfval` é a da dica e é
+mais fácil de escrever à mão.)
+
+**(c) Semântica natural** (estática). Com valores de função `(x, E, C)` para `fn` e
+`(f, x, E, C)` para `fun`. As regras de `const`, `var`, `plus`, `minus`, `times`, `less`, `if`
+e `let` são as da Questão 2 (não dependem do escopo); mudam `fn` e `apply`, e entram as de
+`fun`:
+
+```
+FN       ⟨fn(x, E), C⟩ → (x, E, C)
+
+         ⟨E1, C⟩ → (x, E3, C')    ⟨E2, C⟩ → v1    ⟨E3, bind(x, v1) :: C'⟩ → v2
+APPLY    ─────────────────────────────────────────────────────────────────────
+                             ⟨apply(E1, E2), C⟩ → v2
+
+         ⟨E2, bind(f, (f, x, E1, C)) :: C⟩ → v
+LETFUN   ──────────────────────────────────────
+           ⟨letfun(f, x, E1, E2), C⟩ → v
+
+         ⟨E1, C⟩ → (f, x, E3, C')    ⟨E2, C⟩ → v1
+         ⟨E3, bind(x, v1) :: bind(f, (f, x, E3, C')) :: C'⟩ → v2
+APPLYREC ────────────────────────────────────────────────────────
+                     ⟨apply(E1, E2), C⟩ → v2
+```
+
+<Callout title="⚠️ Conceito frágil: link de aninhamento" type="warn">
+  O `Nesting` (o `C'` das regras) é o link de aninhamento (`learning-records/0005`, não
+  demonstrado). Para fixar: o `fact` recursivo enxerga `fact` porque o `apply` o recoloca no
+  contexto, e não porque esteja no contexto de quem chama.
+</Callout>
+
+</details>
+
+## Questão 4 — `gcd`
+
+**Assunto:** predicados numéricos em Prolog ([Aula 22](/docs/aula-22)) e recursão de cauda
+([Aula 21](/docs/aula-21)) · **Tipo:** implementação
+
+> `gcd(N1, N2, Q)`: verdadeiro se `Q` for o máximo divisor comum de `N1` e `N2`.
+> `?- gcd(36, 63, G).` dá `G = 9`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+gcd(N, 0, N).
+gcd(N1, N2, Q) :- N2 > 0, R is N1 mod N2, gcd(N2, R, Q).
+```
+
+Rastreio: `gcd(36, 63)` → `gcd(63, 36)` → `gcd(36, 27)` → `gcd(27, 9)` → `gcd(9, 0)` → `Q = 9`.
+
+**Por quê:** é o algoritmo de Euclides: `mdc(a, b) = mdc(b, a mod b)`, e `mdc(a, 0) = a`. O
+`N2 > 0` deixa as duas cláusulas **excludentes**: sem ele, `gcd(9, 0, Q)` também tentaria a
+segunda e daria erro no `9 mod 0`. O `is` é obrigatório: `R = N1 mod N2` só unificaria `R`
+com o **termo** `36 mod 63`, sem calcular (ver a [Aula 22](/docs/aula-22)). Se `N1 < N2`, o
+primeiro passo só troca os dois (`36 mod 63 = 36`), e por isso não é preciso tratar a ordem.
+A chamada recursiva é a **última** meta, então é recursão de cauda. Em SML seria
+`fun gcd (a, 0) = a | gcd (a, b) = gcd (b, a mod b);`.
+
+</details>
+
+## Questões de prova relacionadas
+
+Semântica formal (regras de passo longo, interpretadores em Prolog) **não caiu** em nenhuma
+das finais 22–29. Os assuntos vizinhos caíram:
+
+| Assunto | Prova | Formato |
+|---|---|---|
+| Escopo estático × dinâmico | Midterm 27, Q1 (1ª prova) ⭐ | "quanto imprime" em SML e bash, e qual é estático (o exemplo `x = 1`/`x = 2` da Questão 1) |
+| Gramática sem ambiguidade, com precedência e associatividade | Midterms 23, 25 e 29 (1ª prova, 37,5%) | escrever ou corrigir uma gramática, como na Questão 2a |
+| Aritmética em Prolog com `is` e `=:=` | Final 24, Q2; Final 29, Q3d | predicado curto com aritmética, como o `gcd` da Questão 4 |
+| Linguagem interpretada × compilada × virtualizada | Final 22, Q3 | "por quê" sobre a forma de execução; ver a [Aula 04](/docs/aula-04) |
+
+As finais estão em PDF em `material/provas-antigas/2a-prova/`; os midterms, no
+`material/provas-antigas/1a-prova/compilado-de-questoes.md`.
+
+## Para treinar
+
+1. Usando as regras do `if` e do `not` da aula, prove que `not(not(E)) ≡ E` quando `E` avalia
+   para `true` ou `false`.
+2. Dê o valor de `let val x = 1 in let val f = fn y => x + y in let val x = 10 in f x end end
+   end` no `val3` e no `val4`, e desenhe o contexto no momento em que o corpo de `f` roda.
+3. Acrescente à linguagem `Four` um `and` com curto-circuito: escreva as regras de passo
+   longo e as cláusulas do `val3`. Por que a regra do `false` tem uma premissa só?
+4. Escreva `lcm(A, B, M)` (mínimo múltiplo comum) usando o `gcd`.

@@ -1,0 +1,347 @@
+---
+title: Aula 21 - Modelos de custo
+description: 09/11 — Lista 22
+---
+
+Modelos de custo é Complexidade sintotica.
+Em LP temos linguagens imperativas e linguagens declarativas, nesta ultima se destrincha entre linguagens funcionais e lógicas
+
+linguagens imperativas depende muito da propriedades de arranjos, consigo ler em o(1)
+numa linguagen=m puramente funcional, temos as listas, que temos duas operações: cadeça e cauda (car(hd) e cdr(tl)), esse modelo de listas veio de uma lniguagem chamada LISP, e car e cdr leem em o(1)
+
+Listas em python por exemplo sao muito parecida com arranjos em C, mas listas em LISP sao encadeadas
+
+Linguagens logicas usam o modelo de busca exaustiva acontecendo por baixo, entao muitos algoritmos de prolog acabam sendo expornenciais
+
+```
+lenght([a, b, c], 3).
+```
+
+> true.
+
+```
+lenght([a, b, c], N).
+```
+
+> N = 3.
+
+```
+lenght(x, N).
+```
+
+> [_, _, _].
+
+Temos o append:
+
+```
+append([], L, L).
+append([H|T], L, [H|R]) :- append(T, L, R).
+```
+
+Agora vejamos ese caso:
+
+```
+length(L, 5000000), time(append([a], L, LL)).
+```
+
+Temos em length(L, 5000000) uma lista com 500000 elementos.
+
+Qual demora mais? Esse ou este:
+
+```
+length(L, 5000000), time(append(L, [a], LL)).
+```
+
+A complexidade assintotica do append é o tamanho da lista.
+
+O primeiro leva 0 segundos pra resolver. O segundo demora 0.036segundos para resolver
+
+A complexidade do segundo algoritmo é o tamanho da lista.
+
+```
+ D = [2, 3], E = [1|D], E = [F|G], D = [2, 3].
+```
+
+Para criar D a complexidade é 2, o tamanho da lista. Para E, a complexidade é o(1).
+
+Posso alterar D? Dados em prolog sao inalteraveis. Diferentemente de python
+
+```
+D = [2, 3]
+E = D
+
+D[:0] = [1]
+```
+
+Veja nesse caso como D mudou.
+
+Voltanto ao exemplo de E = [F|G]
+F é 1, G é o ponteiro para D
+
+O segundo D = [2, 3] não é uma tribuição, é uma comparaçõa, ele retorna true. A complexidade dele é o tamanho da estrutura de dados, proporcional ao seu tamanho.
+
+Em SML como seria um append?
+
+```
+fun app nil L = Linguagens
+    | app (h::t) L = h :: app t L
+```
+
+tamanho estrutura de dados é diferente de numero de elementos da estrutura de dados
+o trabalho de imprimir a estrutura de dados por exemplo ja é do tamanho da estrutura de dados
+
+L = [1,2,3]
+
+proporcional ao tamanho dela, pensando no =
+No exemplo:
+L = [1,2,3], X = L.
+
+> L = X, X = [1,2,3].
+
+a complexidade de L é 3, o(1). E a complexidade de X = ? É do tamanho da estrutura de dados.
+
+mas se eu fizer
+L = [1,2,3], X = [1,2,3], X = L.
+
+NEsse caso o = é uma comparação profunda.
+
+Para calcular o tamanho de uma lista em SML:
+
+```
+fun length nil = 0
+    length (head::tail) = 1 + length tail;
+```
+
+Implementar unificação (só de listas) em prolog
+X=([], []).
+x=([H|T1], [H|T2]) :- x=(T1, T2).
+
+Qual é a complexidade de reverse?
+
+```
+rev0([],[]).
+rev0([Head|Tail],Rev) :-  rev0(Tail,TailRev),  append(TailRev,[Head],Rev).
+```
+
+Tem complexidade quadratica
+
+Mas será que não tem como fazer em O(n)?
+
+```
+rev1(X,Y) :- rev_aux(X,[],Y).
+
+rev_aux([],Sofar,Sofar).
+rev_aux([Head|Tail],Sofar,Rev1) :- rev_aux(Tail,[Head|Sofar],Rev1).
+```
+
+veja a complexidade de cada um desses dois
+como o rev_aux performa melhor
+
+Desenhando os registro de ativação:
+rev -> head: 1
+tail: [2]
+sofar: nil
+ret addr
+P.A.R.
+Res: ?
+
+isso na primeira chamada
+
+quando as funções fazem as chamadas reucursivas, retornam e nao fazem mais nada. Elas só param o processamento delas depois de copiar.
+
+Depois das chamadas recursivas eu posso sobrescreve-listas
+
+Funções de caude rasas -> ultima coisa que faz é recursão.
+
+Então em vez de ter a chamada recursiva o compildor da um go to pra inicio da função, fica muito parecido com um while.
+
+Em vez de empilhar registro de ativação, n de espaço passa a ser o(1)
+chamados de função de cauda rasas
+
+Vamos fazer em SML:
+
+```
+fun length nil = 0
+  | length (_::tail) = 1 + length tail;
+```
+
+na verdade essa nao é uma função de cauda rasas, pois ainda acontece a soma no funal
+
+Mas dá pra transformar em cauda rasa, qualquer função é possivel fazer isso
+O segredo é fazer os calculos nos parametros
+
+```
+fun len_st nil = acc
+    | len_st (_::t) acc = len_st t (acc + 1)
+```
+
+é possivel mas nem sempre vale a pena
+
+veja esse exemplo de prolog:
+
+```
+p(X) :- q(X), Z is X - 1, p(Z).
+```
+
+é cauda rasa?
+
+nao, mas se fosse em SML seria. O problema é que prolog faz backtracking
+
+de fato aultima coisa que fazemos é p(Z), mas pra cada um ele vai abrir o caminho, então nao necessariamente é cauda rasa. Prolog possui simcauda rasa mas se a clausula tiver multiplos caminhos pra seguir tera que fazer busca exaustiva.
+
+Quase toda linguagem grande tem otimização de cuada rasa. Com algumas exceções, como por exemplo JAVA, pois java tem que tratar excessao, do jeito que ela faz.
+
+Dado:
+
+```
+parent(d, a).
+parent(f, e).
+parent(a, b).
+parent(e, b).
+parent(e, c).
+male(d).
+male(a).
+```
+
+para fazer grandfather:
+Maneira 1:
+
+```
+grandfather(X,Y) :- parent(X,Z), parent(Z,Y), male(X).
+```
+
+Maneira 2:
+
+```
+grandfather(X,Y) :- male(X), parent(X,Z), parent(Z,Y).
+```
+
+a segunda é mais eficiente.
+Ou seja, a ordem das coisas importa na eficiencia. Temos 5 formas de parent.
+
+A primeira arvore de busca tem 6 buscas, a segunda tem 2.
+
+Queremos sempre as clausulas mais restritas primeiras, quanto menos verdades ela tiver, masi restritiva ela será, e menos buscas tera a arvore de busca.
+
+Falando de linguagens imperativas. A eficiencia delas é muita ditada pela estrutura de dados. Quando se escreve a[1] e a[i][j], a gente tem o mesmo tempo de acesso pra qualqeur i e qualquer j. Isso ocorre porque arranjos sao guardados continuamente em memoria.
+
+Vamos suor um arranjo a de 3 x 2
+
+```
+a b
+C d
+e f
+```
+
+row major
+
+linguagens cocmo fortran fazem por coluna: oclumn major
+[a c e][b d f]
+
+em fazemos uma conta por exemplo i _ 2 + j, fosse em fortran seria j _ 3 + i
+
+NEsse codigo abaixo:
+
+```
+void swap(int x[3][2], int i0, int j0, int i1, int j1) {
+  printf("x[%d][%d] = %d\n", i0, j0, x[i0][j0]);
+  printf("x[%d][%d] = %d\n", i1, j1, x[i1][j1]);
+  int tmp = x[i0][j0];
+  x[i0][j0] = x[i1][j1];
+  x[i1][j1] = tmp;
+}
+
+int main() {
+  int a0[3][2] = {{0, 1}, {2, 3}, {4, 5}};
+  int a1[4][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}};
+  int** a2 = (int**)malloc(3 * sizeof(int*));
+  for (int i = 0; i < 2; ++i) {
+    a2[i] = (int*)malloc(2 * sizeof(int));
+    for (int j = 0; j < 2; ++j) {
+      a2[i][j] = 2*i + j;
+    }
+  }
+  swap(a0, 0, 0, 1, 1);
+  swap(a1, 0, 0, 1, 1);
+  swap(a2, 0, 0, 1, 1);
+}
+
+18) Which way to sum up the elements in the matrix is faster?
+#include <time.h>
+#include <stdio.h>
+
+int main(int argc, char** argv) {
+  const int M = 4000;
+  const int N = 2000;
+  char m[M][N];
+  int i, j, k;
+  int sum = 0;
+  clock_t start, end;
+  double time;
+
+  // Initializes the array:
+  for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
+      m[i][j] = (i + j) & 7;
+    }
+  }
+
+  start = clock();
+  printf("argc = %d\n", argc);
+  if (argc % 2) {
+    printf("argc is even: summing row major:\n");
+    // Sums up the matrix elements, row major:
+    for (i = 0; i < M; i++) {
+      for (j = 0; j < N; j++) {
+        sum += m[i][j];
+      }
+    }
+  } else {
+    printf("argc is odd: summing column major:\n");
+    // Sums up the matrix of elements, column major:
+    for (j = 0; j < N; j++) {
+      for (i = 0; i < M; i++) {
+        sum += m[i][j];
+      }
+    }
+  }
+  end = clock();
+  time = ((double) (end - start)) / CLOCKS_PER_SEC;
+
+  printf("Sum: %d, Time: %lf\n", sum, time);
+}
+```
+
+qual abordagem seria mais eficiente? row ou column major?
+
+column demora muito mais nesse exemplo, quando se escreve um arranjo, ele é basicamente um ponteiro, mas os computadores sao organizados em hierarquia de memoria. Temos memoria RAM e memoria de cache, que é pequena mas é rapida.
+
+um cache de 3 lugares 0 1 2
+o 0 é miss, mas o 1 e o 2 é hit
+
+foram feitas 3 viagens longas na memoria. Então apesar do acesso ser o(1) ainda tem esse custo
+Tem algumas otimizações que o compilador consegue fazer, mas nem sempre.
+
+```
+void swap(int x[][9], int i0, int j0, int i1, int j1) {
+  printf("x[%d][%d] = %d\n", i0, j0, x[i0][j0]);
+  printf("x[%d][%d] = %d\n", i1, j1, x[i1][j1]);
+  int tmp = x[i0][j0];
+  x[i0][j0] = x[i1][j1];
+  x[i1][j1] = tmp;
+}
+
+void swap(int **x, int i0, int j0, int i1, int j1) {
+  printf("x[%d][%d] = %d\n", i0, j0, x[i0][j0]);
+  printf("x[%d][%d] = %d\n", i1, j1, x[i1][j1]);
+  int tmp = x[i0][j0];
+  x[i0][j0] = x[i1][j1];
+  x[i1][j1] = tmp;
+}
+```
+
+vejamos esses dois swaps. Será que no assembly será igual para esses dois? O segundo swap precisa de dois loads. Os assemblys sao diferentes
+
+o segundo precisa de dois loads faz acesso por ponteiro
+
+**Resolução da lista:** [Lista 22 - Resolução](/docs/aula-21/lista-22)

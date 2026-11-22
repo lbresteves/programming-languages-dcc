@@ -1,269 +1,494 @@
 ---
-title: Aula 23 - Predicados numéricos em Prolog
-description: 11/11 — Lista 23
+title: Aula 23 - Semântica formal
+description: 16/11 — Lista 24
 ---
 
-mylength em prolog
+<Callout title="De onde vem esta anotação" type="info">
+  Não há roteiro do professor para esta aula em `material/professor-notes/`. A base são as
+  minhas notas de aula, conferidas com a ementa (tópico 24), com o capítulo de semântica do
+  livro (Webber, cap. 23), com os interpretadores da página do curso
+  (`lesson27/val3.txt` e `val4.txt`) e com a Lista 24.
+</Callout>
 
-```
-myLength([], 0).
-myLength([_|Tail], Len) :- myLength(Tail, TailLen), Len = TailLen + 1.
-```
+## Sintaxe parecida, semântica diferente
 
-> myLenght([1, 2, 3], 3)
+Por que Java e C são tão parecidas? O criador de Java (James Gosling) queria uma sintaxe
+familiar para quem programava em **C++**, e não em C. Mas C++ foi construída em cima de C, e
+por isso Java acabou parecida com C também.
 
-> 1+1
-> o + é um simbolo, prolog nao sabe que isso significa adição, em principio é só um símbolo
-> se eu quiser representar com o valor aritmetrico eu uso o 'is', avalia o lado direito da expressao e verifica isso com o lado esquerdo da expressao
+Além disso, ensinar uma sintaxe nova é difícil. Sintaticamente, C, C++ e Java são bem
+parecidas: as três têm `while`, `do while`, `if else` e `switch` escritos do mesmo jeito.
 
-> N= 2, N = 1 + 1.
-> false.
+**Semanticamente, porém, são bem diferentes.** Mesmo assim, são mais parecidas entre si do
+que com Python, por exemplo.
 
-> N = 2, N =2.
-> N = 2.
+O que imprime este programa?
 
-> 1 + 1 = 2.
-> false.
-
-> 1 + 1 =:= 2.
-> true.
-
-Porém
-
-> X is 1 + 1.
-
-e
-
-> 1 + 1 is X.
-
-isso é erro (nao falso)
-
-prolog assume que o lado direito é definido
-
-O que já sabemos de prolog?
-é uma linguagem lógica, declarativa, faz backtracking com busca exaustiva, ordem dos objetos importa
-
-` 1 + 2 * 3`
-
-O = é unificação, basicamente.
-
-Ok. vimos 3 operadores
-
-> N= 2.
-> 2 = n
-> N is 1 + 1.
-
-o igual cortado faz avaliação dos 2 lados e unifica, o = normal avalia o lado direito antes de fazer verificação.
-
-> N =:= 1.
-
-é erro
-
-> N == 1 + 1.
-> false.
-
-é false nesse, não é erro, mas é quase igual A
-
-> 1 + 1 is N.
-> erro
-
-mas é quase igual, diferença é que ele lança erro
-
-imagine que queremos somar
-
-```
-sum([],0).
-sum([Head|Tail],X) :- sum(Tail,TailSum), X is Head + TailSum.
+```c
+#include <stdio.h>
+int main() {
+  int x = 1;
+  x += (x = 2);
+  printf("x = %d\n", x);
+}
 ```
 
-> sum([1,2,3], N)
+Imprime `x = 4` (com o `gcc`). E este, em Java?
 
-> N = 6.
-
-`sum([H|T], N) :- sum(T, NN), N is NN + H.`
-esse gera erro por conta da variavel nao definida.
-Esse nao é de cauda rasa. Pra transformar em cauda rasa:
-
-```
-sum_tl([], Acc, Acc).
-sum_tl([H|T], Acc, X) :- NovoAcc is Acc + H, sum_tl(T, NovoAcc, X).
-
+```java
+public class T {
+  public static void main(String args[]) {
+    int x = 1;
+    x += (x = 2);
+    System.out.println("x = " + x);
+  }
+}
 ```
 
-sum_tl([1,2,3,4], 10, X)
+Imprime `x = 3`.
 
-é de cauda rasa, pois a ultima coisa que ele faz é recursivo
+As duas semânticas são possíveis, mas numa vale 4 e na outra vale 3:
 
-Agora quero fazer uma fatorial:
+- **Java** define a ordem: o operando da esquerda de `x += e` é lido **antes** de avaliar
+  `e`. Então guarda `x = 1`, avalia `(x = 2)`, que vale 2, e faz `1 + 2 = 3`.
+- **C** não define: modificar `x` e lê-lo na mesma expressão, sem ponto de sequência entre
+  os dois, é **comportamento indefinido**. O `gcc` faz a atribuição `x = 2` primeiro e depois
+  `2 + 2 = 4`, mas outro compilador poderia dar outro resultado.
 
-```
-fact(0, 1).
-fact(1, 1).
-fact(N, F) :- integer(N), N > 1, N1 is N - 1, fact(N1, F1), F is F1 * N.
-- try also -
-factorial(X, 1) :- X =:= 1.
-factorial(X, Fact) :- X > 1, NewX is X - 1, factorial(NewX, NF), Fact is X * NF.
-```
+Existem outras diferenças semânticas entre elas: C é uma linguagem **insegura**, Java não;
+Java é **fortemente tipada**; C tem **comportamento indefinido** (ver a
+[Aula 07](/docs/aula-07)).
 
-> fact(10, N).
-> funciona
+## Sintaxe tem formalismo; e a semântica?
 
-> fact(10azero, N).
-> nao funciona, da erro
+Para a **sintaxe** (*syntax*), a forma de descrever é consolidada há décadas: usamos
+**gramáticas livres de contexto** (*context-free grammars*, desde a BNF do Algol 60) para
+descrever linguagens de programação, e algoritmos de **análise sintática** (*parsing*) para
+reconhecê-las (ver a [Aula 02](/docs/aula-02)). Para a **semântica** (*semantics*), o
+significado do programa, há mais de uma notação formal:
 
-prolog é dinamicamente tipado
+| Tipo | Ideia | Exemplo |
+|---|---|---|
+| **Denotacional** (*denotational*) | associa a cada programa um **objeto matemático** (em geral, uma função) que é o seu significado | `⟦x + 1⟧ = λσ. σ(x) + 1` |
+| **Axiomática** (*axiomatic*) | baseada em **lógica**, como Prolog: descreve o que se pode **provar** sobre o programa, com pré e pós-condições | triplas de Hoare: `{x = 1} x := x + 1 {x = 2}` |
+| **Operacional** (*operational*) | descreve, **passo a passo**, o que acontece enquanto o programa executa | passo longo (*big-step*, ou semântica natural) e passo curto (*small-step*) |
 
-Agora verificar se é primo
+**Vamos falar da última.**
 
-```
-is_prime(2).
-is_prime(3).
-is_prime(P) :- integer(P), P > 3, P mod 2 =\= 0, \+ has_factor(P,3).
+Se eu quero descrever a semântica de uma linguagem de programação, como faço? **Construo um
+interpretador para ela, em outra linguagem.** É isso que a semântica operacional faz:
+descreve um interpretador, e leva essa ideia ao extremo, escrevendo-o como regras
+matemáticas.
 
-```
+<Callout title="Por que não basta o interpretador?" type="info">
+  Se a semântica de L1 é "o que o interpretador escrito em L2 faz", falta definir a semântica
+  de L2. Se L2 for definida por um interpretador em L3, a cadeia nunca fecha. As regras de
+  inferência abaixo quebram essa regressão: são matemática, e não programa. O interpretador
+  em Prolog é só uma forma executável de escrever as mesmas regras.
+</Callout>
 
-=\= é diferente
+São três passos para criar um interpretador:
 
-> 1 =\= 2.
-> true
+1. descrever a **sintaxe concreta** da linguagem (a gramática);
+2. definir a **sintaxe abstrata**: uma estrutura de dados, a árvore de sintaxe abstrata
+   (*AST*, ver a [Aula 03](/docs/aula-03));
+3. a partir disso, escrever o **interpretador**: um algoritmo que recebe como entrada a
+   sintaxe abstrata (a estrutura de dados) e devolve o valor.
 
-mas
+## Linguagem 1: só aritmética
 
-> N =\= 3+ 1.
-
-Da erro
-
-E o simbolo \+ é o mesmo que not()
-
-```
-has_factor(N,L) :- N mod L =:= 0.
-has_factor(N,L) :- L * L < N, L2 is L + 2, has_factor(N,L2).
-
-```
-
-Agora uma lista de todos os inteiros
-
-```
-range(I,I,[I]).
-range(I,K,[I|L]) :- I < K, I1 is I + 1, range(I1,K,L).
-```
-
-range é predicado de caud rasa? Não... a concatenação [I|L] acontece depois do retorno do range...
-
-como faço pra achar a lista de primos de um certo range?
-
-exemplo
-Find all the prime numbers from 1 to 10:
+Para mostrar isso, vamos construir um interpretador **em Prolog** para uma pequena linguagem
+parecida com SML. Começamos pela sintaxe concreta:
 
 ```
-
-?- findall(N, (range(1, 10, L), member(N, L), is_prime(N)), L).
-L = [2, 3, 5, 7].
-
+exp     ::= exp + mulexp | mulexp
+mulexp  ::= mulexp * rootexp | rootexp
+rootexp ::= ( exp ) | number
 ```
 
-é um jeito de extrair padrões e acumular padrões na estrutura de dados
+Associatividade à esquerda (a recursão está à esquerda: `exp + mulexp`), e precedência maior
+no operador `*` (ele está mais embaixo na gramática, então fica mais embaixo na árvore).
 
-Agora quero calcular divisor em comum
+Para descrever o programa numa estrutura de dados, preciso conseguir representar números,
+`+` e `*`. Então continuando, a nossa estrutura de dados é isto:
 
-```
-gcd(X, Y, Z) :-
-  X =:= Y, Z is X.
-gcd(X, Y, Denom) :-
-  X > Y,
-  NewY is X - Y,
-  gcd(Y, NewY, Denom).
-gcd(X, Y, Denom) :-
-  X < Y,
-  gcd(Y, X, Denom).
+```prolog
+plus(X, Y)
+times(X, Y)
+const(N)
 ```
 
-algoritmo euclidiano:
+Cada nó tem o seu caso no interpretador. Por exemplo, `1 + 2 * 3` vira
+`plus(const(1), times(const(2), const(3)))`.
 
-```
-gcd(N1, N2, GCD) :- N1 < N2, euclid(N2, N1, GCD).
-gcd(N1, N2, GCD) :- N2 > 0, N1 > N2, euclid(N1, N2, GCD).
+Agora o interpretador em Prolog. Prolog é uma ótima linguagem para criar interpretadores: o
+casamento de padrões (*pattern matching*) na cabeça das cláusulas faz o papel do `switch`
+sobre o tipo do nó.
 
-euclid(N, 0, N).
-euclid(N1, N2, GCD) :-
-  N2 > 0, Q is N1 // N2, R is N1 - (N2 * Q), euclid(N2, R, GCD).
-```
+```prolog
+val(plus(X, Y), Value) :-
+    val(X, VX),
+    val(Y, VY),
+    Value is VX + VY.
 
-algoritmo de subset novamente:
+val(times(X, Y), Value) :-
+    val(X, VX),
+    val(Y, VY),
+    Value is VX * VY.
 
-```
-subSet([], []).
-subSet([H|T], [H|R]) :- subSet(T, R).
-subSet([_|T], R) :- subSet(T, R).
-```
-
-esse acima da 8 valores
-
-Progrma NP Completo: da pra resolver em tempo polinomial num maquina nao deterministica, e se resolve 1, resolve todos.
-
-um dos problemas mais famosos np-completo é o de subset sum.
-em prolog é simples de resolver:
-
-```
-subsum(L, N, S) :- subset(L, S), sum_tl(S, 0, N).
+val(const(N), N).
 ```
 
-como pegar as permutações de uma lista?
+Repare no `is` (ver a [Aula 22](/docs/aula-22)): o `+` da nossa linguagem é implementado pelo
+`+` aritmético de Prolog.
+
+### Regras de inferência: passo longo
+
+Existe uma notação de **regras de inferência**. Cada regra tem duas partes: as **premissas**
+em cima e a **conclusão** embaixo. Para o `plus`, lê-se "`plus(X, Y)` avalia para `V` se `X`
+avalia para `V1`, `Y` avalia para `V2` e `V = V1 + V2`":
 
 ```
-perm([], []).
-perm(List, [H|Perm]) :- select(H, List, Rest), perm(Rest, Perm).
+X → V1    Y → V2    V = V1 + V2
+───────────────────────────────
+        plus(X, Y) → V
 ```
 
-quadrado magico
+Isso se chama **semântica do passo longo** (*big-step semantics*), ou semântica natural
+(*natural semantics*): a seta leva a expressão direto ao valor final.
+
+É a mesma estrutura de uma cláusula Prolog: as premissas são o corpo, a conclusão é a cabeça.
+Uma regra sem premissas (`const(N) → N`) é um **axioma**, e corresponde a um **fato**. Uma
+derivação é uma árvore de prova, como a da [Aula 20](/docs/aula-20).
+
+### Passo curto
+
+A **semântica do passo curto** (*small-step semantics*) descreve **um passo de cada vez**:
+`X → X'` quer dizer "`X` dá um passo e vira `X'`". Para o `plus`:
 
 ```
-magic_sq([A,B,C,D,E,F,G,H,I]) :-
-    L = [1,2,3,4,5,6,7,8,9],
-    perm(L, [A,B,C,D,E,F,G,H,I]),
-    sum_tl([A, B, C], S),
-    sum_tl([D, E, F], S),
-    sum_tl([G, H, I], S),
-    sum_tl([A, D, G], S),
-    sum_tl([B, E, H], S),
-    sum_tl([C, F, I], S),
-    sum_tl([A, E, I], S),
-    sum_tl([C, E, G], S).
+     X → X'                          Y → Y'
+─────────────────────       ─────────────────────       ─────────────────────────
+plus(X, Y) → plus(X', Y)     plus(v, Y) → plus(v, Y')    plus(v1, v2) → v1 + v2
 ```
 
-Problema das 8 rainhas:
+(`v`, `v1` e `v2` são valores já calculados.) A primeira regra avalia a esquerda; a segunda só
+se aplica quando a esquerda já é um valor `v`, e então avalia a direita; a terceira soma.
+Isso fixa a **ordem de avaliação**: esquerda antes da direita, que é exatamente o tipo de
+coisa que diferencia o `x += (x = 2)` de C e de Java.
+
+**O estilo do passo longo é bem mais simples**, e é o que o curso usa.
+
+### `if` e `not`: regras com nome
+
+Vejamos regras para um `if` e um `not`. Cada regra ganha um **nome**, que é usado nas provas:
 
 ```
-nocheck(_, []).
-nocheck(X/Y, [X1/Y1 | Rest]) :-
-  X =\= X1,
-  Y =\= Y1,
-  abs(Y1-Y) =\= abs(X1-X),
-  nocheck(X/Y, Rest).
+E0 → true    E1 → V                    E0 → false    E2 → V
+─────────────────────── IF_T           ─────────────────────── IF_F
+  if(E0, E1, E2) → V                     if(E0, E1, E2) → V
 
-legal([]).
-legal([X/Y | Rest]) :-
-  legal(Rest),
-  member(X,[1,2,3,4,5,6,7,8]),
-  member(Y,[1,2,3,4,5,6,7,8]),
-  nocheck(X/Y, Rest).
+
+   E → true                               E → false
+───────────────── NOT_T                ───────────────── NOT_F
+not(E) → false                          not(E) → true
 ```
 
-é preciso fixar o X:
+O interpretador é um `switch` para cada um desses casos: uma cláusula por regra.
+
+Uma semântica formal assim **serve para evitar ambiguidade**: não há como duas
+implementações discordarem sobre o significado de um programa.
+
+- **Java** tem semântica **bem definida**: a especificação (*JLS*) fixa a ordem de avaliação e
+  quase nada fica indefinido. A especificação é escrita em prosa, mas existem formalizações
+  completas dela (como a K-Java).
+- **C não tem semântica formal.** Mas tem uma **definição**: um manual (o padrão ISO) que
+  especifica inclusive o que é **comportamento indefinido**.
+- **SML** é o caso extremo: a definição oficial da linguagem (*The Definition of Standard
+  ML*) é escrita em semântica natural, com regras como as acima.
+
+### Provando que dois programas são equivalentes
+
+Prove que:
 
 ```
-eightqueens(L) :-
-  L = [1/_,2/_,3/_,4/_,5/_,6/_,7/_,8/_],legal(L)
+if(E0, E1, E2)  ≡  if(not(E0), E2, E1)
 ```
 
-mas é possivel tornar o predicado mais eficiente:
+**Programas equivalentes** são os que, para as mesmas entradas, têm as mesmas saídas: aqui,
+os dois lados avaliam para o mesmo `V`.
+
+A avaliação de `if(E0, E1, E2) → V` usou **ou** a regra `IF_T` **ou** a `IF_F`. É preciso
+mostrar os dois casos.
+
+**Caso `IF_F`.** Então valem as premissas: (i) `E0 → false` e (ii) `E2 → V`. Com elas monto a
+derivação do lado direito:
 
 ```
-legal([]).
-legal([X/Y | Rest]) :-
-  member(Y,[1,2,3,4,5,6,7,8]),
-  nocheck(X/Y, Rest),
-  legal(Rest).
+  E0 → false  (i)
+─────────────────── NOT_F
+not(E0) → true            E2 → V  (ii)
+────────────────────────────────────── IF_T
+      if(not(E0), E2, E1) → V
 ```
 
-**Resolução da lista:** [Lista 23 - Resolução](/docs/aula-23/lista-23)
+**Caso `IF_T`.** Valem (i) `E0 → true` e (ii) `E1 → V`:
+
+```
+  E0 → true  (i)
+─────────────────── NOT_T
+not(E0) → false           E1 → V  (ii)
+────────────────────────────────────── IF_F
+      if(not(E0), E2, E1) → V
+```
+
+Nos dois casos o lado direito avalia para o mesmo `V`. (Para a equivalência completa, a volta
+é igual: cada derivação do lado direito passa por `NOT_T` ou `NOT_F` e se converte numa do
+lado esquerdo.) A Lista 24, Q1 pede exatamente este tipo de prova, para `let` × `fn`.
+
+## Linguagem 2: variáveis e `let`
+
+Vamos acrescentar ao interpretador o que um programa SML como este precisa:
+
+```sml
+val x = 1;
+val y = x + 2;
+val z = 2 * 3;
+```
+
+Começamos tendo **variáveis**: agora temos **nomes**. Temos que ter alguma forma de definir
+variáveis, e o `let` também. O `let` fica em `rootexp`, a regra de precedência mais alta: a
+gente o resolve antes, e ele fica lá embaixo na árvore (em `x + let ... end`, o `let` é um
+operando inteiro do `+`).
+
+```
+exp     ::= exp + mulexp | mulexp
+mulexp  ::= mulexp * rootexp | rootexp
+rootexp ::= ( exp ) | number
+          | let val <nome> = exp in exp end
+          | <nome>
+```
+
+Agora temos variáveis, e **preciso de mais do que uma árvore sintática**: preciso de uma
+**tabela que associa nomes a valores**. Essa tabela tem nome: chamamos de **ambiente**
+(*environment*), ou **contexto** (*context*). Para saber o valor de uma variável, procuro no
+contexto.
+
+Um `let` tem três coisas: o nome, a expressão que dá o valor (`exp1`) e a expressão onde o
+nome vale (`exp2`). A árvore de `let val x = 2 + 3 in x * x end`:
+
+```
+          let
+    /      |      \
+   x     plus     times
+         /  \     /    \
+        2    3  var(x)  var(x)
+```
+
+Aqui `exp1` é o `plus` e `exp2` é o `times`. O interpretador agora recebe o contexto como
+argumento:
+
+```prolog
+val(const(N), _, N).
+val(var(X), Context, V) :- lookup(X, Context, V).
+
+val(let(X, Exp1, Exp2), Context, V) :-
+    val(Exp1, Context, V1),
+    val(Exp2, [(X, V1) | Context], V).
+
+lookup(Variable, [(Variable, Value) | _], Value).
+lookup(VarX, [(VarY, _) | Rest], Value) :-
+    VarX \= VarY,
+    lookup(VarX, Rest, Value).
+```
+
+(As cláusulas de `plus` e `times` são as de antes, repassando o `Context`. No arquivo do
+curso, o par `(X, V1)` aparece como `bind(X, V1)`: é a mesma coisa.)
+
+- O `let` avalia `Exp1` no contexto **de fora**, e só depois põe `(X, V1)` na frente da lista
+  para avaliar `Exp2`. Por isso o escopo de `x` é só `exp2`.
+- O `lookup` devolve a **primeira** ligação com aquele nome. A definição mais interna
+  **esconde** (*shadows*) a de fora: `let val y = 1 in let val y = 2 in y end end` dá `2`.
+- Variável que não está no contexto: o `lookup` falha e não há valor. Para a semântica, erro
+  é **não existir derivação**.
+
+Com contexto, a notação passa a ser `⟨E, C⟩ → v` ("no contexto `C`, `E` avalia para `v`"):
+
+```
+                                     ⟨E1, C⟩ → v1    ⟨E2, (x, v1) :: C⟩ → v2
+⟨var(x), C⟩ → lookup(C, x)           ─────────────────────────────────────────
+                                              ⟨let(x, E1, E2), C⟩ → v2
+```
+
+## Linguagem 3: funções
+
+Agora quero adicionar **funções** à minha linguagem. Para funções preciso da sintaxe de
+função: `fn x => x * x`, por exemplo, e da aplicação (`f x`, por justaposição, com a
+precedência mais alta e associativa à esquerda, como em SML). É a linguagem `Three` da
+Lista 24:
+
+```
+exp     ::= fn <var> => exp | addexp
+addexp  ::= addexp + mulexp | mulexp
+mulexp  ::= mulexp * funexp | funexp
+funexp  ::= funexp rootexp | rootexp
+rootexp ::= let val <var> = exp in exp end
+          | ( exp ) | <var> | <const>
+```
+
+Se eu tenho só uma função no meu programa, quanto vale o programa? **É a própria função.**
+
+```prolog
+val(fn(Formal, Body), _, fval(Formal, Body)).
+```
+
+`fn` é **sintaxe**: um nó da árvore. `fval` é um **valor**: o resultado de avaliar o `fn`,
+que só existe em tempo de execução.
+
+```prolog
+/*                                   Function        Actual   */
+/* Function Actual, por exemplo:    (fn x => x * x) (3 + 4)   */
+/*                                       Formal Body          */
+/* apply(fn(x, times(var(x), var(x))), plus(const(3), const(4))) */
+val(apply(Function, Actual), Context, Value) :-
+    val(Function, Context, fval(Formal, Body)),
+    val(Actual, Context, VParam),
+    val(Body, [(Formal, VParam) | Context], Value).
+```
+
+O corpo é avaliado com o parâmetro na frente do `Context` **de quem chama**.
+
+### Escopo dinâmico × estático
+
+**A nossa linguagem tem escopo dinâmico**: o corpo da função enxerga as variáveis do lugar
+onde ela é **chamada**. É o `val3.txt` da página do curso.
+
+Se eu quero implementar **escopo estático**, o que devo fazer? **Preciso implementar
+closures**: o valor da função guarda um ponteiro para a tabela de variáveis (o contexto) **no
+momento em que aquela função foi criada**, e o corpo é avaliado nessa tabela guardada
+(`Nesting`), e não na de quem chama. É o `val4.txt`:
+
+```prolog
+val(fn(Formal, Body), Context, fval(Formal, Body, Context)).
+
+val(apply(Function, Actual), Context, Value) :-
+    val(Function, Context, fval(Formal, Body, Nesting)),
+    val(Actual, Context, VParam),
+    val(Body, [(Formal, VParam) | Nesting], Value).
+```
+
+A diferença inteira está em **dois lugares**: o terceiro argumento de `fval` (o contexto da
+criação) e `Nesting` no lugar de `Context` na última linha do `apply`. O nome `Nesting` não é
+à toa: o contexto guardado faz o papel do **link de aninhamento** (*nesting link*) do registro
+de ativação (ver a [Aula 13](/docs/aula-13)).
+
+Por exemplo, isto é um closure:
+
+```sml
+let
+  val f = fn x => let val g = fn y => y + x in g end
+in
+  f 1 2
+end
+```
+
+`f 1` devolve a função `g`, que usa o `x` de `f`. No **estático** (`val4`), o `fval` de `g`
+guardou o contexto com `x = 1`, e `f 1 2` dá `3`. No **dinâmico** (`val3`), quando `g` é
+aplicada a `2`, a chamada de `f` já acabou: no contexto de quem chama não existe `x`, e não há
+valor (o `lookup` falha).
+
+O exemplo do livro que separa os dois pelo **resultado**:
+
+```sml
+let val x = 1 in
+  let val f = fn n => n + x in
+    let val x = 2 in
+      f 0
+    end
+  end
+end
+```
+
+- **Estático: `1`.** O `x` do corpo de `f` é o do lugar onde `f` foi **escrita**.
+- **Dinâmico: `2`.** O `x` é procurado no contexto de **quem chama**, onde a ligação mais
+  recente é `x = 2`.
+
+É o mesmo programa `inc`/`foo` da [Aula 11](/docs/aula-11): SML imprime `6` (estático), bash
+imprimiria `7` (dinâmico).
+
+<Callout title="Cai em prova: escopo estático × dinâmico (1ª prova, Midterm 27) ⭐" type="warn">
+  Formato: "quanto imprime este programa?" em SML e em bash, depois "qual tem escopo estático,
+  qual tem dinâmico, e qual a diferença". Exemplo: Midterm 27, Q1. O professor citou o
+  assunto na revisão. A pegadinha é a variável de mesmo nome redefinida **entre** a definição
+  e a chamada da função, como o `x = 2` acima. Ver o Tópico 12 do
+  `material/provas-antigas/1a-prova/compilado-de-questoes.md`.
+</Callout>
+
+<Callout title='Dois sentidos de "dynamic binding"' type="warn">
+  A Lista 24 chama o escopo dinâmico de "associação dinâmica (*dynamic binding*)": a ligação
+  **nome → variável** decidida em execução. Na [Aula 17](/docs/aula-17), *dynamic binding* é
+  outra coisa: a ligação **chamada → método** decidida em execução (despacho dinâmico). As
+  duas são "decididas tarde", mas sobre coisas diferentes. Java tem a segunda e não tem a
+  primeira.
+</Callout>
+
+As regras de passo longo para funções (valor de função `(x, E)` no dinâmico e `(x, E, C)` no
+estático):
+
+```
+DINÂMICO
+                          ⟨E1, C⟩ → (x, E3)    ⟨E2, C⟩ → v1    ⟨E3, (x, v1) :: C⟩ → v2
+⟨fn(x, E), C⟩ → (x, E)    ─────────────────────────────────────────────────────────────
+                                           ⟨apply(E1, E2), C⟩ → v2
+
+ESTÁTICO
+                             ⟨E1, C⟩ → (x, E3, C')    ⟨E2, C⟩ → v1    ⟨E3, (x, v1) :: C'⟩ → v2
+⟨fn(x, E), C⟩ → (x, E, C)    ─────────────────────────────────────────────────────────────────
+                                              ⟨apply(E1, E2), C⟩ → v2
+```
+
+### Recursão
+
+A única coisa que essa linguagem **com escopo estático** não consegue fazer são **funções
+recursivas**:
+
+```sml
+let val fact = fn x => ... fact (x - 1) ... in fact 5 end
+```
+
+- **No estático não funciona.** O `fn` é avaliado **antes** de `fact` entrar no contexto (o
+  `let` avalia `exp1` no contexto de fora). O closure guarda um contexto sem `fact`, e a
+  chamada recursiva lá dentro não acha o nome.
+- **No dinâmico funciona**, quase por acaso: quando o corpo roda, o contexto de quem chama já
+  tem `fact`.
+- **Em SML é igual ao estático:** `val f = fn ...` não pode ser recursiva, porque o escopo de
+  `f` não inclui o próprio `fn`. Só `fun f x = ...` (ou `val rec`) pode: o escopo da definição
+  feita por `fun` inclui o corpo da função. A Lista 24, Q3 implementa isso no interpretador.
+
+### O que o passo longo não diz
+
+Quando nenhuma regra se aplica (variável sem ligação, somar uma função a um número), **não há
+derivação**. O passo longo não distingue esse caso de um programa que **não termina**: nos
+dois não existe árvore de prova finita. O passo curto distingue, porque descreve cada passo:
+um programa com erro para num estado que não é valor; um em laço dá passos para sempre.
+
+## Nas cinco linguagens
+
+| | C | Java | Python | SML | Prolog |
+|---|---|---|---|---|---|
+| Como a semântica é definida | padrão ISO em prosa, com comportamento indefinido | JLS em prosa, quase nada indefinido (há formalizações) | a implementação de referência (CPython) | **formal**: *The Definition of Standard ML*, em passo longo | duas: declarativa (lógica) e operacional (busca da árvore de prova) |
+| `x += (x = 2)` | indefinido (`gcc`: 4) | 3 (esquerda lida antes) | `(x = 2)` é erro de sintaxe (atribuição não é expressão); com `x += (x := 2)` dá 3, como Java | `x` é imutável; não se escreve | `is` não atribui; não se escreve |
+| Escopo | estático | estático | estático (regra *LEGB*) | estático | variáveis locais à cláusula |
+| Closures (contexto de definição guardado) | ∅ (sem funções aninhadas) | *lambda* com variáveis *effectively final* | sim | sim | ∅ |
+
+Prolog é a linguagem que **dá significado** às nossas linguagens 1, 2 e 3, e por isso é a
+"L2" desta aula. As duas semânticas dela divergem quando a ordem das cláusulas causa laço
+infinito: logicamente há resposta, mas a busca em profundidade não chega lá.
+
+<Callout title="Nas provas" type="info">
+  Semântica formal (regras de passo longo, interpretadores em Prolog) não caiu em nenhuma das
+  finais 22–29. O que cai do entorno desta aula é **escopo estático × dinâmico** (callout
+  acima) e **gramáticas sem ambiguidade** (Lista 24, Q2a; ver a [Aula 02](/docs/aula-02)).
+</Callout>
+
+**Resolução da lista:** [Lista 24 - Resolução](/docs/aula-23/lista-24)

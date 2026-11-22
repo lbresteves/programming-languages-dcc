@@ -14,7 +14,7 @@ Duas regras da aula resolvem metade da lista:
 
 ## Questão 1 — `max`
 
-**Assunto:** comparação aritmética em Prolog (Aula 23) · **Tipo:** implementação
+**Assunto:** comparação aritmética em Prolog (Aula 22) · **Tipo:** implementação
 
 > `max(X, Y, Z)`: unifica `Z` com o maior entre os números `X` e `Y`.
 
@@ -37,7 +37,7 @@ devolve valor; aqui é uma **relação** em que o "retorno" é um argumento a ma
 
 ## Questão 2 — `maxList`
 
-**Assunto:** recursão em listas com aritmética (Aula 23) · **Tipo:** implementação
+**Assunto:** recursão em listas com aritmética (Aula 22) · **Tipo:** implementação
 
 > `maxList(L, M)`: `M` é o maior número de `L`. Deve falhar para a lista vazia.
 
@@ -62,7 +62,7 @@ ponto de escolha à toa.
 
 ## Questão 3 — `ordered`
 
-**Assunto:** padrões com dois elementos na cabeça da lista (Aula 23) · **Tipo:** implementação
+**Assunto:** padrões com dois elementos na cabeça da lista (Aula 22) · **Tipo:** implementação
 
 > `ordered(L)`: verdade se `L` estiver em ordem crescente.
 
@@ -84,7 +84,7 @@ crescente, troque por `<`.
 
 ## Questão 4 — `mergesort`
 
-**Assunto:** recursão com divisão da lista e aritmética de comparação (Aula 23) ·
+**Assunto:** recursão com divisão da lista e aritmética de comparação (Aula 22) ·
 **Tipo:** implementação
 
 > `mergesort(In, Out)`: `Out` é `In` ordenada, pelo algoritmo mergesort. Não use o nome
@@ -132,7 +132,7 @@ duas listas são vazias (a 1ª cláusula já cobre esse caso).
 
 ## Questão 5 — N rainhas
 
-**Assunto:** gerar e testar, aritmética com `=\=` e ordem das metas (Aula 23) ·
+**Assunto:** gerar e testar, aritmética com `=\=` e ordem das metas (Aula 22) ·
 **Tipo:** implementação
 
 > `nqueens(N, X)`: uma solução para N rainhas num tabuleiro N × N, generalizando o
@@ -187,7 +187,7 @@ instanciação**. Essa ordem só funciona se `Rest` já vier instanciado.
 
 ## Questão 6 — Mochila com repetição (`multiknap`)
 
-**Assunto:** otimização por busca exaustiva com `findall` (Aula 23) · **Tipo:** implementação
+**Assunto:** otimização por busca exaustiva com `findall` (Aula 22) · **Tipo:** implementação
 
 > Como o `knapsackOptimization` do livro, mas podendo levar **várias cópias** do mesmo item.
 > `food(Nome, Peso, Calorias)`.
@@ -242,7 +242,7 @@ Pesos precisam ser positivos, senão `cabe` não termina.
 ## Questão 7 — Cobertura de conjuntos
 
 **Assunto:** versão de decisão × versão de otimização de um problema NP-completo
-(Aula 23) · **Tipo:** implementação
+(Aula 22) · **Tipo:** implementação
 
 > `Set = [1,2,3,4,5]`, `Subsets = [[1,2],[2,4],[3,5],[1,3],[3,4,5]]`, cobertura mínima
 > `[[1,2],[3,4,5]]`. (a) `coverDecision(Set, Subsets, Goal, Cover)`: cobertura com no
@@ -302,7 +302,7 @@ ser nome de predicado; usei `coverDecision`.
 
 ## Questão 8 — Clique
 
-**Assunto:** gerar e testar em grafos (Aula 23) · **Tipo:** implementação
+**Assunto:** gerar e testar em grafos (Aula 22) · **Tipo:** implementação
 
 > Grafo: `edge(a,b). edge(a,c). edge(b,c). edge(a,d). edge(b,e). edge(d,e). edge(a,e).`
 > `cliqueN(N, G, L) :- sublist(G, L), length(L, N), clique(L).` Defina (a) `sublist(G, L)` e
