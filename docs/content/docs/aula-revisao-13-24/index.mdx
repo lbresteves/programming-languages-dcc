@@ -1,0 +1,409 @@
+---
+title: Aula Revisão - Aulas 13 a 24
+description: 23/11 — Revisão para a 2ª prova (Listas 13–25)
+---
+
+Molde para preencher durante a revisão. Em cada aula estão os tópicos principais das minhas
+anotações; o que o professor destacar vai em **Ênfase / pode cair**.
+
+## Avisos sobre a prova
+
+- Data / horário / sala: 25/11 — 90 min, sem consulta, 40 pontos.
+- Conteúdo: todo o curso, com ênfase na 2ª metade. A 1ª metade está na
+  [revisão das aulas 01 a 12](/docs/aula-revisao-01-12).
+- Formato (tipos de questão que ele mencionou): **vai cair Prolog, e a sintaxe é
+  importante** (ver a [Aula 20](#aula-20--0411--introdução-à-linguagem-prolog)). Nas provas
+  antigas, Prolog aparece em todas as oito finais.
+- O que **não** cai:
+-
+
+## Aula 13 — 30/09 · Registros de ativação
+
+[Minhas anotações](/docs/aula-13) · Lista 13
+
+- Arquitetura de von Neumann: onde ficam os valores.
+- Ativação × registro de ativação; alocação estática (sem recursão) × pilha.
+- Pilha corrompida.
+- Funções aninhadas e o **link de aninhamento** (_nesting link_).
+- Closures: quando o registro de ativação não pode ser desempilhado.
+
+**Ênfase / pode cair:** funções aninhadas.
+
+```python
+def f(n):
+    def g(m):
+        return m + n
+    return g(3)
+
+f(4)    # devolve 7
+```
+
+Nesse caso, o difícil é encontrar o `n`: ele não está no registro de ativação de `g`, e sim
+no de `f`. Para achá-lo, o registro de ativação de `g` guarda um ponteiro para o registro da
+função **aninhadora** (`f`): é o **link de aninhamento** (_nesting link_).
+
+## Aula 14 — 05/10 · Introdução à linguagem Python
+
+[Minhas anotações](/docs/aula-14) · Lista 14
+
+- Linguagens imperativas: comandos e atribuição.
+- Python é **dinâmica** e **virtualizada**; tudo é objeto.
+- Tipos compostos, funções de alta ordem e closures.
+- _Duck typing_.
+- Por que Python não é eficiente.
+
+<Callout title="Cai em prova: 37,5% (provas 22, 25 e 27)" type="warn">
+  Formato: "por que a linguagem X é executada/é eficiente desse jeito?" e tabelas de ligar
+  linguagens a características. Exemplo: prova 25, Q2c ("qual a característica comum de PHP,
+  Python, Lua e Ruby que as tornam tão lentas?" — tipagem dinâmica: toda operação verifica o
+  tipo em execução). Pegadinha: na prova 25, Q2a, a eficiência de C vem da tipagem **fraca**
+  (nenhuma verificação em execução), e o enunciado avisa que não é a tipagem estática. Ver
+  Tópico 4 do `material/provas-antigas/2a-prova/compilado-de-questoes.md`.
+</Callout>
+
+**Ênfase / pode cair:** a passagem de parâmetros em Python é **por valor** (o valor copiado é
+a referência ao objeto). Como se vê isso através de um programa?
+
+```python
+def muda_str(s):
+    s = ""
+
+s = "DCC024 eh muito legal"
+muda_str(s)
+print(s)    # DCC024 eh muito legal
+```
+
+Strings em Python não podem ser mudadas (são imutáveis).
+
+```python
+def muda_lista(L):
+    L.append(1)
+
+L = ["oi", "DCC024"]
+muda_lista(L)
+print(L)    # ['oi', 'DCC024', 1]
+```
+
+Por que `muda_lista` funciona e `muda_str` não? O parâmetro formal é uma **cópia** da
+referência: os dois nomes apontam para o mesmo objeto. Em `muda_str`, `s = ""` só faz a
+cópia local apontar para outro objeto, e o `s` de fora continua igual. Em `muda_lista`,
+`L.append(1)` **muta o objeto** apontado, que é o mesmo visto de fora. Se `muda_lista`
+fizesse `L = []`, também não mudaria nada fora. Ver a [Aula 19](/docs/aula-19).
+
+## Aula 15 — 07/10 · Gerenciamento de memória
+
+[Minhas anotações](/docs/aula-15) · Lista 15
+
+- As três áreas: memória **estática**, **pilha** e **heap**.
+- Quando cada valor é alocado e liberado.
+- Erros de gerenciamento de memória (vazamento, ponteiro pendente).
+- Coleta de lixo.
+
+**Ênfase / pode cair:** coletor de lixo (_garbage collector_).
+
+- Temos algumas linguagens com coleta de lixo e outras sem. C, por exemplo, não tem; nem
+  C++, Pascal, Fortran — linguagens mais antigas (apesar de que Rust, mais nova, também não
+  tem). Nesse caso é preciso dar `free`: liberar a memória é papel do programador.
+- Qual a vantagem disso? **Eficiência**: coleta de lixo é lenta.
+- O problema: dar `free` numa variável e usá-la de novo depois (ponteiro pendente).
+- As chaves `{ }` em C fazem pouca coisa (só delimitam o escopo), mas em C++, por exemplo,
+  o fim do bloco chama os **destrutores** dos objetos locais.
+- **Memória alcançável:** o coletor só libera o que não é alcançável. Memória alocada
+  estaticamente é alcançável, e a alocada localmente (na pilha) também; elas são as
+  **raízes** a partir das quais se seguem os ponteiros do heap.
+
+Formas de coleta de lixo: comentamos duas, **marcação e varredura** (_mark and sweep_) e
+**contagem de referências** (_reference counting_). Marcação e varredura tem uma vantagem
+sobre contagem de referências: lida com **ciclos** (estruturas que apontam umas para as
+outras têm contador sempre maior que zero, mesmo inalcançáveis).
+
+O coletor de lixo de Python (CPython) funciona por **contagem de referências**, com um
+coletor de ciclos à parte para resolver justamente esse problema.
+
+## Aula 16 — 19/10 · TADs
+
+[Minhas anotações](/docs/aula-16) · Lista 16
+
+- O que é um tipo abstrato de dados; Barbara Liskov.
+- Por que encapsular: o custo de alterar software.
+- TADs em C (`.h` e `.c`), SML (`signature` e `structure`), Java (interfaces) e Python
+  (classes, sem `private` de verdade).
+- Estendendo um TAD.
+
+**Ênfase / pode cair:**
+
+- Por que **abstrato**? O tipo é definido pelas coisas que ele sabe fazer, pela
+  **interface**, e não pela representação.
+- Uma grande vantagem é que ele é uma forma de **encapsular dados**, e isso é importante
+  porque diminui o custo de alterar o programa: mudar a representação não se propaga para
+  quem usa o tipo.
+- Em SML, as interfaces se chamam **`signature`** (e a implementação, `structure`).
+
+<Callout title="Cai em prova: 37,5% (provas 23, 26 e 28)" type="warn">
+  Formato: comparar os mecanismos de encapsulamento entre linguagens, ou traduzir uma classe
+  com `private` para Python e dizer o que se perde. Exemplo: prova 26, Q2 (quais mecanismos
+  C++, Python, C e SML/NJ oferecem para diferenciar a visibilidade de símbolos). Pegadinha:
+  Python **não tem** `private`; só convenção (`_x`) e o _name mangling_ de `__x`, que não
+  impede o acesso. Ver Tópico 2 do `material/provas-antigas/2a-prova/compilado-de-questoes.md`.
+</Callout>
+
+## Aula 17 — 21/10 · Programação orientada a objetos
+
+[Minhas anotações](/docs/aula-17) · Lista 17
+
+- O que é POO; história (Simula 67, Smalltalk, Java).
+- Classe, objeto, herança.
+- **Sobrecarga × sobrescrita**.
+- **Ligação dinâmica** (despacho dinâmico); tipo estático × tipo dinâmico; Liskov.
+- Custo da chamada: _vtable_ O(1) em Java/C++ × busca por nome em Python.
+- Procedural × OO: o problema da expressão.
+
+**Ênfase / pode cair:**
+
+- Em Python tudo é tabela, tudo é dicionário. Uma forma comum de estender código é usando
+  herança; em Python, como tudo é dicionário, também se pode simplesmente adicionar mais um
+  valor (campo ou método) a um objeto ou classe em execução.
+- POO é bem diferente de programação procedural, mas em que sentido? A procedural é
+  **top-down**; a POO é mais **bottom-up**, como um grafo que começa desconexo e vai ficando
+  conexo.
+- Não há como fazer isso em C: uma `struct` não é uma tabela hash, e não dá para incluir
+  campos nela em execução. C é muito pouco orientada a objetos: numa lista encadeada em C, a
+  lista não faz nada; quem faz são as funções que a recebem.
+
+<Callout title="Cai em prova: 37,5% (provas 22, 24 e 28)" type="warn">
+  Formato: "por quê" sobre POO — qual versão é OO e qual é procedural e qual é mais fácil de
+  estender; sobrecarga é polimorfismo _ad hoc_ ou universal; o que é `virtual` e por que a
+  chamada é O(1) em C++ e não em Python. Exemplo: prova 28, Q1d (alvo de chamada virtual em
+  O(1) em C++, mas não em Python). Pegadinha: OO facilita acrescentar **um novo tipo** de nó;
+  procedural facilita acrescentar **uma nova operação** (prova 22, Q2b e Q2c). Ver Tópico 3
+  do `material/provas-antigas/2a-prova/compilado-de-questoes.md`.
+</Callout>
+
+## Aula 18 — 26/10 · Tratamento de erros
+
+[Minhas anotações](/docs/aula-18) · Lista 18
+
+- Opções para o erro no `pop`: definição total, erro fatal, guardas, sinalização de erro.
+- Pré e pós-condições (Eiffel).
+- Tipos `result` e mônadas.
+- Exceções: hierarquia de `Throwable` em Java, `finally`, exceções e tipagem forte.
+
+**Ênfase / pode cair:**
+
+- C não tem exceções: podemos tratar erros com **valores especiais** (ex.: devolver `-1` ou
+  `NULL`).
+- O principal mecanismo de tratamento de erros é o **sistema de tipos**, impedindo que eles
+  aconteçam. O cálculo lambda (não tipado), por exemplo, não tem verificação de tipos: como
+  não há tipos ali, posso passar para `SUCC` algo que não é um numeral de Church. O sistema
+  de tipos restringe como se escreve o programa, e é isso que evita o erro.
+- Rust não tem coleta de lixo, mas não tem a possibilidade de dar `free` e usar a memória
+  depois (nem de liberar duas vezes). Isso ocorre porque o sistema de tipos é mais
+  restritivo (posse e empréstimo: o compilador sabe quando cada valor morre).
+
+## Aula 19 — 28/10 · Passagem de parâmetros
+
+[Minhas anotações](/docs/aula-19) · Lista 19
+
+- Parâmetros formais × reais; casamento por posição e por nome; opcionais e variádicos.
+- Valores padrão em Python avaliados uma vez só.
+- Linguagens estritas × preguiçosas.
+- Por valor, resultado, valor-resultado, referência, nome, necessidade; expansão de macros.
+- Efeito colateral e o teorema de Plotkin.
+
+**Ênfase / pode cair:** ver a passagem por valor em Python na
+[Aula 14](#aula-14--0510--introdução-à-linguagem-python). Nas provas antigas, avaliação
+preguiçosa caiu uma vez (prova 24, Q3: `lazy` em D e se a avaliação preguiçosa de efeitos
+colaterais muda a semântica).
+
+## Aula 20 — 04/11 · Introdução à linguagem Prolog
+
+[Minhas anotações](/docs/aula-20) · Lista 20
+
+- Termos: a sintaxe inteira de Prolog.
+- Fatos, consultas, regras; árvore de prova.
+- Listas e predicados sobre listas (`append`, `member`, `select`…).
+- Negação como falha.
+- Busca: o homem, o lobo, a cabra e o repolho.
+
+**Ênfase / pode cair:**
+
+- Vai cair Prolog na prova, e a **sintaxe é importante**.
+- Pode ser que seja algo parecido com a função (predicado) `ancestral`.
+
+## Unificação · Lista 21
+
+Ausente do índice da ementa; sem anotação própria.
+
+- Unificador mais geral (MGU).
+- O `=` de Prolog é unificação, não atribuição nem comparação.
+
+**Ênfase / pode cair:**
+
+## Aula 21 — 09/11 · Modelos de custo
+
+[Minhas anotações](/docs/aula-21) · Lista 22
+
+- Arranjos (acesso O(1)) × listas encadeadas de LISP/SML/Prolog (`hd`/`tl` O(1)).
+- Custo de `append` em Prolog: proporcional à **primeira** lista.
+- Custo da unificação: proporcional ao tamanho da estrutura.
+- `reverse` quadrático × linear com acumulador.
+- **Recursão de cauda** (_tail recursion_) e registros de ativação.
+
+**Ênfase / pode cair:**
+
+- Modelos de custo das listas encadeadas, que vêm de LISP.
+- As formas como acesso os arranjos. Imagine um arranjo grande que quero somar. Tenho um
+  algoritmo que soma do início ao fim e um que escolhe posições aleatórias. Assuma que
+  escolher a posição aleatória seja O(1) e que ela não se repita. Sabemos que, mesmo assim,
+  o aleatório **não** é mais rápido (na prática é mais lento), por causa da **localidade de
+  referência** e da **cache**: quando leio um dado, a chance de eu ler o próximo dado é
+  muito grande, e ele já veio para a cache junto.
+- O mesmo vale para matrizes em C, que são guardadas por linhas: percorrer `m[i][j]` com `j`
+  no laço de dentro é sequencial na memória; com `i` no laço de dentro, cada acesso salta
+  uma linha inteira.
+- Redes neurais fazem muito isso de melhorar a localidade de referência: o que elas mais
+  fazem é multiplicar matrizes, então muitas das otimizações são de localidade em matrizes.
+
+<Callout title="Cai em prova: 25% (provas 23 e 27)" type="warn">
+  Formato: rastrear acessos a arranjos em C (o que imprime, por que dá falha de segmentação)
+  e dizer qual de dois laços é mais eficiente. Exemplo: prova 27, Q1c–d (somar `m[i][j]`
+  com `j` no laço interno × com `i` no laço interno). Pegadinha: `int**` (ponteiros para
+  linhas) e `int b[2][3]` (bloco contíguo) têm o mesmo `[i][j]` na sintaxe, mas acessos
+  diferentes na memória (prova 23, Q2). Ver Tópico 6 do
+  `material/provas-antigas/2a-prova/compilado-de-questoes.md`.
+</Callout>
+
+## Aula 22 — 11/11 · Predicados numéricos em Prolog
+
+[Minhas anotações](/docs/aula-22) · Lista 23
+
+- `is`, `=`, `=:=`, `=\=`: quem avalia e quem unifica; variável livre é **erro**, não `false`.
+- Somatório e fatorial, com e sem cauda rasa.
+- Primos (`\+` como negação), `range`, `findall`, `gcd`.
+- Gerar e testar; busca exaustiva (N rainhas, mochila).
+
+**Ênfase / pode cair:**
+
+- Como o `is` funciona e a diferença para a unificação (`=`) e para `=:=`; que tipo de erro
+  aparece (variável livre do lado direito do `is` ou em `=:=` dá **erro de instanciação**,
+  não `false`).
+
+<Callout title="Cai em prova: 25% (provas 24 e 29)" type="warn">
+  Formato: implementar um predicado aritmético curto, ou explicar por que se usa `=:=` e não
+  `=` ou `is`. Exemplo: prova 29, Q3d (`SEND + MORE =:= MONEY`). Pegadinha: `=` não avalia
+  (`1+2 = 3` é falso), e `is` só avalia o lado direito; com os dois lados expressões,
+  só `=:=` avalia ambos. Ver Tópico 8 do
+  `material/provas-antigas/2a-prova/compilado-de-questoes.md`.
+</Callout>
+
+- Para resolver busca exaustiva, deve-se saber ao menos pegar **todos os subconjuntos** e
+  pegar **permutações**:
+
+```prolog
+subset([], []).
+subset([H|T], [H|L]) :- subset(T, L).
+subset([_|T], L) :- subset(T, L).
+
+select(X, [X|L], L).
+select(X, [H|L], [H|LR]) :- select(X, L, LR).
+
+perm([], []).
+perm(List, [H|Perm]) :- select(H, List, Rest), perm(Rest, Perm).
+```
+
+<Callout title="Cai em prova: 75% (provas 22, 23, 26, 27, 28 e 29)" type="warn">
+  Formato: implementar 2 a 5 predicados curtos sobre listas, em que o último combina os
+  anteriores (gerar e testar). Exemplo: prova 27, Q2 (`sublist`, depois `perm` com
+  `select`, depois `anagram` combinando os dois). Pegadinha: o enunciado mostra a ordem
+  exata das respostas, e ela depende da ordem das cláusulas; na prova 29, Q3a, é preciso
+  implementar o próprio `select`. Ver Tópico 1 do
+  `material/provas-antigas/2a-prova/compilado-de-questoes.md`.
+</Callout>
+
+## Aula 23 — 16/11 · Semântica formal
+
+[Minhas anotações](/docs/aula-23) · Lista 24
+
+- Sintaxe parecida, semântica diferente: `x += (x = 2)` em C × Java.
+- Semântica denotacional, axiomática e operacional.
+- Passo longo × passo curto; regras de inferência (`IF_T`, `IF_F`) e prova de equivalência.
+- Interpretador em Prolog: AST, contexto (`bind`), `let`, `fn`/`apply`.
+- Escopo dinâmico (`val3`) × estático com closure (`val4`); recursão com `fun`.
+
+**Ênfase / pode cair:** diferença entre escopo estático e escopo dinâmico.
+
+```sml
+let
+  val one = 1
+in
+  let
+    val f = fn x => x + one
+  in
+    let
+      val one = 2
+    in
+      f(3)
+    end
+  end
+end
+```
+
+Em SML, que tem escopo estático, esse programa dá **4** (não 5): `f` é avaliada no contexto
+em que foi **criada**, onde `one = 1`. Com escopo dinâmico (o `val3`), daria 5, porque o
+`one` seria procurado no contexto de quem chama, onde a ligação mais recente é `one = 2`.
+
+Isso é o **closure**: o par (código + valores das variáveis livres no momento em que a
+função foi criada).
+
+<Callout title="Cai em prova: 25% (provas 22 e 29)" type="warn">
+  Formato: escrever, numa linguagem dada, um exemplo de closure, de polimorfismo paramétrico
+  ou de casamento de padrões, ou reconhecer um closure numa sintaxe desconhecida. Exemplo:
+  prova 29, Q1b ("escreva um programa em Python 3 que contenha um exemplo de closure").
+  Pegadinha: na prova 22, Q2d, o closure aparece em Kotlin (`{ acc, i -> insert(acc, i) }`
+  passado a `fold`): é função anônima + alta ordem. Ver Tópico 7 do
+  `material/provas-antigas/2a-prova/compilado-de-questoes.md`.
+</Callout>
+
+## Aula 24 — 18/11 · História das linguagens de programação
+
+[Minhas anotações](/docs/aula-24) · Lista 25
+
+- O que é uma linguagem de programação; algoritmos × linguagens.
+- Anos 50 (Fortran, COBOL, LISP) → 60 (Simula) → 70 (C) → 80 (programas grandes) →
+  90 (internet, máquinas virtuais) → 2000 e 2010.
+- Tamanho de uma linguagem.
+
+**Ênfase / pode cair:**
+
+- **Fortran:** a primeira linguagem famosa. É muito eficiente, mas em boa parte porque as
+  bibliotecas eram muito bem feitas.
+- **LISP:** a primeira linguagem com coleta de lixo; está entre as primeiras linguagens com
+  recursão.
+- **Simula 67:** orientação a objetos.
+- **Importância histórica de C:** é uma linguagem feita para otimizações, e foi importante
+  nesse aspecto: popularizou a noção de compilador otimizador etc.
+
+<Callout title="Cai em prova: 37,5% (provas 22, 23 e 28)" type="warn">
+  Formato: "por quê" histórico — como a internet ou o crescimento dos programas influenciou
+  o projeto de linguagens, por que Java não desbancou C++ em sistemas, por que Python não
+  substitui Java em sistemas corporativos. Exemplo: prova 23, Q4a (como o surgimento da
+  internet influenciou as linguagens: máquinas virtuais, portabilidade, segurança). Ver
+  Tópico 5 do `material/provas-antigas/2a-prova/compilado-de-questoes.md`.
+</Callout>
+
+## Provas antigas
+
+As finais 22–29 estão em `material/provas-antigas/2a-prova/`, com as questões agrupadas por
+tópico em `compilado-de-questoes.md`. Prolog curto (gerar e testar, aritmética) aparece em
+todas.
+
+| Prova    | Assuntos |
+| -------- | -------- |
+| Final 22 | Prolog `rangelist`/`submulset`/`multset`; Kotlin OO × procedural e `fold` com closure; bash interpretado × C compilado × Java virtualizado; Backus e a 1ª geração |
+| Final 23 | Prolog grafo (`path`, `last`, `cycle`, `solution`); arranjos em C (`int**` × `int[2][3]`); traduzir SML, C e Java para Python; internet e programas grandes na história |
+| Final 24 | Sobrecarga em C++ (_ad hoc_) e por que não há em Python; triplas pitagóricas em Prolog; `lazy` em D e efeitos colaterais |
+| Final 25 | Ler Prolog (`mystery1`, `mystery2` com `append`); eficiência de C × PHP/Python/Lua/Ruby; estática, pilha e heap (Python e C++) |
+| Final 26 | Prolog `subtext`/`perm`/`anagram`; encapsulamento em C++, Python, C e SML/NJ; cauda rasa (`sum`, `reverse`) |
+| Final 27 | Arranjos O(1), matriz triangular e localidade; Prolog `sublist`/`perm`/`anagram`; ligar linguagens a características |
+| Final 28 | Classe `Ponto` C++ → Python, `public`/`private`, `virtual` e Simula; Java × C++ e Python × Java na história; agenda em Prolog (`range`, `findall`) |
+| Final 29 | Polimorfismo paramétrico (C++), closure (Python), casamento de padrões (SML); verificações em execução (Ada, Java, C++, Python, C); SEND + MORE com `select`/`perm` e `=:=` |
