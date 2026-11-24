@@ -1,0 +1,1788 @@
+---
+title: Compilado de questões - 2ª prova
+description: Questões das finais 22 a 29 agrupadas por tópico, do que mais cai ao que menos cai, com respostas
+---
+
+Questões das finais 22–29 (`material/provas-antigas/2a-prova/compilado-de-questoes.md`),
+agrupadas por tópico, do que mais cai ao que menos cai. Tente cada item no papel antes de
+abrir a resposta. As respostas das finais 27 e 29 seguem o gabarito em vermelho que veio no
+PDF; as outras são minhas, consistentes com as anotações das aulas.
+
+| # | Tópico | Frequência | Provas | Aula |
+|---|---|---|---|---|
+| 1 | [Predicados Prolog sobre listas (gerar e testar)](#tópico-1--predicados-prolog-sobre-listas-gerar-e-testar) | 75% | 22, 23, 26, 27, 28, 29 | [20](/docs/aula-20), [22](/docs/aula-22) |
+| 2 | [Encapsulamento e tradução para Python](#tópico-2--encapsulamento-e-tradução-para-python) | 37,5% | 23, 26, 28 | [14](/docs/aula-14), [16](/docs/aula-16) |
+| 3 | [POO: sobrecarga, chamada virtual, OO × procedural](#tópico-3--poo-sobrecarga-chamada-virtual-oo--procedural) | 37,5% | 22, 24, 28 | [08](/docs/aula-08), [17](/docs/aula-17) |
+| 4 | [Execução, tipagem e eficiência](#tópico-4--execução-tipagem-e-eficiência) | 37,5% | 22, 25, 27 | [04](/docs/aula-04), [14](/docs/aula-14) |
+| 5 | [História das linguagens e paradigmas](#tópico-5--história-das-linguagens-e-paradigmas) | 37,5% | 22, 23, 28 | [24](/docs/aula-24) |
+| 6 | [Arranjos em C: layout e localidade](#tópico-6--arranjos-em-c-layout-e-localidade) | 25% | 23, 27 | [07](/docs/aula-07), [15](/docs/aula-15), [21](/docs/aula-21) |
+| 7 | [Recursos funcionais](#tópico-7--recursos-funcionais) | 25% | 22, 29 | [06](/docs/aula-06), [10](/docs/aula-10), [14](/docs/aula-14) |
+| 8 | [Aritmética em Prolog](#tópico-8--aritmética-em-prolog) | 25% | 24, 29 | [22](/docs/aula-22) |
+| 9 | [Estática, pilha e heap](#tópico-9--estática-pilha-e-heap) | 12,5% | 25 | [15](/docs/aula-15) |
+| 10 | [Verificações em tempo de execução](#tópico-10--verificações-em-tempo-de-execução) | 12,5% | 29 | [07](/docs/aula-07), [18](/docs/aula-18) |
+| 11 | [Avaliação preguiçosa e efeitos colaterais](#tópico-11--avaliação-preguiçosa-e-efeitos-colaterais) | 12,5% | 24 | [19](/docs/aula-19) |
+| 12 | [Ler e explicar um programa Prolog](#tópico-12--ler-e-explicar-um-programa-prolog) | 12,5% | 25 | [20](/docs/aula-20) |
+| 13 | [Recursão de cauda (cauda rasa)](#tópico-13--recursão-de-cauda-cauda-rasa) | 12,5% | 26 | [21](/docs/aula-21) |
+
+## Tópico 1 — Predicados Prolog sobre listas (gerar e testar)
+
+**75% das provas (22, 23, 26, 27, 28 e 29).** O padrão: dois a cinco predicados curtos, e o
+último combina os anteriores. A ordem das respostas mostrada no enunciado depende da ordem
+das cláusulas.
+
+### Prova 22, Q1 — `multset`
+
+**1.1 (a)** Implemente `rangelist(N, S)`, verdade quando `S` for uma lista de tamanho entre 1
+e `N` (inclusive).
+
+```prolog
+?- rangelist(2, [a, b]).
+true.
+?- rangelist(3, [a, b]).
+true.
+?- rangelist(1, [a, b]).
+false.
+?- rangelist(2, L).
+L = [] ;
+L = [_G01] ;
+L = [_G01, _G02].
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+rangelist(_, []).
+rangelist(N, [_|T]) :- N > 0, N1 is N - 1, rangelist(N1, T).
+```
+
+Cada elemento "gasta" uma unidade de `N`; quando `N` chega a 0, só a lista vazia serve. O
+exemplo do enunciado aceita `L = []`, apesar do texto dizer "entre 1 e `N`"; a versão acima
+segue o exemplo. Para excluir a lista vazia, basta pôr `S \= []` em quem usa `rangelist`
+(como no item 1.3).
+
+</details>
+
+**1.2 (b)** Escreva `submulset(S, L)`, verdadeiro quando cada elemento de `S` estiver presente
+em `L`.
+
+```prolog
+?- submulset([a, b, a, b], [a, b]).
+true.
+?- submulset([a, b, a, b], [a, b, c]).
+true.
+?- submulset([a, b, c, a, b], [a, b]).
+false.
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+submulset([], _).
+submulset([H|T], L) :- member(H, L), submulset(T, L).
+```
+
+</details>
+
+**1.3 (c)** Escreva `multset(N, L, S)`, verdadeiro quando `S` tiver entre 1 e `N` elementos e
+cada elemento de `S` for membro de `L`. Pode usar os dois predicados anteriores.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+multset(N, L, S) :- rangelist(N, S), S \= [], submulset(S, L).
+```
+
+Gerar e testar: `rangelist` **gera** listas de variáveis livres de tamanho 1 a `N`, e
+`submulset` (via `member`) **liga** cada variável a um elemento de `L`.
+
+</details>
+
+### Prova 23, Q1 — caminhos num grafo
+
+```prolog
+edge(start, a).   edge(start, d).   edge(a, b).   edge(b, c).
+edge(a, c).       edge(b, d).       edge(b, e).   edge(d, e).
+edge(e, a).       edge(c, end).     edge(e, end).
+```
+
+**1.4 (a)** Implemente `path(L)`, verdade quando `L` for uma lista de vértices que forme um
+caminho no grafo (existe aresta vᵢ → vᵢ₊₁ para todo i). A lista vazia e a lista de um
+elemento são caminhos.
+
+```prolog
+?- path([a, b, e, end]).
+true.
+?- path([b, a, e, end]).
+false.
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+path([]).
+path([_]).
+path([A, B|T]) :- edge(A, B), path([B|T]).
+```
+
+</details>
+
+**1.5 (b)** Implemente `last(L, E)`, verdade quando `E` for o último elemento de `L`.
+
+```prolog
+?- last([a, b, e, end], X).
+X = end.
+?- last([a], X).
+X = a.
+?- last([], X).
+false.
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+last([X], X).
+last([_|T], X) :- last(T, X).
+```
+
+(O enunciado original escreve `path` nos dois últimos exemplos; é erro de digitação, são
+consultas a `last`.)
+
+</details>
+
+**1.6 (c)** Implemente `cycle(L)`, verdade quando `L` for um caminho com uma aresta do último
+para o primeiro elemento. Todo ciclo tem ao menos um vértice, e não há ciclo de `v` para ele
+mesmo a menos que `edge(v, v)` seja verdade.
+
+```prolog
+?- cycle([e, a, b]).
+true.
+?- cycle([a]).
+false.
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+cycle(L) :- L = [First|_], path(L), last(L, Last), edge(Last, First).
+```
+
+`L = [First|_]` garante pelo menos um vértice. `cycle([a])` falha porque não existe
+`edge(a, a)`.
+
+</details>
+
+**1.7 (d)** Implemente `solution(L)`: `L` é um caminho, o primeiro vértice é `start` e o
+último é `end`.
+
+```prolog
+?- solution(L).
+L = [start, a, b, c, end] ;
+?- solution([start, d, e, end]).
+true.
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+solution(L) :- L = [start|_], path(L), last(L, end).
+```
+
+A ordem importa: com `L` livre, `path` **gera** os caminhos a partir de `start`, e `last`
+**testa** se terminam em `end`. Se `last(L, end)` viesse antes, ele geraria listas cada vez
+maiores de variáveis livres, sem relação com o grafo.
+
+</details>
+
+### Prova 26, Q1 — `anagram` com `subtext`
+
+**1.8 (a)** Implemente `subtext(Text, SubText)`, verdade quando `SubText` for uma sublista de
+`Text`.
+
+```prolog
+?- subtext([a, n, a], X).
+X = [] ;
+X = [a] ;
+X = [n] ;
+X = [n, a] ;
+X = [a] ;
+X = [a, a] ;
+X = [a, n] ;
+X = [a, n, a].
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+subtext([], []).
+subtext([_|T], S) :- subtext(T, S).
+subtext([H|T], [H|S]) :- subtext(T, S).
+```
+
+Para reproduzir **exatamente** a ordem do exemplo (começa por `[]`), a cláusula "sai" vem
+antes da "fica". Na prova 27 (item 1.11) a ordem é a contrária.
+
+</details>
+
+**1.9 (b)** Escreva `perm(T, P)`, verdadeiro quando `P` for uma permutação de `T`. Pode usar
+`select`.
+
+```prolog
+?- perm([a, n, a], T).
+T = [a, n, a] ;
+T = [a, a, n] ;
+T = [n, a, a] ;
+T = [n, a, a] ;
+T = [a, a, n] ;
+T = [a, n, a] ;
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+perm([], []).
+perm(L, [H|T]) :- select(H, L, R), perm(R, T).
+```
+
+Escolhe-se a cabeça da permutação (`select`) e permuta-se o resto. As repetições do exemplo
+vêm dos dois `a`: cada um é selecionado uma vez.
+
+</details>
+
+**1.10 (c)** Escreva `anagram(Pattern, Text)`, verdadeiro se houver uma sublista de `Text`
+que seja uma permutação de `Pattern`.
+
+```prolog
+?- anagram([a, b, c, d], [b, f, a, d, b, c]).
+true ;
+true ;
+false.   /* Duas respostas possiveis! */
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+anagram(Pattern, Text) :- subtext(Text, S), perm(Pattern, S).
+```
+
+Gera cada sublista `S` de `Text` e testa se ela é permutação de `Pattern`. No exemplo, as
+duas respostas são as sublistas `[b, a, d, c]` (com o primeiro `b`) e `[a, d, b, c]` (com
+o segundo).
+
+</details>
+
+### Prova 27, Q2 — `sublist`, `perm`, `anagram`
+
+**1.11 (a)** Implemente `sublist(L, S)`, verdade quando `S` for uma sublista de `L`.
+
+```prolog
+?- findall(L, sublist([a, b, c], L), R).
+R = [[a, b, c], [a, b], [a, c], [a], [b, c], [b], [c], []].
+```
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```prolog
+sublist([], []).
+sublist([H|T], [H|L]) :- sublist(T, L).
+sublist([_|T], L) :- sublist(T, L).
+```
+
+Aqui a cláusula "fica" vem primeiro, por isso a primeira resposta é a lista inteira.
+
+</details>
+
+**1.12 (b)** Implemente `perm(L, P)`. Pode usar `select`.
+
+```prolog
+?- findall(P, perm([a, b, c], P), R).
+R = [[a, b, c], [a, c, b], [b, a, c], [b, c, a], [c, a, b], [c, b, a]].
+```
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```prolog
+perm([], []).
+perm(T, [H|LL]) :- select(H, T, L1), perm(L1, LL).
+```
+
+O gabarito também dá uma alternativa, que permuta a cauda e **insere** a cabeça em qualquer
+posição (`select` usado ao contrário):
+
+```prolog
+nperm([], []).
+nperm([H|T], L) :- nperm(T, Lx), select(H, L, Lx).
+```
+
+</details>
+
+**1.13 (c)** Escreva `anagram(L, A)`, verdade se `A` for um anagrama de alguma subsequência
+de `L`.
+
+```prolog
+?- anagram([l, i, v, r, e, s], [s, e, r, v, i, l]).
+true.
+?- anagram([l, i, v, r, e, s], [s, a, r, v, i, l]).
+false.
+?- anagram([l, i, v, r, e, s], [s, i, r, e]).
+true.
+```
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```prolog
+anagram(L, A) :- sublist(L, S), perm(S, A).
+```
+
+</details>
+
+### Prova 28, Q3 — agenda
+
+```prolog
+compromisso(9,  aula_de_lp).
+compromisso(11, reuniao_do_lab).
+compromisso(14, escrever_relatorio).
+compromisso(16, ginastica).
+```
+
+**1.14 (a)** Defina `tem_compromisso(H)`, verdadeiro quando houver compromisso na hora `H`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+tem_compromisso(H) :- compromisso(H, _).
+```
+
+</details>
+
+**1.15 (b)** Defina `descricao(Hora, Desc)`; `descricao(11, D)` dá `D = reuniao_do_lab`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+descricao(Hora, Desc) :- compromisso(Hora, Desc).
+```
+
+</details>
+
+**1.16 (c)** Defina `range(B, E, Lista)` com os inteiros de `B` até `E`, inclusive;
+`range(10, 14, R)` dá `R = [10, 11, 12, 13, 14]`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+range(B, E, []) :- B > E.
+range(B, E, [B|T]) :- B =< E, B1 is B + 1, range(B1, E, T).
+```
+
+</details>
+
+**1.17 (d)** Defina `compromisso_intervalo(B, E, Hora, Desc)`: há compromisso em `Hora`, com
+`B ≤ Hora ≤ E`, e `Desc` é a descrição. Pode usar `range` e `member`.
+
+```prolog
+?- compromisso_intervalo(10, 15, Hora, Desc).
+Hora = 11,
+Desc = reuniao_do_lab ;
+Hora = 14,
+Desc = escrever_relatorio ;
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+compromisso_intervalo(B, E, Hora, Desc) :-
+    range(B, E, L),
+    member(Hora, L),
+    compromisso(Hora, Desc).
+```
+
+`range` + `member` **geram** as horas do intervalo; `compromisso` **testa**.
+
+</details>
+
+**1.18 (e)** Defina `todos_compromissos(B, E, Descs)` com as descrições de todos os
+compromissos entre `B` e `E`. Pode usar `findall`.
+
+```prolog
+?- todos_compromissos(10, 15, Descs).
+Descs = [reuniao_do_lab, escrever_relatorio].
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+todos_compromissos(B, E, Descs) :-
+    findall(D, compromisso_intervalo(B, E, _, D), Descs).
+```
+
+</details>
+
+### Prova 29, Q3 — SEND + MORE = MONEY
+
+```prolog
+puzzle([S,E,N,D,M,O,R,Y]) :-
+    Digits = [ ............ ],                          % (C)
+    perm(Digits, [S,E,N,D,M,O,R,Y,_,_]),
+    S \= 0,
+    M \= 0,
+    SEND  is 1000*S + 100*E + 10*N + D,
+    MORE  is 1000*M + 100*O + 10*R + E,
+    MONEY is 10000*M + 1000*O + 100*N + 10*E + Y,
+    SEND + MORE =:= MONEY.                             % (D)
+```
+
+**1.19 (a)** Implemente `select(E, S, L)`: `S` contém pelo menos uma ocorrência de `E`, e `L`
+é `S` sem essa ocorrência.
+
+```prolog
+?- select(E, [a,b,c], L).
+E = a, L = [b, c] ;
+E = b, L = [a, c] ;
+E = c, L = [a, b].
+```
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```prolog
+select(X, [X|L], L).
+select(X, [H|L], [H|LR]) :- select(X, L, LR).
+```
+
+Ou o elemento retirado é a cabeça (e sobra a cauda), ou a cabeça fica e o elemento é
+retirado da cauda.
+
+</details>
+
+**1.20 (b)** Implemente `perm(L, X)` usando o `select` da questão anterior.
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```prolog
+perm([], []).
+perm(T, [H|LL]) :- select(H, T, L1), perm(L1, LL).
+```
+
+</details>
+
+**1.21 (c)** Como inicializar `Digits` na parte (C)?
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```prolog
+Digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+```
+
+São os dez dígitos; `perm` os distribui pelas oito letras mais duas posições descartadas
+(`_, _`), o que já garante que letras diferentes têm dígitos diferentes.
+
+</details>
+
+## Tópico 2 — Encapsulamento e tradução para Python
+
+**37,5% das provas (23, 26 e 28).**
+
+### Prova 23, Q3 — reconhecer a linguagem e traduzir para Python
+
+**2.1** Linguagem de origem e tradução para Python:
+
+```sml
+- (fn x => fn y => x + y) 2 3;
+val it = 5 : int
+```
+
+<details>
+<summary>Resposta</summary>
+
+**SML.** Uma função anônima *curried* (que devolve outra função) aplicada a 2 e depois a 3:
+
+```python
+(lambda x: lambda y: x + y)(2)(3)    # 5
+```
+
+</details>
+
+**2.2**
+
+```c
+void foo(int v[], int N) {
+  for (int i = 0; i < N/2; i++) {
+    int aux = v[i];
+    v[i] = v[N-i-1];
+    v[N-i-1] = aux;
+  }
+}
+```
+
+<details>
+<summary>Resposta</summary>
+
+**C.** Inverte o arranjo no lugar:
+
+```python
+def foo(v, N):
+    for i in range(N // 2):
+        aux = v[i]
+        v[i] = v[N - i - 1]
+        v[N - i - 1] = aux
+```
+
+Funciona em Python porque a lista é passada pelo valor da referência: `v` aponta para a
+mesma lista de quem chamou, e a função a muta. Cuidado com `N // 2`: em Python 3, `N / 2` é
+divisão real e `range` não aceita `float`.
+
+</details>
+
+**2.3**
+
+```java
+class P {
+  private double x, y;
+  public P(double x, double y) {
+    this.x = x;
+    this.y = y;
+  }
+  public boolean positive() {
+    return x > 0 && y > 0;
+  }
+}
+```
+
+<details>
+<summary>Resposta</summary>
+
+**Java.**
+
+```python
+class P:
+    def __init__(self, x, y):
+        self.__x = x
+        self.__y = y
+
+    def positive(self):
+        return self.__x > 0 and self.__y > 0
+```
+
+</details>
+
+**2.4** O último programa não pode ser traduzido de forma exata. O que falta em Python?
+
+<details>
+<summary>Resposta</summary>
+
+O **`private`**: Python não tem modificadores de acesso. `self.__x` só troca o nome do
+atributo (para `_P__x`), e `p._P__x` continua acessível de fora. (Também se perdem as
+declarações de tipo `double`, mas o ponto da questão é o encapsulamento.)
+
+</details>
+
+### Prova 26, Q2 — mecanismos de encapsulamento
+
+> Quais mecanismos de encapsulamento a linguagem oferece ao programador para diferenciar a
+> visibilidade de símbolos declarados no mesmo espaço de nomes (instanciável ou não)?
+
+**2.5 (a)** Em `C++`?
+
+<details>
+<summary>Resposta</summary>
+
+Os modificadores de acesso **`public`**, **`private`** e **`protected`** nas classes (e
+`friend` para abrir exceções). Para espaços de nomes não instanciáveis, `static` ou um
+`namespace` anônimo restringem o símbolo ao arquivo.
+
+</details>
+
+**2.6 (b)** Em `Python`?
+
+<details>
+<summary>Resposta</summary>
+
+**Nenhum mecanismo obrigatório**, só convenções:
+
+- `_x`: "uso interno, não mexa" (e não é importado por `from modulo import *`);
+- `__x` em classes: troca de nome (*name mangling*) para `_Classe__x`, que ainda pode ser
+  acessado;
+- `__all__` num módulo lista o que `import *` exporta.
+
+Como objetos e classes são dicionários, nada impede o acesso.
+
+</details>
+
+**2.7 (c)** Em `C`?
+
+<details>
+<summary>Resposta</summary>
+
+- **`static`** em funções e variáveis globais: o símbolo fica visível só no arquivo
+  (unidade de compilação).
+- A separação **`.h`** (interface, o que é público) e **`.c`** (implementação).
+- **Tipos opacos**: declarar no `.h` só `typedef struct Set Set;`, sem os campos; quem usa
+  só manipula ponteiros e não enxerga a representação.
+
+</details>
+
+**2.8 (d)** Em `SML/NJ`?
+
+<details>
+<summary>Resposta</summary>
+
+**Assinaturas** (`signature`) e **estruturas** (`structure`): uma estrutura restrita a uma
+assinatura (`structure S :> SIG = ...`) só exporta o que a assinatura declara, e com `:>`
+(restrição opaca) o tipo fica abstrato. Também há `local ... in ... end`, que esconde
+declarações auxiliares.
+
+</details>
+
+### Prova 28, Q1a–b — C++ para Python
+
+**2.9 (a)** Traduza para Python:
+
+```cpp
+class Ponto {
+  private:
+    int x;
+  public:
+    Ponto(int v) : x(v) {
+    }
+    virtual int
+    dobro() const {
+        return 2 * x;
+    }
+};
+```
+
+<details>
+<summary>Resposta</summary>
+
+```python
+class Ponto:
+    def __init__(self, v):
+        self.__x = v
+
+    def dobro(self):
+        return 2 * self.__x
+```
+
+</details>
+
+**2.10 (b)** Há algo equivalente a `public` e `private` em Python? Justifique.
+
+<details>
+<summary>Resposta</summary>
+
+**Não.** Tudo é público; o "privado" é só convenção. Exemplo:
+
+```python
+p = Ponto(3)
+print(p._Ponto__x)    # 3: o __x só teve o nome trocado
+p._Ponto__x = 10      # e pode ser alterado de fora
+```
+
+</details>
+
+## Tópico 3 — POO: sobrecarga, chamada virtual, OO × procedural
+
+**37,5% das provas (22, 24 e 28).**
+
+### Prova 22, Q2a–c — Kotlin: OO × procedural
+
+Código à esquerda:
+
+```kotlin
+interface TreeNode {
+  fun height(): Int
+}
+
+class TreeLeaf: TreeNode {
+  override fun height(): Int {
+    return 0
+  }
+}
+
+class TreeValue(val v: Int, val l: TreeNode, val r: TreeNode): TreeNode {
+  override fun height(): Int {
+    val lHeight = l.height()
+    val rHeight = r.height()
+    return 1 + if (lHeight > rHeight) lHeight else rHeight
+  }
+}
+```
+
+Código à direita:
+
+```kotlin
+interface TreeNode {
+}
+
+class TreeLeaf: TreeNode {
+}
+
+class TreeValue(val v: Int, val l: TreeNode, val r: TreeNode): TreeNode {
+}
+
+fun height(treeNode: TreeNode): Int {
+  return when (treeNode) {
+    is TreeLeaf -> 0
+    is TreeValue -> 1 + max(height(treeNode.l), height(treeNode.r))
+    else -> throw IllegalArgumentException("Unknown type")
+  }
+}
+```
+
+**3.1 (a)** Qual código é o mais orientado a objetos?
+
+<details>
+<summary>Resposta</summary>
+
+O **código à esquerda**: cada classe sabe calcular a própria altura (os dados possuem as
+ações), e `tree.height()` é uma chamada com despacho dinâmico. O da direita tem uma função
+única que testa o tipo do nó (`when`), estilo procedural.
+
+</details>
+
+**3.2 (b)** Para acrescentar um novo tipo de nó (um nó ternário), qual versão é mais fácil de
+alterar? Justifique.
+
+<details>
+<summary>Resposta</summary>
+
+A **orientada a objetos** (esquerda): basta criar uma classe nova que implemente `height`,
+sem tocar no código existente. Na procedural, é preciso abrir `height` (e toda outra função
+que faça `when` sobre os nós) e acrescentar um caso.
+
+</details>
+
+**3.3 (c)** Para acrescentar uma nova operação (imprimir a árvore), qual paradigma é mais fácil
+de estender? Justifique.
+
+<details>
+<summary>Resposta</summary>
+
+O **procedural**: basta escrever uma função nova, com um caso por tipo de nó, sem mexer no
+resto. No OO, é preciso acrescentar o método na interface e em **todas** as classes.
+
+É o **problema da expressão**: OO facilita novos tipos; procedural facilita novas operações.
+
+</details>
+
+### Prova 24, Q1 — sobrecarga em C++
+
+```cpp
+#include <iostream>
+int sum(int a, int b) {
+  std::cout << "Sum of ints\n";
+  return a + b;
+}
+double sum(double a, double b) {
+  std::cout << "Sum of doubles\n";
+  return a + b;
+}
+int main() {
+  std::cout << "The sum is " << sum(1, 2) << std::endl;
+  std::cout << "The sum is " << sum(1.2, 2.1) << std::endl;
+}
+```
+
+**3.4 (a)** A sobrecarga é polimorfismo *ad hoc* (quantidade finita de tipos) ou universal
+(infinita)? Explique.
+
+<details>
+<summary>Resposta</summary>
+
+**Ad hoc.** Cada tipo aceito precisa de uma implementação escrita à parte (aqui, só `int` e
+`double`), e o compilador escolhe qual chamar pelos tipos dos argumentos. O conjunto de
+tipos é finito: são exatamente os que têm uma versão. No polimorfismo universal
+(paramétrico), um único código serve a infinitos tipos.
+
+</details>
+
+**3.5 (b)** Por que não existe análogo perfeito para a sobrecarga em Python?
+
+<details>
+<summary>Resposta</summary>
+
+Porque Python tem **tipagem dinâmica**: os parâmetros não têm tipo declarado, então não há
+como escolher a função pelo tipo dos argumentos antes da execução. Além disso, `def` é uma
+atribuição a um nome: um segundo `def sum` simplesmente **substitui** o primeiro.
+
+</details>
+
+**3.6 (c)** Escreva um programa "equivalente" em Python.
+
+<details>
+<summary>Resposta</summary>
+
+A escolha da versão vira um teste de tipo em execução:
+
+```python
+def sum(a, b):
+    if isinstance(a, int) and isinstance(b, int):
+        print("Sum of ints")
+    else:
+        print("Sum of doubles")
+    return a + b
+
+print("The sum is", sum(1, 2))
+print("The sum is", sum(1.2, 2.1))
+```
+
+</details>
+
+### Prova 28, Q1c–e — `virtual`
+
+(Com a classe `Ponto` do item 2.9.)
+
+**3.7 (c)** O que significa a palavra `virtual` em C++?
+
+<details>
+<summary>Resposta</summary>
+
+Que a chamada ao método usa **despacho dinâmico**: o método executado é escolhido pelo
+**tipo dinâmico** do objeto (o que ele é de fato), não pelo tipo estático do ponteiro ou
+referência. Uma subclasse pode sobrescrever `dobro`, e `p->dobro()` chama a versão dela.
+Sem `virtual`, C++ escolhe pelo tipo estático.
+
+</details>
+
+**3.8 (d)** O alvo de chamadas virtuais em C++ é resolvido em O(1). Por que isso não é possível
+em Python?
+
+<details>
+<summary>Resposta</summary>
+
+Em C++ os tipos são estáticos e as classes não mudam em execução: o compilador monta uma
+**tabela virtual** (*vtable*) por classe e sabe a **posição fixa** de cada método nela. A
+chamada é: carregar o ponteiro da vtable do objeto, carregar a entrada naquela posição,
+saltar. O(1).
+
+Em Python não há tipos estáticos, e classes e objetos são **dicionários** que podem ganhar ou
+perder métodos em execução. A chamada `o.m()` é uma **busca pelo nome**: no dicionário do
+objeto, depois no da classe, depois no das superclasses. Não há posição fixa conhecida de
+antemão.
+
+</details>
+
+**3.9 (e)** Qual linguagem introduziu as chamadas virtuais, nos anos 60?
+
+<details>
+<summary>Resposta</summary>
+
+**Simula 67**, de Ole-Johan Dahl e Kristen Nygaard.
+
+</details>
+
+## Tópico 4 — Execução, tipagem e eficiência
+
+**37,5% das provas (22, 25 e 27).**
+
+### Prova 22, Q3 — interpretada, compilada, virtualizada
+
+**4.1 (a)** Programas em `bash` são puramente interpretados (a árvore de sintaxe é
+interpretada, nunca se gera código). Por quê?
+
+<details>
+<summary>Resposta</summary>
+
+Porque scripts bash são programas curtos que servem de "cola": quase todo o tempo é gasto nos
+programas que o script chama (`ls`, `grep`…), não no script. Compilar não traria ganho, e
+interpretar direto evita o passo de compilação, permite o uso interativo no terminal e roda
+o mesmo script em qualquer máquina com bash.
+
+</details>
+
+**4.2 (b)** Por que C é uma linguagem normalmente compilada?
+
+<details>
+<summary>Resposta</summary>
+
+Por **eficiência**: C é uma linguagem de sistemas (sistemas operacionais, compiladores,
+bancos de dados), e foi feita para ficar perto da máquina. Compilada para código nativo, com
+otimizações, ela não paga o custo de um interpretador.
+
+</details>
+
+**4.3 (c)** Java é virtualizada: compilada para *bytecodes*, interpretados pela JVM. Por que,
+em vez de compilada como C ou interpretada como bash?
+
+<details>
+<summary>Resposta</summary>
+
+**Portabilidade com desempenho razoável.** Java surgiu com a internet: o mesmo programa
+precisava rodar em máquinas diferentes. Os *bytecodes* rodam em qualquer máquina que tenha
+uma JVM ("escreva uma vez, rode em qualquer lugar"), o que código nativo de C não permite. E
+interpretar *bytecodes* compactos (e compilá-los com JIT) é muito mais rápido que interpretar
+a árvore de sintaxe, como bash. A JVM também verifica o *bytecode* antes de rodar
+(segurança).
+
+</details>
+
+### Prova 25, Q2 — *The Benchmark Game*
+
+(Gráfico de tempo relativo a C: C, Rust e C++ no topo; Python, Perl, Lua e Ruby no fim.)
+
+**4.4 (a)** Por que o sistema de tipos de C (e não a tipagem estática!) permite que ela seja
+tão eficiente?
+
+<details>
+<summary>Resposta</summary>
+
+Porque é **fraco**: C não faz **nenhuma verificação em tempo de execução** — não checa
+limites de arranjos, ponteiros nulos nem coerções. Os valores são só bits na memória, sem
+etiqueta de tipo; o programa executa exatamente as operações escritas, sem custo extra.
+
+</details>
+
+**4.5 (b)** Dê uma segunda razão para a eficiência de C.
+
+<details>
+<summary>Resposta</summary>
+
+Qualquer uma: é **compilada** para código nativo por compiladores otimizadores muito maduros
+(`gcc -O2`); **não tem coletor de lixo** (o programador controla a memória); é próxima da
+máquina (ponteiros, arranjos contíguos com boa localidade).
+
+</details>
+
+**4.6 (c)** Qual a característica comum de `PHP`, `Python`, `Lua` e `Ruby` que as torna tão
+lentas?
+
+<details>
+<summary>Resposta</summary>
+
+**Tipagem dinâmica** (com execução interpretada/virtualizada): toda operação precisa
+descobrir em execução o tipo dos operandos, e os valores são objetos no heap. Somar dois
+números vira busca em tabela, chamada de função e criação de objeto novo.
+
+</details>
+
+**4.7 (d)** Cite uma característica comum entre `C`, `C++`, `Java` e `C#`.
+
+<details>
+<summary>Resposta</summary>
+
+**Tipagem estática**: os tipos são verificados em tempo de compilação. (Também vale: sintaxe
+derivada de C.)
+
+</details>
+
+**4.8 (e)** Cite uma diferença entre os grupos `{C, C++}` e `{Java, C#}`.
+
+<details>
+<summary>Resposta</summary>
+
+`C`/`C++` são **compiladas para código nativo**, **sem coletor de lixo** e com **tipagem
+fraca** (sem verificações em execução). `Java`/`C#` são **virtualizadas** (JVM, .NET), têm
+**coletor de lixo** e **tipagem forte** (verificam limites, nulos e coerções em execução).
+
+</details>
+
+### Prova 27, Q3 — ligar linguagens a características
+
+**4.9** Estabeleça uma bijeção entre as linguagens e as características.
+
+| Linguagens | Características |
+|---|---|
+| C, SML, Prolog | Funções de cauda rasa *(exemplo: já ligados)* |
+| C, C++, Fortran | Suporte a closures |
+| Python, JavaScript, Prolog | Programação funcional |
+| Java, Python, C++ | Execução virtualizada (implementação típica) |
+| Rust, C, C++ | Tipagem fraca |
+| Python, SML, JavaScript | Polimorfismo paramétrico |
+| Java, SML, C++ | Tipagem estática |
+| SML, Haskell, ocaml | Tipagem dinâmica |
+| Python, Java, JavaScript | Avaliação não estrita |
+| C++, Java, SML | Execução via compilação |
+| R, Haskell, C macros | Invocação dinâmica |
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+| Linguagens | Característica |
+|---|---|
+| C, SML, Prolog | Funções de cauda rasa (exemplo) |
+| C, C++, Fortran | Tipagem fraca |
+| Python, JavaScript, Prolog | Tipagem dinâmica |
+| Java, Python, C++ | Invocação dinâmica |
+| Rust, C, C++ | Execução via compilação |
+| Python, SML, JavaScript | Suporte a closures |
+| Java, SML, C++ | Polimorfismo paramétrico |
+| SML, Haskell, ocaml | Programação funcional |
+| Python, Java, JavaScript | Execução virtualizada (implementação típica) |
+| C++, Java, SML | Tipagem estática |
+| R, Haskell, C macros | Avaliação não estrita |
+
+Pegadinhas: "Java, Python, C++" não é execução virtualizada (C++ é compilado), é invocação
+dinâmica; Rust não tem tipagem fraca, por isso "tipagem fraca" vai para C, C++, Fortran.
+
+</details>
+
+## Tópico 5 — História das linguagens e paradigmas
+
+**37,5% das provas (22, 23 e 28).**
+
+### Prova 22, Q4 — Backus e a primeira geração
+
+> John Backus, no Prêmio Turing (1978): "while it was perhaps natural and inevitable that
+> languages like FORTRAN and its successors should have developed out of the concept of the
+> von Neumann computer as they did, the fact that such languages have dominated our thinking
+> for twenty years is unfortunate. [...]"
+
+**5.1 (a)** Cite três outras linguagens da primeira geração (anos 50, mais de 1000 usuários).
+
+<details>
+<summary>Resposta</summary>
+
+**LISP**, **ALGOL** (58/60) e **COBOL**.
+
+</details>
+
+**5.2 (b)** FORTRAN pertence a qual paradigma?
+
+<details>
+<summary>Resposta</summary>
+
+**Imperativo.**
+
+</details>
+
+**5.3 (c)** Quais outros dois grandes paradigmas existem?
+
+<details>
+<summary>Resposta</summary>
+
+**Funcional** e **lógico**.
+
+</details>
+
+**5.4 (d)** Cite uma desvantagem do paradigma de FORTRAN em relação aos outros dois.
+
+<details>
+<summary>Resposta</summary>
+
+O imperativo está preso ao modelo de von Neumann: o programa é uma sequência de comandos que
+**mudam o estado** da memória. O estado mutável e os efeitos colaterais tornam mais difícil
+raciocinar sobre o programa (provar que está correto) e **paralelizá-lo**, já que a ordem dos
+comandos importa. Nos paradigmas declarativos, uma expressão sempre tem o mesmo valor.
+
+</details>
+
+### Prova 23, Q4 — influências no projeto de linguagens
+
+**5.5 (a)** Como o surgimento da internet (HTTP, início dos anos 90) influenciou o projeto e
+a implementação de linguagens?
+
+<details>
+<summary>Resposta</summary>
+
+O problema passou a ser **rodar o mesmo programa em computadores diferentes**. A solução foi
+a **máquina virtual**: Java (JVM, *bytecodes*), JavaScript rodando no navegador, PHP no
+servidor. Também cresceu a preocupação com **segurança** (código baixado da rede):
+verificação de *bytecode*, tipagem forte, sem aritmética de ponteiros, coletor de lixo. E
+surgiram as linguagens de *script* para a web (PHP, JavaScript).
+
+</details>
+
+**5.6 (b)** Como o crescimento dos sistemas (anos 80: WordPerfect, Lotus 1-2-3, Excel, Word…)
+influenciou o projeto e a implementação de linguagens?
+
+<details>
+<summary>Resposta</summary>
+
+O foco saiu do `goto` e foi para a **modularização**: compilação separada e ligadores,
+módulos e interfaces, **tipos abstratos de dados** e **encapsulamento** (para que uma
+mudança não se propague pelo programa inteiro) e a **orientação a objetos** (C++,
+Smalltalk-80).
+
+</details>
+
+### Prova 28, Q2 — por que uma linguagem não substituiu outra
+
+**5.7 (a)** Por que Java não desbancou C++ como linguagem de sistemas (kernels, servidores,
+jogos, navegadores) nos anos 2000? Cite ao menos uma razão.
+
+<details>
+<summary>Resposta</summary>
+
+- **Coleta de lixo** com pausas imprevisíveis, inaceitáveis em kernels e jogos.
+- **Sem controle manual da memória** (nem ponteiros, nem layout dos dados).
+- O custo da **máquina virtual** (inicialização, memória, JIT) e a distância do hardware.
+
+</details>
+
+**5.8 (b)** Por que Python não substitui Java em sistemas corporativos de grande escala
+(muitos módulos, equipes extensas)?
+
+<details>
+<summary>Resposta</summary>
+
+Pela **tipagem dinâmica**: os erros de tipo só aparecem em execução, e não há interfaces
+verificadas pelo compilador entre os módulos que equipes diferentes escrevem. Em Java, a
+tipagem estática pega esses erros antes de rodar e documenta os contratos; `private`
+garante o encapsulamento, que em Python é só convenção. Python também é mais lenta.
+
+</details>
+
+## Tópico 6 — Arranjos em C: layout e localidade
+
+**25% das provas (23 e 27).**
+
+### Prova 23, Q2 — `int**` × `int[2][3]`
+
+```c
+01 #include <stdio.h>
+02 #include <stdlib.h>
+03
+04 int foo(int** a, i, j) {
+05   return a[i][j];
+06 }
+07
+08 int bar(int b[2][3], i, j) {
+09   return b[i][j];
+10 }
+11 int main() {
+12   int** a = (int**)malloc(2 * sizeof(int*));
+13   a[0] = (int*)malloc(3 * sizeof(int));
+14   a[1] = (int*)malloc(3 * sizeof(int));
+15   a[0][0] = 0; a[0][1] = 1; a[0][2] = 2;
+16   a[1][0] = 3; a[1][1] = 4; a[1][2] = 5;
+17   int b[2][3] = {{0, 1, 2}, {3, 4, 5}};
+18   int c[3][2] = {{10, 20}, {30, 40}, {50, 60}};
+19   printf("A: %d\n", foo(a, 1, 1));
+20   printf("B: %d\n", foo(b, 1, 1));
+21   printf("C: %d\n", bar(a, 1, 1));
+22   printf("D: %d\n", bar(b, 1, 1));
+23   printf("E: %d\n", bar(c, 1, 1));
+24 }
+```
+
+A chave: em `foo`, `a[i][j]` são **dois carregamentos** (lê o ponteiro `a[i]`, depois o
+inteiro na posição `j`). Em `bar`, `b[i][j]` é **um carregamento** no endereço
+`b + (i*3 + j) * sizeof(int)`, porque a matriz é um bloco contíguo de 2 linhas de 3.
+
+**6.1 (a)** O que imprime a linha 19?
+
+<details>
+<summary>Resposta</summary>
+
+`A: 4`. `a[1]` é o ponteiro para a segunda linha, e `a[1][1]` é `4`.
+
+</details>
+
+**6.2 (b)** A linha 20 causa falha de segmentação. Por quê?
+
+<details>
+<summary>Resposta</summary>
+
+`foo` trata o bloco de inteiros de `b` como se fosse um arranjo de **ponteiros**. `a[1]` lê
+os bytes de `b` na posição de um ponteiro (num sistema de 64 bits, os inteiros `2` e `3`
+juntos) e usa esse número como endereço. É um endereço inválido, e ler nele dá falha de
+segmentação.
+
+</details>
+
+**6.3 (c)** A linha 21 pode imprimir valores diferentes em execuções diferentes. O que causa
+esse comportamento indefinido?
+
+<details>
+<summary>Resposta</summary>
+
+`bar` trata `a` como um bloco contíguo de inteiros e lê `a + (1*3 + 1) * 4`, ou seja, 16
+bytes depois do início do arranjo de dois ponteiros, que só tem 16 bytes. Lê memória do heap
+**fora** do que foi alocado (ou bits de endereços, que mudam a cada execução), cujo conteúdo
+depende de como o `malloc` arrumou o heap.
+
+</details>
+
+**6.4 (d)** O que imprime a linha 22?
+
+<details>
+<summary>Resposta</summary>
+
+`D: 4`. Posição `1*3 + 1 = 4` do bloco `{0, 1, 2, 3, 4, 5}`.
+
+</details>
+
+**6.5 (e)** O que imprime a linha 23? (Não responda tão rápido!)
+
+<details>
+<summary>Resposta</summary>
+
+`E: 50`. `c` é o bloco contíguo `{10, 20, 30, 40, 50, 60}`, mas `bar` calcula o endereço
+como se cada linha tivesse **3** colunas: posição `1*3 + 1 = 4`, que é o `50` (e não o `40`,
+que seria `c[1][1]`).
+
+</details>
+
+### Prova 27, Q1 — arranjos e localidade
+
+**6.6 (a)** Como as linguagens imperativas conseguem acessar qualquer posição de um arranjo em
+O(1)?
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+"Porque a memória é contígua e o tamanho de cada célula é conhecido. Então o acesso acontece
+via base e *offset*": o endereço de `v[i]` é `base + i * tamanho`, uma multiplicação e uma
+soma.
+
+</details>
+
+**6.7 (b)** Como seria armazenada a estrutura apontada por `p`?
+
+```c
+void init(int** p, unsigned N) {
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j <= i; j++) {
+            p[i][j] = 1;
+        }
+    }
+}
+```
+
+<details>
+<summary>Resposta</summary>
+
+Como um **arranjo de N ponteiros**, um por linha, e cada linha `i` é um bloco separado de
+`i + 1` inteiros (uma matriz **triangular**). As linhas não precisam ser contíguas entre si:
+cada uma pode estar em um lugar diferente do heap.
+
+</details>
+
+**6.8 (c)** Qual dos dois programas deve ser mais eficiente?
+
+```c
+/* Programa 1 */
+int sum = 0;
+for (i = 0; i < M; i++) {
+    for (j = 0; j < N; j++) {
+        sum += m[i][j];
+    }
+}
+```
+
+```c
+/* Programa 2 */
+int sum = 0;
+for (j = 0; j < N; j++) {
+    for (i = 0; i < M; i++) {
+        sum += m[i][j];
+    }
+}
+```
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+O **Programa 1** (o da esquerda na prova).
+
+</details>
+
+**6.9 (d)** Justifique.
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+"C armazena arranjos por linha. Então o programa da esquerda possui melhor localidade de
+referência." No Programa 1 o laço de dentro percorre uma linha, posições vizinhas na memória:
+a linha de cache trazida num acesso serve aos próximos. No Programa 2, cada acesso salta `N`
+inteiros e cai, em geral, numa linha de cache diferente.
+
+</details>
+
+## Tópico 7 — Recursos funcionais
+
+**25% das provas (22 e 29):** closures, alta ordem, polimorfismo paramétrico, casamento de
+padrões.
+
+**7.1** (Prova 22, Q2d) É possível transformar uma lista em árvore assim (a função `insert`
+recebe uma árvore T e um número N e devolve T′ = T ∪ `{N}`):
+
+```kotlin
+val numbers = listOf(2, 5, 3, 8, 1, 29, 43, 2, 15, 6, 1)
+val initTree: TreeNode = TreeLeaf()
+val tree: TreeNode = numbers.fold(initTree) { acc, i -> insert(acc, i) }
+```
+
+Explique o que é a sintaxe `{ acc, i -> insert(acc, i) }`.
+
+<details>
+<summary>Resposta</summary>
+
+É uma **função anônima** (uma expressão lambda, como `fn (acc, i) => insert (acc, i)` em
+SML) passada como argumento a `fold`, que é uma **função de alta ordem** (o `foldl` de SML).
+`fold` começa com `initTree` no acumulador `acc` e, para cada número `i` da lista, aplica a
+função, guardando a árvore nova em `acc`. Como pode usar variáveis do lugar onde foi
+escrita, ela é um **closure**.
+
+</details>
+
+**7.2** (Prova 29, Q1a) Escreva um programa em C++ que ilustre polimorfismo paramétrico.
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```cpp
+template <class T>
+T GetMax(T a, T b) {
+  T result;
+  result = (a > b) ? a : b;
+  return result;
+}
+
+int main() {
+  int i = GetMax(1, 2);
+  double d = GetMax(1.5, 0.5);
+}
+```
+
+O mesmo código serve para qualquer tipo `T` que tenha `>`. O gabarito aceita também só usar
+um contêiner da biblioteca, como `std::vector<int> v;`.
+
+</details>
+
+**7.3** (Prova 29, Q1b) Escreva um programa em Python 3 que contenha um closure.
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```python
+def make_incrementor(n):
+    def inc(x):
+        return x + n
+    return inc
+
+f = make_incrementor(1)
+f(2)    # 3
+```
+
+`inc` usa o `n` de `make_incrementor` mesmo depois que ela retornou: o closure guarda o
+código e o valor de `n`. Também vale `v = lambda x: lambda y: x + y` e `f = v(1)`.
+
+</details>
+
+**7.4** (Prova 29, Q1c) Escreva um programa em SML/NJ que use casamento de padrões.
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+```sml
+fun f nil = 0
+  | f (true::rest) = 1 + f rest
+  | f (false::rest) = f rest;
+```
+
+Conta os `true` de uma lista de `bool`: cada cláusula casa um formato de lista.
+
+</details>
+
+## Tópico 8 — Aritmética em Prolog
+
+**25% das provas (24 e 29).**
+
+### Prova 24, Q2 — triplas pitagóricas
+
+```python
+def is_triple(a, b, c):
+    return c*c == a*a + b*b
+
+def solve_triple(n):
+    for a in range(1, 11):
+        for b in range(1, 11):
+            for c in range(1, 11):
+                if is_triple(a, b, c):
+                    print(a, b, c)
+```
+
+**8.1 (a)** Implemente `is_triple(A, B, C)`: C² = A² + B², com `C` a hipotenusa. (Cabe em
+menos de cinquenta caracteres.)
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+is_triple(A, B, C) :- C*C =:= A*A + B*B.
+```
+
+`=:=` avalia os dois lados. Com `=`, Prolog compararia as **estruturas** `C*C` e `A*A + B*B`,
+que nunca unificam.
+
+</details>
+
+**8.2 (b)** Implemente `solve_triple(A, B, C)`: `is_triple(A, B, C)` e `A`, `B`, `C` entre 1 e
+10.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+solve_triple(A, B, C) :-
+    between(1, 10, A),
+    between(1, 10, B),
+    between(1, 10, C),
+    is_triple(A, B, C).
+```
+
+Gerar e testar: os `between` **geram** os valores, `is_triple` **testa**. Os geradores vêm
+antes porque `=:=` com variável livre é erro, não `false`. Sem `between`, dá para usar o
+`range` do item 1.16: `range(1, 10, L), member(A, L), member(B, L), member(C, L)`.
+
+</details>
+
+**8.3** (Prova 29, Q3d) No `puzzle` do item 1.19, por que `SEND + MORE =:= MONEY` usa `=:=` e
+não `=` nem `is`?
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+"Porque o lado esquerdo precisa ser avaliado aritmeticamente."
+
+- `=` só unifica: `SEND + MORE` é a estrutura `+(SEND, MORE)`, que nunca unifica com um
+  número.
+- `is` avalia **só o lado direito** e unifica com o esquerdo: o lado esquerdo seria de novo a
+  estrutura `+(...)`, e a comparação falha.
+- `=:=` avalia **os dois lados** e compara os números.
+
+</details>
+
+## Tópico 9 — Estática, pilha e heap
+
+**12,5% das provas (25).**
+
+```python
+>>> def new_set(x):  # Linha 1
+...   s = set([x])   # Linha 2
+...   return s       # Linha 3
+>>> a = new_set(1)   # Linha 4
+```
+
+**9.1 (a)** Em qual área fica o conjunto `{1}` criado por `new_set(1)`?
+
+<details>
+<summary>Resposta</summary>
+
+No **heap**: ele sobrevive à chamada (é devolvido e guardado em `a`).
+
+</details>
+
+**9.2 (b)** Em qual área fica a variável `s`?
+
+<details>
+<summary>Resposta</summary>
+
+Na **pilha**, no registro de ativação de `new_set`. Ela guarda só a referência para o
+conjunto.
+
+</details>
+
+**9.3 (c)** Quando `s` é desalocada?
+
+<details>
+<summary>Resposta</summary>
+
+Quando `new_set` **retorna** e seu registro de ativação é desempilhado.
+
+</details>
+
+**9.4 (d)** Quando o conjunto criado na linha 2 é desalocado?
+
+<details>
+<summary>Resposta</summary>
+
+Quando **não houver mais referência** para ele: o coletor de lixo (em Python, a contagem de
+referências chegando a zero) o libera. Como `a` ainda aponta para ele, só quando `a` for
+reatribuída ou apagada, ou o programa terminar.
+
+</details>
+
+**9.5 (e)** E em C++? Quando o objeto criado na linha 2 é desalocado?
+
+```cpp
+std::set<int>* new_set(int x) {                   // Linha 1
+    std::set<int>* s = new std::set<int>();       // Linha 2
+    s->insert(x);                                 // Linha 3
+    return s;                                     // Linha 4
+}                                                 // Linha 5
+int main() { std::set<int>* a = new_set(1); }     // Linha 6
+```
+
+<details>
+<summary>Resposta</summary>
+
+**Nunca** pelo programa: C++ não tem coletor de lixo, e o objeto alocado com `new` só é
+liberado com um `delete` explícito, que não existe aqui. É um **vazamento de memória**; o
+sistema operacional recupera a memória quando o processo termina.
+
+</details>
+
+## Tópico 10 — Verificações em tempo de execução
+
+**12,5% das provas (29).** Ada pode ser compilada em modo seguro (verifica limites de
+arranjos, *overflow*, ponteiro nulo e coerções entre classes) ou inseguro (`-gnatp`); o
+seguro chega a ser 6 vezes mais lento.
+
+**10.1 (a)** O que é um estouro (*overflow*) aritmético?
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+Quando o resultado de uma operação excede o maior (ou menor) valor que o tipo consegue
+representar. Em C, `INT_MAX + 1` "dá a volta" para um número negativo (com inteiros com
+sinal, é comportamento indefinido).
+
+</details>
+
+**10.2 (b)** O que ocorre quando Java invoca um método sobre uma referência nula?
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+É levantada uma **exceção**, a `NullPointerException`.
+
+</details>
+
+**10.3 (c)** E em C++, sobre um ponteiro nulo?
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+**Comportamento indefinido**: C++ não verifica. Em geral o programa morre com falha de
+segmentação, mas nada é garantido.
+
+</details>
+
+**10.4 (d)** É possível acessar um vetor fora dos limites em Python?
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+**Não.** Python verifica o índice e levanta `IndexError`. (Índices negativos como `v[-1]` são
+válidos, contam do fim, mas também são verificados.)
+
+</details>
+
+**10.5 (e)** O que é uma coerção insegura entre `struct`s em C?
+
+<details>
+<summary>Resposta (gabarito)</summary>
+
+Forçar o compilador a tratar a memória de uma `struct` como se fosse de outro tipo de
+`struct`, por exemplo `struct B *pb = (struct B *) &a;`. Ninguém verifica: os campos de `B`
+são lidos nos bytes de `A`, com valores sem sentido ou fora da área do objeto.
+
+</details>
+
+## Tópico 11 — Avaliação preguiçosa e efeitos colaterais
+
+**12,5% das provas (24).**
+
+```d
+int divBy(int n) {
+    return 1/n;
+}
+
+void greetThePlanet(int n) {        // à direita: (lazy int n)
+    import std.stdio;
+    writefln("Hello, world!");
+}
+
+void main() {
+    greetThePlanet(divBy(0));
+}
+```
+
+Sem `lazy`: `Floating point exception (core dumped)`. Com `lazy`: `Hello, world!`.
+
+**11.1 (a)** Qual a semântica de `lazy` que causa essa diferença?
+
+<details>
+<summary>Resposta</summary>
+
+Com `lazy`, o argumento é passado **sem ser avaliado** (como uma expressão a calcular depois),
+e só é avaliado **quando o parâmetro é usado**. `greetThePlanet` nunca usa `n`, então
+`divBy(0)` nunca executa. Sem `lazy`, a avaliação é **estrita**: o argumento é avaliado antes
+da chamada, e a divisão por zero acontece antes de imprimir.
+
+</details>
+
+**11.2 (b)** Uma linguagem cujo comportamento padrão é como o programa da esquerda.
+
+<details>
+<summary>Resposta</summary>
+
+Qualquer linguagem estrita: **C**, Java, Python, SML.
+
+</details>
+
+**11.3 (c)** Uma linguagem cujo comportamento padrão é como o da direita.
+
+<details>
+<summary>Resposta</summary>
+
+**Haskell** (avaliação preguiçosa por necessidade).
+
+</details>
+
+**11.4 (d)** A avaliação preguiçosa de expressões com efeitos colaterais poderia mudar a
+semântica de programas? Explique.
+
+<details>
+<summary>Resposta</summary>
+
+**Sim.** Com avaliação preguiçosa, o efeito colateral pode acontecer **mais tarde**, **nunca**
+(se o parâmetro não for usado) ou **várias vezes** (na passagem por nome, a cada uso).
+Um argumento `print(...)` ou `i++` deixaria de executar ou executaria fora de ordem. Sem
+efeitos colaterais, avaliar cedo ou tarde dá o mesmo resultado (quando os dois terminam); é
+por isso que linguagens preguiçosas como Haskell são **puras**.
+
+</details>
+
+## Tópico 12 — Ler e explicar um programa Prolog
+
+**12,5% das provas (25).**
+
+```prolog
+append([], L, L).
+append([H|T], L2, [H|R]) :- append(T, L2, R).
+```
+
+**12.1 (a)** Explique, em até dez palavras, o que faz:
+
+```prolog
+mystery1([]).
+mystery1([_]).
+mystery1([H|T]) :- append(Mid, [H], T), mystery1(Mid).
+```
+
+<details>
+<summary>Resposta</summary>
+
+**Verdadeiro quando a lista é um palíndromo.** A cauda `T` termina com o mesmo `H` da
+cabeça, e o meio `Mid` também é palíndromo.
+
+</details>
+
+**12.2 (b)** Complete `L = [__, __, __, __], mystery1(L).` para ser verdade.
+
+<details>
+<summary>Resposta</summary>
+
+`L = [a, b, b, a]`.
+
+</details>
+
+**12.3 (c)** Complete para ser falso.
+
+<details>
+<summary>Resposta</summary>
+
+`L = [a, b, c, d]`.
+
+</details>
+
+**12.4 (d)** Escreva três exemplos verdadeiros de:
+
+```prolog
+mystery2([], []).
+mystery2([H|T], FlatList) :-
+    mystery2(H, FlatH),
+    mystery2(T, FlatT),
+    append(FlatH, FlatT, FlatList).
+mystery2([H|T], [H|FlatT]) :- \+ is_list(H), mystery2(T, FlatT).
+```
+
+<details>
+<summary>Resposta</summary>
+
+É o **achatamento** de listas (*flatten*): o segundo argumento tem os elementos do primeiro,
+sem as sublistas.
+
+```prolog
+mystery2([], []).
+mystery2([a, b], [a, b]).
+mystery2([[a], [b, [c]]], [a, b, c]).
+```
+
+</details>
+
+## Tópico 13 — Recursão de cauda (cauda rasa)
+
+**12,5% das provas (26).** Reimplemente com cauda rasa (a última coisa que o predicado faz é
+chamar a si mesmo).
+
+**13.1 (a)** Soma dos elementos:
+
+```prolog
+sum([], 0).
+sum([H|T], X) :- sum(T, XAux), X is XAux + H.
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+sum(L, X) :- sum(L, 0, X).
+
+sum([], Acc, Acc).
+sum([H|T], Acc, X) :- Acc1 is Acc + H, sum(T, Acc1, X).
+```
+
+A soma vai sendo feita **antes** da chamada, num acumulador, e a chamada recursiva fica por
+último.
+
+</details>
+
+**13.2 (b)** Inversão de lista:
+
+```prolog
+myappend([], L, L).
+myappend([H|T], L, [H|LAux]) :- myappend(T, L, LAux).
+
+myreverse([], []).
+myreverse([H|T], R) :- myreverse(T, RT), myappend(RT, [H], R).
+```
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+myreverse(L, R) :- myreverse(L, [], R).
+
+myreverse([], Acc, Acc).
+myreverse([H|T], Acc, R) :- myreverse(T, [H|Acc], R).
+```
+
+De quebra, sai de O(n²) (um `append` por elemento) para O(n).
+
+</details>
+
+**13.3 (c)** Qual a vantagem de funções de cauda rasa?
+
+<details>
+<summary>Resposta</summary>
+
+Como nada resta a fazer depois da chamada recursiva, o **registro de ativação** atual não é
+mais necessário e pode ser **reaproveitado** pela chamada seguinte. A recursão vira um laço:
+a pilha usa memória **O(1)** em vez de O(n), e listas grandes não estouram a pilha
+(*stack overflow*).
+
+</details>
