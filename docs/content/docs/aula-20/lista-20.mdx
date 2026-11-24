@@ -1,0 +1,604 @@
+---
+title: Lista 20 - Resolução
+description: Relações de parentesco, padrões de listas como fatos, recursão sobre listas e conjuntos como listas em Prolog
+---
+
+Resolução completa da Lista 20 (enunciado em `listas/lista-20/enunciado.md`). Tente cada
+questão no papel antes de abrir a resposta. Todas as respostas foram executadas no
+SWI-Prolog 11, e as consultas mostradas dão exatamente esses resultados.
+
+As questões 1 a 6 usam esta base (a árvore genealógica está na [Aula 20](/docs/aula-20)):
+
+```prolog
+parent(kim, holly).
+parent(margaret, kim).
+parent(margaret, kent).
+parent(esther, margaret).
+parent(herbert, margaret).
+parent(herbert, jean).
+greatgrandparent(GGP, GGC) :-
+  parent(GGP, GP), parent(GP, P), parent(P, GGC).
+```
+
+A base **não diz quem é homem ou mulher**, e as questões 1 a 4 precisam disso. É preciso
+acrescentar fatos. Os de baixo seguem os nomes (suposição: o enunciado não os dá):
+
+```prolog
+female(esther).
+female(margaret).
+female(jean).
+female(kim).
+female(holly).
+male(herbert).
+male(kent).
+```
+
+## Questão 1 — `mother`
+
+**Assunto:** regras com conjunção de objetivos (Aula 20) · **Tipo:** implementação
+
+> Defina `mother(X, Y)`, verdade se `X` for mãe de `Y`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+mother(X, Y) :- parent(X, Y), female(X).
+```
+
+```prolog
+?- mother(X, kim).
+X = margaret.
+```
+
+**Por quê:** a vírgula no corpo é um "e": `X` é mãe de `Y` se `X` é pai/mãe de `Y` **e** `X`
+é mulher. Sem um fato `female`, não há como separar mãe de pai: em Prolog, o que não está na
+base nem se deriva dela é falso (mundo fechado).
+
+</details>
+
+## Questão 2 — `father`
+
+**Assunto:** regras (Aula 20) · **Tipo:** implementação
+
+> Defina `father(X, Y)`, verdade se `X` for o pai de `Y`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+father(X, Y) :- parent(X, Y), male(X).
+```
+
+```prolog
+?- father(X, margaret).
+X = herbert.
+```
+
+**Por quê:** é a Questão 1 com `male` no lugar de `female`.
+
+</details>
+
+## Questão 3 — `sister`
+
+**Assunto:** negação como falha e a posição do `not` (Aula 20) · **Tipo:** implementação
+
+> Defina `sister(X, Y)`, verdade se `X` for irmã de `Y`. Ninguém pode ser sua própria irmã.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+sister(X, Y) :- parent(P, X), parent(P, Y), female(X), not(X = Y).
+```
+
+```prolog
+?- sister(kim, kent).
+true.
+?- sister(X, jean).
+X = margaret.
+?- sister(kent, kim).
+false.
+```
+
+**Por quê:** é o `sibling` da aula com `female(X)`. O `not(X = Y)` vai **no fim**: a negação
+como falha não liga variáveis. Se viesse primeiro, em `sister(X, jean)` o `X` estaria livre,
+`X = jean` seria provável, o `not` falharia e a consulta daria `false`. Depois dos `parent`,
+`X` e `Y` já têm valor, e o `not` só testa.
+
+</details>
+
+## Questão 4 — `grandson`
+
+**Assunto:** regras e composição de relações (Aula 20) · **Tipo:** implementação
+
+> Defina `grandson(X, Y)`, verdade se `X` for neto de `Y`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+grandson(X, Y) :- parent(Y, P), parent(P, X), male(X).
+```
+
+```prolog
+?- grandson(X, esther).
+X = kent.
+?- grandson(holly, margaret).
+false.
+```
+
+**Por quê:** `Y` é avô/avó de `X` se é pai/mãe de algum `P` que é pai/mãe de `X` (a variável
+`P`, que só aparece no corpo, é um "existe algum"). `male(X)` restringe a neto. Kim também é
+neta de Esther, e Holly de Margaret, mas são mulheres.
+
+</details>
+
+## Questão 5 — `firstCousin`
+
+**Assunto:** regras que usam outras regras; negação como falha (Aula 20) · **Tipo:**
+implementação
+
+> Defina `firstCousin(X, Y)`, verdade se `X` for primo primeiro de `Y`. Ninguém é primo de si
+> mesmo, e irmãos não são primos.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+sibling(X, Y) :- parent(P, X), parent(P, Y), not(X = Y).
+
+firstCousin(X, Y) :-
+  parent(PX, X),
+  parent(PY, Y),
+  sibling(PX, PY),
+  not(sibling(X, Y)),
+  not(X = Y).
+```
+
+**Por quê:** primos primeiros são filhos de dois irmãos. As duas negações vêm no fim, quando
+`X` e `Y` já estão ligados. Elas cobrem casos que a base não tem, mas que podem existir:
+se o pai de `X` e a mãe de `X` forem irmãos entre si, a regra acharia `X` como primo de si
+mesmo (via um pai e o outro) e dos próprios irmãos.
+
+Nesta base, `firstCousin(X, Y)` dá **`false`** para qualquer consulta: os únicos pares de
+irmãos são Kim e Kent (filhos de Margaret) e Margaret e Jean (filhas de Herbert), e Jean não
+tem filhos. Para testar, acrescente `parent(jean, sam).`: então `firstCousin(sam, kim)` e
+`firstCousin(sam, kent)` são verdade.
+
+</details>
+
+## Questão 6 — `descendant`
+
+**Assunto:** regras recursivas (Aula 20) · **Tipo:** implementação
+
+> Defina `descendant(X, Y)`, verdade se `X` for descendente de `Y`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+descendant(X, Y) :- parent(Y, X).
+descendant(X, Y) :- parent(Z, X), descendant(Z, Y).
+```
+
+```prolog
+?- descendant(X, margaret).
+X = kim ;
+X = kent ;
+X = holly ;
+false.
+```
+
+**Por quê:** é o `ancestor` da aula ao contrário. Caso base: um filho é descendente. Caso
+recursivo: `X` é descendente de `Y` se o pai/mãe `Z` de `X` for descendente de `Y`. As duas
+cláusulas com a mesma cabeça são um "ou". A chamada recursiva fica **depois** de `parent`,
+que liga `Z`: com a ordem invertida, a recursão começaria com tudo livre e poderia não
+terminar.
+
+</details>
+
+## Questão 7 — `third`
+
+**Assunto:** padrões de listas com `[H|T]`; fatos com variáveis (Aula 20) · **Tipo:**
+implementação
+
+> Defina `third(X, Y)`, verdade se `Y` for o terceiro elemento da lista `X`. Pode ser um fato.
+> Deve "produzir um erro" se a lista tiver menos de três elementos.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+third([_, _, Y|_], Y).
+```
+
+```prolog
+?- third([a, b, c, d], Y).
+Y = c.
+?- third([a, b], Y).
+false.
+```
+
+**Por quê:** o padrão `[_, _, Y|_]` só unifica com listas de pelo menos três elementos, e o
+terceiro fica ligado a `Y`. Não precisa de corpo: a unificação faz todo o trabalho. Em
+Prolog, "produzir um erro" aqui quer dizer **falhar** (`false`): a lista curta não unifica com
+o padrão. Compare com SML, onde `fun third (_ :: _ :: y :: _) = y` dá aviso de casamento
+não exaustivo e levanta a exceção `Match` em listas curtas.
+
+</details>
+
+## Questão 8 — `firstPair`
+
+**Assunto:** padrões de listas; variável repetida na cabeça (Aula 20) · **Tipo:**
+implementação
+
+> Defina `firstPair(X)`, verdade se `X` tiver pelo menos dois elementos e o primeiro for igual
+> ao segundo. Pode ser um fato.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+firstPair([X, X|_]).
+```
+
+**Por quê:** a mesma variável `X` duas vezes no padrão obriga os dois primeiros elementos a
+**unificarem**. Isso é impossível em SML, onde uma variável não pode aparecer duas vezes no
+mesmo padrão (seria preciso `fun firstPair (a :: b :: _) = a = b`); em Prolog, o casamento é
+unificação, e repetir a variável é o jeito natural de exigir igualdade.
+
+</details>
+
+## Questão 9 — `del3`
+
+**Assunto:** padrões de listas (Aula 20) · **Tipo:** implementação
+
+> Defina `del3(X, Y)`, verdade se `Y` for `X` sem o terceiro elemento. Pode ser um fato.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+del3([A, B, _|T], [A, B|T]).
+```
+
+```prolog
+?- del3([1, 2, 3, 4], Y).
+Y = [1, 2, 4].
+```
+
+**Por quê:** o padrão da esquerda desmonta a lista, o da direita a remonta sem o terceiro. As
+variáveis compartilhadas (`A`, `B`, `T`) carregam os pedaços de um lado para o outro. Como é
+uma relação, também funciona ao contrário: `del3(X, [1, 2, 4])` dá `X = [1, 2, _, 4]`.
+
+</details>
+
+## Questão 10 — `dupList`
+
+**Assunto:** recursão sobre listas; predicados reversíveis (Aula 20) · **Tipo:**
+implementação
+
+> Defina `dupList(X, Y)`: `Y` é `X` com cada elemento repetido. `dupList([1, 2, 3], Y)` dá
+> `Y = [1, 1, 2, 2, 3, 3]`, e deve funcionar nas duas direções.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+dupList([], []).
+dupList([H|T], [H, H|R]) :- dupList(T, R).
+```
+
+```prolog
+?- dupList([1, 2, 3], Y).
+Y = [1, 1, 2, 2, 3, 3].
+?- dupList(X, [1, 1, 2, 2, 3, 3]).
+X = [1, 2, 3].
+```
+
+**Por quê:** cada `H` da primeira lista vira `H, H` na segunda. Não há aritmética nem teste
+que exija argumentos instanciados, só unificação, então a relação vale nas duas direções. Em
+SML seriam duas funções diferentes (duplicar e "desduplicar"); em Prolog é um predicado só.
+
+O enunciado inverte os papéis no texto ("`X` for a mesma lista que `Y`, mas com cada
+elemento de `Y` repetido"), mas o exemplo deixa claro que a lista duplicada é a `Y`.
+
+</details>
+
+## Questão 11 — `isDuped`
+
+**Assunto:** recursão sobre listas de dois em dois (Aula 20) · **Tipo:** implementação
+
+> Defina `isDuped(Y)`, verdade se `Y` tiver o primeiro elemento igual ao segundo, o terceiro
+> igual ao quarto, e assim por diante.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+isDuped([]).
+isDuped([H, H|T]) :- isDuped(T).
+```
+
+```prolog
+?- isDuped([1, 1, 2, 2]).
+true.
+?- isDuped([1, 1, 2]).
+false.
+```
+
+**Por quê:** consome a lista de dois em dois, exigindo que os dois sejam iguais (variável
+repetida, como na Questão 8). Uma lista de tamanho ímpar sobra com um elemento, que não
+casa com nenhuma cláusula. (Também vale `isDuped(Y) :- dupList(_, Y).`)
+
+</details>
+
+## Questão 12 — `oddSize`
+
+**Assunto:** recursão sobre listas sem aritmética (Aula 20) · **Tipo:** implementação
+
+> Defina `oddSize(X)`, verdade se `X` tiver tamanho ímpar, sem calcular o tamanho.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+oddSize([_]).
+oddSize([_, _|T]) :- oddSize(T).
+```
+
+**Por quê:** tirar dois elementos não muda a paridade. A recursão vai tirando de dois em dois
+até sobrar uma lista de um elemento (ímpar) ou a vazia (par, que não casa com nada e falha).
+
+</details>
+
+## Questão 13 — `evenSize`
+
+**Assunto:** recursão sobre listas sem aritmética (Aula 20) · **Tipo:** implementação
+
+> Defina `evenSize(X)`, verdade se `X` tiver tamanho par.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+evenSize([]).
+evenSize([_, _|T]) :- evenSize(T).
+```
+
+**Por quê:** mesma ideia da Questão 12, com a lista vazia como caso base. Alternativa com
+recursão **mútua**, que define as duas juntas (use no lugar das versões acima):
+
+```prolog
+evenSize([]).
+evenSize([_|T]) :- oddSize(T).
+oddSize([_|T]) :- evenSize(T).
+```
+
+Uma lista é par se a cauda é ímpar, e ímpar se a cauda é par.
+
+</details>
+
+## Questão 14 — `prefix`
+
+**Assunto:** recursão sobre listas; geração de respostas (Aula 20) · **Tipo:** implementação
+
+> Defina `prefix(X, Y)`, verdade se `X` for prefixo de `Y`. Deve funcionar com `X` livre:
+> `prefix(X, [1, 2, 3])` dá todos os prefixos.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+prefix([], _).
+prefix([H|T], [H|R]) :- prefix(T, R).
+```
+
+```prolog
+?- prefix(X, [1, 2, 3]).
+X = [] ;
+X = [1] ;
+X = [1, 2] ;
+X = [1, 2, 3] ;
+false.
+```
+
+**Por quê:** a lista vazia é prefixo de qualquer lista; e `[H|T]` é prefixo de uma lista que
+começa com o mesmo `H` se `T` for prefixo do resto. Com `X` livre, cada `;` tenta a próxima
+cláusula e gera um prefixo maior. Com `append`, sai em uma linha:
+`prefix(X, Y) :- append(X, _, Y).` ("`Y` é `X` seguido de alguma coisa").
+
+</details>
+
+## Questão 15 — `isMember`
+
+**Assunto:** conjuntos como listas; recursão (Aula 20) · **Tipo:** implementação
+
+> Nas questões 15 a 20, conjuntos são listas sem repetição (não necessariamente ordenadas). As
+> entradas não têm duplicatas, e as saídas não podem ter. **Não vale usar predicados prontos
+> de listas**, como `member`. Defina `isMember(X, Y)`, verdade se `X` estiver no conjunto `Y`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+isMember(X, [X|_]).
+isMember(X, [_|T]) :- isMember(X, T).
+```
+
+**Por quê:** é o `member` da aula: ou `X` é a cabeça, ou está na cauda. A variável repetida
+na primeira cláusula faz a comparação por unificação.
+
+</details>
+
+## Questão 16 — `isUnion`
+
+**Assunto:** conjuntos como listas; negação como falha (Aula 20) · **Tipo:** implementação
+
+> Defina `isUnion(X, Y, Z)`, verdade se `Z` for a união de `X` e `Y`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+isUnion([], Y, Y).
+isUnion([H|T], Y, Z) :- isMember(H, Y), isUnion(T, Y, Z).
+isUnion([H|T], Y, [H|Z]) :- not(isMember(H, Y)), isUnion(T, Y, Z).
+```
+
+```prolog
+?- isUnion([1, 2, 3], [2, 4], Z).
+Z = [1, 3, 2, 4].
+```
+
+**Por quê:** percorre `X`. Se o elemento já está em `Y`, ele não entra (senão sairia
+repetido); se não está, entra. Quando `X` acaba, o resto da união é o próprio `Y`. O
+`not(isMember(...))` na terceira cláusula torna as duas cláusulas **exclusivas**: sem ele,
+no `;` a terceira cláusula aceitaria o elemento repetido e daria uma resposta com duplicata.
+
+</details>
+
+## Questão 17 — `isIntersection`
+
+**Assunto:** conjuntos como listas; negação como falha (Aula 20) · **Tipo:** implementação
+
+> Defina `isIntersection(X, Y, Z)`, verdade se `Z` for a interseção de `X` e `Y`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+isIntersection([], _, []).
+isIntersection([H|T], Y, [H|Z]) :- isMember(H, Y), isIntersection(T, Y, Z).
+isIntersection([H|T], Y, Z) :- not(isMember(H, Y)), isIntersection(T, Y, Z).
+```
+
+```prolog
+?- isIntersection([1, 2, 3], [3, 2, 4], Z).
+Z = [2, 3].
+```
+
+**Por quê:** é a Questão 16 com os papéis trocados: o elemento de `X` **entra** se estiver em
+`Y` e é descartado se não estiver. Como `X` não tem repetidos, `Z` também não terá.
+
+</details>
+
+## Questão 18 — `isEqual`
+
+**Assunto:** conjuntos como listas; composição de predicados (Aula 20) · **Tipo:**
+implementação
+
+> Defina `isEqual(X, Y)`, verdade se `X` e `Y` tiverem os mesmos elementos, em qualquer ordem.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+isSubset([], _).
+isSubset([H|T], Y) :- isMember(H, Y), isSubset(T, Y).
+
+isEqual(X, Y) :- isSubset(X, Y), isSubset(Y, X).
+```
+
+```prolog
+?- isEqual([1, 2, 3], [3, 1, 2]).
+true.
+?- isEqual([1, 2], [1, 2, 3]).
+false.
+```
+
+**Por quê:** é a definição matemática: X = Y se X ⊆ Y e Y ⊆ X. Só uma das inclusões não
+basta: `[1, 2]` está contido em `[1, 2, 3]`, mas não são iguais.
+
+</details>
+
+## Questão 19 — `powerSet`
+
+**Assunto:** gerar todos os subconjuntos; `findall` (Aula 20) · **Tipo:** implementação
+
+> Defina `powerSet(X, Y)`, verdade se `Y` for o conjunto potência de `X` (a lista de todos os
+> subconjuntos). `powerSet([1, 2], Y)` dá `Y = [[1, 2], [1], [2], []]`, em qualquer ordem.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+subSet([], []).
+subSet([H|T], [H|R]) :- subSet(T, R).
+subSet([_|T], R) :- subSet(T, R).
+
+powerSet(X, Y) :- findall(S, subSet(X, S), Y).
+```
+
+```prolog
+?- powerSet([1, 2], Y).
+Y = [[1, 2], [1], [2], []].
+```
+
+**Por quê:** `subSet` é o `subset` da aula: para cada elemento, ou ele **fica** ou **sai**, e
+o `;` percorre as 2ⁿ escolhas. `findall(S, subSet(X, S), Y)` junta numa lista todas as
+respostas `S` que `subSet` gera. O nome `subSet` (com S maiúsculo) evita conflito com o
+`subset/2` da biblioteca do SWI-Prolog, que tem outro significado. `findall` não é um
+predicado de manipulação de listas: ele coleta respostas de uma busca.
+
+</details>
+
+## Questão 20 — `isDifference`
+
+**Assunto:** conjuntos como listas; negação como falha; reuso de predicados (Aula 20) ·
+**Tipo:** implementação
+
+> Defina `isDifference(X, Y, Z)`, verdade se `Z` tiver os elementos de `X` que não estão em
+> `Y`. Deve funcionar **qualquer que seja a ordem** dos elementos de `Z`.
+
+<details>
+<summary>Resposta</summary>
+
+```prolog
+difference([], _, []).
+difference([H|T], Y, Z) :- isMember(H, Y), difference(T, Y, Z).
+difference([H|T], Y, [H|Z]) :- not(isMember(H, Y)), difference(T, Y, Z).
+
+isDifference(X, Y, Z) :- difference(X, Y, D), isEqual(D, Z).
+```
+
+```prolog
+?- isDifference([1, 2, 3, 4], [2, 4], [3, 1]).
+true.
+?- isDifference([1, 2, 3, 4], [2, 4], Z).
+Z = [1, 3].
+```
+
+**Por quê:** `difference` calcula **uma** diferença `D`, na ordem de `X` (é a
+`isIntersection` com a condição invertida). Como `Z` pode vir em qualquer ordem, não dá para
+comparar `D` e `Z` com `=`: `[1, 3] = [3, 1]` é falso. Por isso a comparação final é a
+igualdade de **conjuntos** da Questão 18. Com `Z` livre, a primeira resposta é a certa; se
+pedir mais com `;`, `isEqual` começa a gerar listas maiores com repetições, porque ele não foi
+feito para argumentos livres.
+
+</details>
+
+## Questões de prova relacionadas
+
+Os assuntos desta lista são a base do tópico que mais cai na 2ª prova. As resoluções estão no
+[compilado de questões](/docs/aula-revisao-13-24/compilado-de-questoes).
+
+| Assunto da lista | Prova | Formato |
+|---|---|---|
+| Subconjuntos (Questão 19), recursão sobre listas, compor predicados | Finais 22, 23, 26, 27, 28 e 29 (**75%**) — ex.: Final 27, Q2a (`sublist`) | implementar 2 a 5 predicados curtos, o último combinando os anteriores; a ordem das respostas do exemplo depende da ordem das cláusulas |
+| `isMember` (Questão 15) usado para testar pertinência | Final 22, Q1b (`submulset`) | "cada elemento de `S` está em `L`": a `isSubset` da Questão 18 |
+| Padrões de lista e último elemento (Questões 7–9, 14) | Final 23, Q1a–b (`path`, `last`) | percorrer a lista com `[A, B|T]` e achar o último elemento |
+| Paridade e recursão de dois em dois (Questões 11–13) | Final 25, Q1a (`mystery1`) | ler um predicado com `append` e dizer o que ele faz (palíndromo) |
+| Relações de parentesco recursivas (Questão 6) | Revisão de 23/11 | o professor disse que pode cair "algo parecido com `ancestral`" |
+
+## Para treinar
+
+1. Defina `aunt(X, Y)`, verdade se `X` for tia de `Y` (irmã de um dos pais de `Y`). Na base da
+   lista, quem é tia de quem? Onde fica o `not`?
+2. Defina `lastTwo(X, A, B)`, verdade se `A` e `B` forem os dois últimos elementos da lista
+   `X`. Funciona com `X` livre?
+3. Defina `suffix(X, Y)`, verdade se `X` for um sufixo de `Y`, sem `append`. Em que ordem
+   `suffix(X, [1, 2, 3])` gera as respostas?
+4. Sem `findall`, defina `powerSet` só com recursão: o conjunto potência de `[H|T]` são os
+   subconjuntos de `T`, mais esses mesmos subconjuntos com `H` na frente.
